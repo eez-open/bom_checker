@@ -12,7 +12,8 @@ import {
     foreignCurrencies,
     orderQuantity,
     priceAt,
-    supplierLine
+    supplierLine,
+    supplierTotal
 } from "./pricing";
 import { addRow, createProject, createRow } from "./project-ops";
 
@@ -257,6 +258,26 @@ describe("best supplier", () => {
             total: 1,
             covered: 1,
             uncovered: 0
+        });
+    });
+});
+
+describe("supplier total", () => {
+    it("sums the total prices and counts the rows that have one", () => {
+        const project = addRow(
+            setup(4, {
+                mouser: found({ priceBreaks: [{ qty: 1, unitPrice: 0.25 }] }),
+                digikey: found({ currency: "USD" })
+            }),
+            createRow({ qty: 2, partNumbers: { mouser: "PN-mouser" } })
+        );
+        expect(supplierTotal(project, "mouser")).toEqual({
+            total: 1.5,
+            priced: 2
+        });
+        expect(supplierTotal(project, "digikey")).toEqual({
+            total: 0,
+            priced: 0
         });
     });
 });

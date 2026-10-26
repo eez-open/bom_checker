@@ -3,6 +3,7 @@ import {
     ModuleRegistry,
     themeQuartz,
     type CellEditRequestEvent,
+    type EditableCallbackParams,
     type GridApi,
     type GridReadyEvent,
     type SelectionChangedEvent
@@ -15,8 +16,10 @@ import type {
     Project,
     SupplierId
 } from "../../shared/model";
-import { buildColumns } from "./columns";
-import type { TableContext } from "./PartNumberCell";
+import { bomTotals, supplierTotal } from "../../shared/pricing";
+import { createRow } from "../../shared/project-ops";
+import { buildColumns, TOTALS_ROW_ID } from "./columns";
+import type { TableContext, TableTotals } from "./PartNumberCell";
 
 // AG Grid is used only inside this folder (see "BOM checker architecture.md").
 
@@ -37,7 +40,13 @@ const ROW_SELECTION = {
 
 const SELECTION_COLUMN = { pinned: "left" } as const;
 
-const DEFAULT_COLUMN = { editable: true, resizable: true, sortable: true };
+const DEFAULT_COLUMN = {
+    // The pinned Total row isn't a BOM row.
+    editable: (params: EditableCallbackParams<BomRow>) =>
+        !params.node.rowPinned,
+    resizable: true,
+    sortable: true
+};
 
 interface BomTableProps {
     project: Project;
@@ -73,10 +82,22 @@ export function BomTable({
     // refreshing the cells.
     const collected = useRef(project.collected);
     const preferenceRef = useRef(preference);
+    const totals = useMemo<TableTotals>(
+        () => ({
+            rows: project.rows.length,
+            suppliers: Object.fromEntries(
+                project.suppliers.map(s => [s, supplierTotal(project, s)])
+            ),
+            best: bomTotals(project, preference)
+        }),
+        [project, preference]
+    );
+    const totalsRef = useRef(totals);
     const context = useMemo<TableContext>(
         () => ({
             getCollected: () => collected.current,
-            getPreference: () => preferenceRef.current
+            getPreference: () => preferenceRef.current,
+            getTotals: () => totalsRef.current
         }),
         []
     );
@@ -86,6 +107,15 @@ export function BomTable({
         preferenceRef.current = preference;
         apiRef.current?.refreshCells({ force: true });
     }, [project.collected, preference]);
+
+    useEffect(() => {
+        totalsRef.current = totals;
+        const api = apiRef.current;
+        const totalsRow = api?.getPinnedTopRow(0);
+        if (api && totalsRow) {
+            api.refreshCells({ rowNodes: [totalsRow], force: true });
+        }
+    }, [totals]);
 
     // Suppliers with collected data get the calculated columns.
     const withData = project.suppliers
@@ -102,6 +132,21 @@ export function BomTable({
         // suppliers with data do.
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [project.suppliers, project.customColumns, withData]
+    );
+
+    // Shown once there are prices to add up.
+    const parts = project.rows.reduce((sum, row) => sum + row.qty, 0);
+    const pinnedRows = useMemo(
+        () =>
+            withData
+                ? [
+                      {
+                          ...createRow({ reference: "Total", qty: parts }),
+                          id: TOTALS_ROW_ID
+                      }
+                  ]
+                : [],
+        [withData, parts]
     );
 
     const startPendingEdit = useCallback(() => {
@@ -123,6 +168,10 @@ export function BomTable({
             columnDefs={columnDefs}
             defaultColDef={DEFAULT_COLUMN}
             getRowId={params => params.data.id}
+            pinnedTopRowData={pinnedRows}
+            getRowClass={params =>
+                params.node.rowPinned ? "totals-row" : undefined
+            }
             rowSelection={ROW_SELECTION}
             selectionColumnDef={SELECTION_COLUMN}
             readOnlyEdit

@@ -113,7 +113,8 @@ export async function fillEditor(
     }).toPass();
 }
 
-export function cell(page: Page, rowIndex: number, columnId: string) {
+/** `rowIndex` is "t-0" for the pinned Total row. */
+export function cell(page: Page, rowIndex: number | string, columnId: string) {
     return page.locator(
         `.ag-row[row-index="${rowIndex}"] .ag-cell[col-id="${columnId}"]`
     );

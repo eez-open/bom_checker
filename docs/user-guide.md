@@ -107,6 +107,8 @@ Each supplier has a group of columns. Click the arrow in the group header to sho
 
 **Best price** (shown when two or more suppliers have data): the supplier with the lowest total price that has the whole order quantity in stock. Equal totals go to your preferred supplier (*Settings → General*). *None in stock* means no supplier can deliver the full quantity. The status bar shows the best-price total of the BOM.
 
+The **Total** row at the top adds up the Qty column and each *Total price* column, for every supplier and for Best price. Its tooltip says how many rows have a price.
+
 **Several items match:** for example, a DigiKey part comes as cut tape and as a reel. Click the **?** badge, compare stock, MOQ and price, and choose one; its part number replaces the old one in every row that used it.
 
 Prices are compared in EUR. If a supplier returns another currency, a yellow bar says so; those prices aren't included in totals and the best price.

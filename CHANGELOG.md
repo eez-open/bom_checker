@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- A Total row at the top of the table: the sum of each supplier's Total price column, of the Best price totals and of Qty.
 - Show and copy buttons next to each API credential in Settings → Suppliers. The section is protected by the password, so saved values can be shown there.
 
 ### Changed

@@ -600,3 +600,8 @@ svg.icon {
     width: 16px;
     height: 16px;
 }
+
+.ag-row.totals-row {
+    background-color: var(--chrome-bg);
+    font-weight: 600;
+}

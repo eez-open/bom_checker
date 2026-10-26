@@ -205,6 +205,29 @@ export function bomTotals(
     return totals;
 }
 
+export interface ColumnTotal {
+    /** Sum of the supplier's total prices. */
+    total: number;
+    /** Rows with a total price; the others have none (no part number, not
+     *  found, no price, or a price in another currency). */
+    priced: number;
+}
+
+export function supplierTotal(
+    project: Project,
+    supplier: SupplierId
+): ColumnTotal {
+    const sum: ColumnTotal = { total: 0, priced: 0 };
+    for (const row of project.rows) {
+        const total = supplierLine(row, supplier, project.collected)?.total;
+        if (total != null) {
+            sum.total += total;
+            sum.priced++;
+        }
+    }
+    return sum;
+}
+
 /** Suppliers whose collected prices (for this BOM) aren't in the base
  *  currency, with those currencies. */
 export function foreignCurrencies(

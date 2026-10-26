@@ -22,6 +22,9 @@ import {
 } from "../../shared/pricing";
 import { SUPPLIERS } from "../../shared/suppliers";
 import { PartNumberCell, resultFor, type TableContext } from "./PartNumberCell";
+
+/** Id of the pinned row with the column totals. */
+export const TOTALS_ROW_ID = "totals";
 import { describeResult } from "./result-text";
 
 export interface TableColumns {
@@ -218,12 +221,26 @@ function dataColumns(supplier: SupplierId): ColDef<BomRow>[] {
         column("totalPrice", "Total price", line => line?.total, {
             type: "rightAligned",
             width: 110,
+            valueGetter: params => {
+                if (params.node?.rowPinned) {
+                    const sum = context(params).getTotals().suppliers[supplier];
+                    return sum?.priced ? sum.total : null;
+                }
+                return lineOf(params, supplier)?.total ?? null;
+            },
             valueFormatter: params =>
                 typeof params.value === "number"
                     ? TOTAL_PRICE.format(params.value)
                     : "",
             headerTooltip: `${name}_Total price (${BASE_CURRENCY})`,
             tooltipValueGetter: params => {
+                if (params.node?.rowPinned) {
+                    const { rows, suppliers } = context(params).getTotals();
+                    const priced = suppliers[supplier]?.priced ?? 0;
+                    return priced === rows
+                        ? `Sum of ${name}'s total prices, for all ${rows} rows.`
+                        : `Sum of ${name}'s total prices, for ${priced} of ${rows} rows; the others have no price in ${BASE_CURRENCY}.`;
+                }
                 const line = lineOf(params, supplier);
                 return line?.offer && !line.inBaseCurrency
                     ? `Prices are in ${line.offer.currency}; totals are only calculated in ${BASE_CURRENCY}.`
@@ -324,7 +341,20 @@ function bestColumns(project: Project): ColGroupDef<BomRow> {
                 type: "rightAligned",
                 width: 110,
                 headerTooltip: `Best_Total price (${BASE_CURRENCY})`,
-                valueGetter: params => best(params)?.line.total ?? null,
+                valueGetter: params => {
+                    if (params.node?.rowPinned) {
+                        const totals = context(params).getTotals().best;
+                        return totals.covered ? totals.total : null;
+                    }
+                    return best(params)?.line.total ?? null;
+                },
+                tooltipValueGetter: params => {
+                    if (!params.node?.rowPinned) {
+                        return undefined;
+                    }
+                    const { rows, best } = context(params).getTotals();
+                    return `Sum of the best prices, for ${best.covered} of ${rows} rows.`;
+                },
                 valueFormatter: params =>
                     typeof params.value === "number"
                         ? TOTAL_PRICE.format(params.value)
@@ -356,7 +386,10 @@ export function buildColumns(
                 pinned: "left",
                 editable: false,
                 sortable: false,
-                valueGetter: params => (params.node?.rowIndex ?? 0) + 1
+                valueGetter: params =>
+                    params.node?.rowPinned
+                        ? null
+                        : (params.node?.rowIndex ?? 0) + 1
             });
             continue;
         }
