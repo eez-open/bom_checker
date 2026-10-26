@@ -4,9 +4,11 @@ import { startFakeSuppliers } from "./fake-suppliers";
 import {
     answerOpenDialog,
     cell,
+    clickMenuItem,
     closeApp,
     fillEditor,
     launchApp,
+    menuItemChecked,
     setUpCredentials
 } from "./helpers";
 
@@ -16,6 +18,7 @@ const D1 = 0;
 const U1 = 1;
 const R1 = 2;
 const C1 = 3;
+const TOTAL = "t-0";
 
 test("calculates order quantities, prices and the best supplier", async () => {
     const fake = await startFakeSuppliers();
@@ -76,6 +79,17 @@ test("calculates order quantities, prices and the best supplier", async () => {
             "Best price total: 30.92 EUR · 1 row without a supplier that has enough stock"
         );
 
+        // The Total row adds up each price column.
+        await expect(cell(page, TOTAL, "reference")).toHaveText("Total");
+        await expect(cell(page, TOTAL, "qty")).toHaveText("35");
+        await expect(cell(page, TOTAL, "data:tme:totalPrice")).toHaveText(
+            "0.62"
+        );
+        await expect(cell(page, TOTAL, "data:digikey:totalPrice")).toHaveText(
+            "24.00"
+        );
+        await expect(cell(page, TOTAL, "best:totalPrice")).toHaveText("30.92");
+
         await cell(page, R1, "pn:digikey")
             .getByRole("button", { name: "Choose the item" })
             .click();
@@ -94,6 +108,10 @@ test("calculates order quantities, prices and the best supplier", async () => {
         await expect(page.getByTestId("bom-total")).toHaveText(
             "Best price total: 31.72 EUR"
         );
+        await expect(cell(page, TOTAL, "data:digikey:totalPrice")).toHaveText(
+            "24.80"
+        );
+        await expect(cell(page, TOTAL, "best:totalPrice")).toHaveText("31.72");
 
         // Changing Qty recalculates at once; undo brings it back.
         await cell(page, D1, "qty").dblclick();
@@ -101,8 +119,46 @@ test("calculates order quantities, prices and the best supplier", async () => {
         await page.keyboard.press("Enter");
         await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("100");
         await expect(cell(page, D1, "data:tme:totalPrice")).toHaveText("1.24");
+        await expect(cell(page, TOTAL, "qty")).toHaveText("93");
+        await expect(cell(page, TOTAL, "data:tme:totalPrice")).toHaveText(
+            "1.24"
+        );
         await page.keyboard.press("Control+Z");
         await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("50");
+
+        // Build quantity: every Qty × 30, undone with Ctrl+Z.
+        const buildQty = page.getByLabel("Build qty");
+        await buildQty.fill("30");
+        await buildQty.press("Enter");
+        await expect(cell(page, D1, "totalQty")).toHaveText("60");
+        await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("100");
+        await expect(cell(page, D1, "data:tme:totalPrice")).toHaveText("1.24");
+        await expect(page.getByTestId("bom-summary")).toHaveText(
+            "4 rows · 35 parts per unit × 30 = 1050 parts"
+        );
+        await page.keyboard.press("Control+Z");
+        await expect(buildQty).toHaveValue("1");
+        await expect(cell(page, D1, "totalQty")).toHaveCount(0);
+        await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("50");
+
+        // View menu: hide all of TME's columns, then show them again.
+        await clickMenuItem(app, "columns:tme");
+        await expect(cell(page, D1, "pn:tme")).toHaveCount(0);
+        await expect(cell(page, D1, "data:tme:totalPrice")).toHaveCount(0);
+        await expect(cell(page, D1, "pn:mouser")).toHaveCount(1);
+        await expect(page.getByTestId("hidden-columns")).toContainText(
+            "Hidden: TME"
+        );
+        await expect
+            .poll(() => menuItemChecked(app, "columns:tme"))
+            .toBe(false);
+        await page
+            .getByTestId("hidden-columns")
+            .getByRole("button", { name: "Show all" })
+            .click();
+        await expect(cell(page, D1, "data:tme:totalPrice")).toHaveText("0.62");
+        await expect(page.getByTestId("hidden-columns")).toHaveCount(0);
+        await expect.poll(() => menuItemChecked(app, "columns:tme")).toBe(true);
     } finally {
         await closeApp(app);
         await fake.close();

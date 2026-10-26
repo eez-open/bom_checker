@@ -1,3 +1,4 @@
+import { registerMenuHandlers } from "../menu";
 import { registerWindowHandlers } from "../window";
 import { registerAppHandlers } from "./app";
 import { registerCollectHandlers } from "./collect";
@@ -12,4 +13,5 @@ export function registerIpcHandlers(): void {
     registerSettingsHandlers();
     registerCollectHandlers();
     registerWindowHandlers();
+    registerMenuHandlers();
 }

@@ -7,6 +7,7 @@ import {
     answerOpenDialog,
     answerSaveDialog,
     cell,
+    clickMenuItem,
     fillEditor,
     closeApp,
     launchApp
@@ -19,6 +20,7 @@ test("builds a BOM from scratch, saves, undoes and reopens it", async () => {
     try {
         // Add a row; its Reference cell starts editing right away, and Tab
         // moves on to the next cell.
+        await page.getByRole("button", { name: "New", exact: true }).click();
         await page.getByRole("button", { name: "Add row" }).click();
         await fillEditor(page, "reference", "C1, C2 ");
         await page.keyboard.press("Tab");
@@ -106,6 +108,31 @@ test("builds a BOM from scratch, saves, undoes and reopens it", async () => {
         await page.getByRole("button", { name: "Open…" }).click();
         await expect(page).toHaveTitle("test - EEZ BOM checker");
         await expect(cell(page, 0, "pn:mouser")).toHaveText("80-C0603C104M4R");
+
+        // File → Close goes back to the start page, which lists the file;
+        // so does File → Open Recent.
+        await clickMenuItem(app, "close");
+        await expect(page).toHaveTitle("EEZ BOM checker");
+        const recent = page.getByRole("region", { name: "Recent documents" });
+        await expect(recent.getByRole("button")).toHaveText([
+            `test.eezbom${filePath}`,
+            "×"
+        ]);
+        expect(
+            await app.evaluate(
+                ({ Menu }) =>
+                    Menu.getApplicationMenu()
+                        ?.getMenuItemById("recent")
+                        ?.submenu?.items.map(item => item.label) ?? []
+            )
+        ).toEqual([
+            `&1  ${filePath.replaceAll("&", "&&")}`,
+            "",
+            "&Clear Recently Opened"
+        ]);
+        await recent.getByRole("button", { name: /^test\.eezbom/ }).click();
+        await expect(page).toHaveTitle("test - EEZ BOM checker");
+        await expect(cell(page, 0, "pn:mouser")).toHaveText("80-C0603C104M4R");
     } finally {
         await closeApp(app);
     }
@@ -115,6 +142,7 @@ test("asks before closing with unsaved changes", async () => {
     const { app, page } = await launchApp();
     const closed = app.waitForEvent("close");
     try {
+        await page.getByRole("button", { name: "New", exact: true }).click();
         await page.getByRole("button", { name: "Add row" }).click();
         await fillEditor(page, "reference", "R1");
         await page.keyboard.press("Enter");

@@ -8,10 +8,11 @@ EEZ BOM checker takes a bill of materials (BOM) and checks every part at DigiKey
 2. [Setting up supplier access](#setting-up-supplier-access)
 3. [Creating a BOM](#creating-a-bom)
 4. [Collecting supplier data](#collecting-supplier-data)
-5. [Reading the table](#reading-the-table)
-6. [Exporting](#exporting)
-7. [Files and security](#files-and-security)
-8. [Troubleshooting](#troubleshooting)
+5. [Building several units](#building-several-units)
+6. [Reading the table](#reading-the-table)
+7. [Exporting](#exporting)
+8. [Files and security](#files-and-security)
+9. [Troubleshooting](#troubleshooting)
 
 ## Installing
 
@@ -27,6 +28,8 @@ The app reads supplier data through each supplier's API, with your own API crede
 1. Open **Settings** (toolbar, or Ctrl+,) and go to **Suppliers**.
 2. The first time, choose a password (at least 8 characters). You need it to change supplier settings, and once per session to collect data. **It can't be recovered**: if you forget it, *Forgot the password?* deletes the stored credentials so you can start over.
 3. For each supplier you use, enter the credentials, click **Save**, then **Test connection**. The test looks up one known part and shows the stock, the currency and whether the prices are your account's own.
+
+Saved credentials appear as *Saved*. The eye button next to one shows it, and the copy button copies it to the clipboard.
 
 ### DigiKey
 
@@ -53,6 +56,8 @@ The private key returns your own prices. **Country** (default HR), **Language** 
 **Request limits** for each supplier are preset to the supplier's published limits. The app spaces out requests and counts them per day, also across projects and restarts. Lower the limits if you share an API key with other tools.
 
 ## Creating a BOM
+
+The app starts on a start page: **Open BOM…**, or drop a file on the window (a BOM `.eezbom`, a KiCad project `.kicad_pro` or a CSV file). Below are the **recent documents**: BOMs you opened or saved, and the files you imported from. Click one to open it again; the × that appears on hover removes it from the list. The same list is in **File → Open Recent**. **File → Close** (Ctrl+W) goes back to the start page.
 
 ### By hand
 
@@ -88,15 +93,21 @@ Click **Collect…**. The first time in a session, enter your password. Then, fo
 
 The summary shows how long it took, how many part numbers were found, not found or matched several items, and how many have enough stock for the order quantity.
 
+## Building several units
+
+To check prices and stock for a production batch, enter the number of units in **Build qty** on the toolbar and press Enter. Every row's Qty is multiplied by it: a part used 10 times per board needs 250 for 25 boards. Order quantities, price breaks, availability and the best price follow at once, without collecting again, since the collected data has every price break. A *Total Qty* column shows the multiplied quantity, and the status bar shows the parts per unit and in total. The build quantity is saved with the BOM, Ctrl+Z undoes a change, and exports include it.
+
 ## Reading the table
 
-Each supplier has a group of columns. Click the arrow in the group header to show only the part number, *Total price* and *Availability*.
+Each supplier has a group of columns. Click the arrow in the group header to show only the part number, *Total price* and *Availability*. The group header also shows when that supplier's data was last collected. The date is saved with the BOM, and also appears in **Collect…** and on the Info sheet of exports.
+
+To hide all columns of a supplier, or the Best price columns, uncheck them in the **View** menu (Ctrl+1 to Ctrl+4). Hiding only changes the view: the data stays, still counts for the best price, and can still be exported. The status bar lists hidden groups, with **Show all** to bring them back. The app remembers hidden groups for next time.
 
 | Column | Meaning |
 |---|---|
 | Badge in the part-number cell | ✓ found, ✗ not found, ? several items match (click to choose one), ! couldn't check. Hover over the cell for the details the supplier returned. |
 | Manufacturer, Stock Qty, MOQ | As reported by the supplier. |
-| Order Qty | What you need to buy: Qty, raised to the MOQ and rounded up to the order multiple. Example: Qty 3 with MOQ 10 → 10. |
+| Order Qty | What you need to buy: Qty (× build quantity), raised to the MOQ and rounded up to the order multiple. Example: Qty 3 with MOQ 10 → 10. |
 | Unit price | The price break that applies to the Order Qty; highlighted if the quantity is below the first break. Hover to see whether it's your account's price. |
 | Total price | Unit price × Order Qty, in EUR. |
 | Availability | In stock, Partial (with the quantity in stock), Out of stock, or Not orderable. |
@@ -104,6 +115,8 @@ Each supplier has a group of columns. Click the arrow in the group header to sho
 | RoHS | As reported (TME doesn't report it). |
 
 **Best price** (shown when two or more suppliers have data): the supplier with the lowest total price that has the whole order quantity in stock. Equal totals go to your preferred supplier (*Settings → General*). *None in stock* means no supplier can deliver the full quantity. The status bar shows the best-price total of the BOM.
+
+The **Total** row at the top adds up the Qty column and each *Total price* column, for every supplier and for Best price. Its tooltip says how many rows have a price.
 
 **Several items match:** for example, a DigiKey part comes as cut tape and as a reel. Click the **?** badge, compare stock, MOQ and price, and choose one; its part number replaces the old one in every row that used it.
 
@@ -126,7 +139,7 @@ Column names follow the pattern `Supplier_Column`, e.g. `Mouser_Stock Qty`, `Mou
 
 ## Files and security
 
-- **Save** (Ctrl+S) stores the BOM with all collected data in an `.eezbom` file. The app asks before closing, or before opening another BOM, if there are unsaved changes.
+- **Save** (Ctrl+S) stores the BOM with all collected data in an `.eezbom` file. The app asks before closing, or before opening another BOM, if there are unsaved changes. Dropping a file on the window opens it too.
 - **Settings and credentials** are kept in the app's data folder: `%APPDATA%\EEZ BOM checker` on Windows, `~/.config/EEZ BOM checker` on Linux. Credentials are encrypted with your password (scrypt and AES-256-GCM); the password itself isn't stored.
 - **Supplier settings** always ask for the password, even while the credentials are unlocked for collecting. **Tools → Lock Credentials** locks them until you enter the password again.
 

@@ -53,6 +53,7 @@ export function CsvImportDialog({ file, onClose }: CsvImportDialogProps) {
     return (
         <Modal
             title={`Import ${file.fileName}`}
+            name="csv-import"
             onClose={onClose}
             footer={
                 <>

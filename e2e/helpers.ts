@@ -113,7 +113,8 @@ export async function fillEditor(
     }).toPass();
 }
 
-export function cell(page: Page, rowIndex: number, columnId: string) {
+/** `rowIndex` is "t-0" for the pinned Total row. */
+export function cell(page: Page, rowIndex: number | string, columnId: string) {
     return page.locator(
         `.ag-row[row-index="${rowIndex}"] .ag-cell[col-id="${columnId}"]`
     );
@@ -157,4 +158,28 @@ export async function setUpCredentials(page: Page) {
         await expect(dialog.getByText("Saved.")).toBeVisible();
     }
     await dialog.getByRole("button", { name: "Close" }).click();
+}
+
+/** Clicks an application menu item by its id (see main/menu.ts). */
+export async function clickMenuItem(app: ElectronApplication, id: string) {
+    await app.evaluate(({ Menu }, itemId) => {
+        const item = Menu.getApplicationMenu()?.getMenuItemById(itemId);
+        if (!item) {
+            throw new Error(`No menu item ${itemId}`);
+        }
+        // Typed as Function; the menu calls it the same way.
+        const click = item.click as () => void;
+        click();
+    }, id);
+}
+
+export function menuItemChecked(
+    app: ElectronApplication,
+    id: string
+): Promise<boolean | undefined> {
+    return app.evaluate(
+        ({ Menu }, itemId) =>
+            Menu.getApplicationMenu()?.getMenuItemById(itemId)?.checked,
+        id
+    );
 }

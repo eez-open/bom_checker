@@ -1,6 +1,10 @@
 // Actions shared by the menu, the toolbar and keyboard shortcuts.
 
-import type { MenuCommand } from "../shared/ipc";
+import {
+    COLUMN_GROUPS,
+    type ColumnGroup,
+    type MenuCommand
+} from "../shared/ipc";
 import type { Project, ProjectSource } from "../shared/model";
 import {
     addRow as addRowToProject,
@@ -10,7 +14,7 @@ import {
 } from "../shared/project-ops";
 import { PROJECT_FILE_EXTENSION } from "../shared/project-file";
 import { documentName, isDirty, useDocument } from "./store/document";
-import { useUi } from "./store/ui";
+import { setHiddenColumns, useUi } from "./store/ui";
 
 export async function saveDocument(saveAs = false): Promise<boolean> {
     const { project, filePath, markSaved } = useDocument.getState();
@@ -78,6 +82,40 @@ export async function openDocument(): Promise<void> {
     }
 }
 
+/** Back to the start page, after offering to save. */
+export async function closeDocument(): Promise<void> {
+    if (await confirmDiscardChanges()) {
+        useDocument.getState().close();
+    }
+}
+
+/** Opens a BOM, or starts importing a CSV file or KiCad project: from the
+ *  recent documents, or a file dropped on the window. */
+export async function openPath(path: string): Promise<void> {
+    if (!(await confirmDiscardChanges())) {
+        return;
+    }
+    const opened = await window.api.files.openPath(path);
+    switch (opened?.kind) {
+        case "project":
+            useDocument.getState().load(opened.opened.project, {
+                filePath: opened.opened.filePath,
+                saved: true
+            });
+            break;
+        case "csv":
+            useUi.setState({
+                dialog: { kind: "csv-import", file: opened.file }
+            });
+            break;
+        case "kicad":
+            useUi.setState({
+                dialog: { kind: "kicad-import", project: opened.project }
+            });
+            break;
+    }
+}
+
 export async function importCsv(): Promise<void> {
     if (!(await confirmDiscardChanges())) {
         return;
@@ -98,6 +136,7 @@ export function loadImported(project: Project): void {
     load(
         {
             ...project,
+            buildQuantity: current.buildQuantity,
             collected: {
                 ...project.collected,
                 results: current.collected.results
@@ -139,6 +178,19 @@ export function deleteSelectedRows(): void {
 
 export function editColumns(): void {
     useUi.setState({ dialog: { kind: "columns" } });
+}
+
+export function toggleColumns(group: ColumnGroup): void {
+    const hidden = useUi.getState().hiddenColumns;
+    setHiddenColumns(
+        hidden.includes(group)
+            ? hidden.filter(g => g !== group)
+            : [...hidden, group]
+    );
+}
+
+export function showAllColumns(): void {
+    setHiddenColumns([]);
 }
 
 export function openExport(): void {
@@ -195,6 +247,7 @@ export function isTextEditing(): boolean {
 const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     new: newDocument,
     open: openDocument,
+    close: closeDocument,
     save: () => saveDocument(),
     "save-as": () => saveDocument(true),
     "import-csv": importCsv,
@@ -205,13 +258,34 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     "add-row": addRow,
     "delete-rows": deleteSelectedRows,
     "edit-columns": editColumns,
+    ...(Object.fromEntries(
+        COLUMN_GROUPS.map(group => [
+            `toggle-columns:${group}`,
+            () => toggleColumns(group)
+        ])
+    ) as Record<`toggle-columns:${ColumnGroup}`, () => void>),
+    "show-all-columns": showAllColumns,
     settings: openSettings,
     collect: openCollect,
     lock: lockCredentials,
     "save-and-close": saveAndClose
 };
 
+/** Commands that work without an open BOM, e.g. on the start page. */
+const WITHOUT_DOCUMENT = new Set<MenuCommand>([
+    "new",
+    "open",
+    "import-csv",
+    "import-kicad",
+    "settings",
+    "lock"
+]);
+
 export function runMenuCommand(command: MenuCommand): void {
+    // The menu disables the others too; this also covers their shortcuts.
+    if (!useDocument.getState().open && !WITHOUT_DOCUMENT.has(command)) {
+        return;
+    }
     Promise.resolve(MENU_COMMANDS[command]()).catch((error: unknown) =>
         console.error(`Command "${command}" failed`, error)
     );

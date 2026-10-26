@@ -86,6 +86,7 @@ test("collects supplier data and continues after a daily limit", async () => {
         await expect(
             collect.getByRole("checkbox", { name: "TME" })
         ).toBeChecked();
+        await expect(collect.getByText("Not collected yet.")).toHaveCount(3);
         await collect.getByRole("button", { name: "Start" }).click();
 
         const summary = (supplier: string) =>
@@ -111,6 +112,11 @@ test("collects supplier data and continues after a daily limit", async () => {
             "Found"
         );
         await expect(badge(page, 0, "pn:mouser")).toHaveCount(0);
+        await expect(
+            page
+                .locator(".ag-header-group-cell", { hasText: "DigiKey" })
+                .locator(".group-header-date")
+        ).toHaveText(/^collected \d{4}-\d\d-\d\d \d\d:\d\d$/);
 
         // Second run: only Mouser has work left, and it continues.
         await page.getByRole("button", { name: "Collect…" }).click();
@@ -125,6 +131,9 @@ test("collects supplier data and continues after a daily limit", async () => {
                 name: "Continue where it stopped (3)"
             })
         ).toBeChecked();
+        await expect(
+            collect.getByText(/^Last collected \d{4}-\d\d-\d\d \d\d:\d\d\.$/)
+        ).toHaveCount(3);
         await collect.getByRole("button", { name: "Start" }).click();
         await expect(summary("Mouser")).toContainText(
             "Requested 3 · found 1 · not found 2"

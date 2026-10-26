@@ -60,6 +60,7 @@ export function ChooseItemDialog({
     return (
         <Modal
             title={`Choose the ${name} item`}
+            name="choose-item"
             size="large"
             onClose={onClose}
             footer={

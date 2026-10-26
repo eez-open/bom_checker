@@ -68,6 +68,7 @@ export function KicadImportDialog({
     return (
         <Modal
             title={`Import ${project.name}`}
+            name="kicad-import"
             size="large"
             onClose={onClose}
             footer={

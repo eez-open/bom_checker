@@ -97,6 +97,7 @@ input[aria-invalid="true"] {
 
 .toolbar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
@@ -143,9 +144,16 @@ input[aria-invalid="true"] {
 
 /* Dialogs */
 
+/* Dialogs fit their content up to the window size, and can be resized
+   from the bottom-right corner (see Modal.tsx). */
 .modal {
     width: min(720px, calc(100vw - 48px));
-    max-height: calc(100vh - 48px);
+    min-width: min(400px, calc(100vw - 24px));
+    min-height: 200px;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+    overflow: hidden;
+    resize: both;
     padding: 0;
     border: 1px solid var(--app-border);
     border-radius: 8px;
@@ -257,8 +265,9 @@ input[aria-invalid="true"] {
 }
 
 .modal-large {
-    width: min(860px, calc(100vw - 48px));
-    height: min(640px, calc(100vh - 48px));
+    width: min(900px, calc(100vw - 48px));
+    /* Less jumping when the content changes, e.g. Settings tabs. */
+    min-height: min(560px, calc(100vh - 24px));
 }
 
 /* Shared form pieces */
@@ -341,7 +350,7 @@ input.number {
 }
 
 .settings-form {
-    max-width: 600px;
+    max-width: 640px;
 }
 
 .settings-form p {
@@ -378,9 +387,14 @@ input.number {
     gap: 4px;
 }
 
-.form-row input:not(.number):not([type="radio"]):not([type="checkbox"]),
-.form-row select {
+.form-row input:not(.number):not([type="radio"]):not([type="checkbox"]) {
     width: 260px;
+}
+
+/* Lists grow with their longest option, e.g. the export row filters. */
+.form-row select {
+    min-width: 260px;
+    max-width: 100%;
 }
 
 .form-actions {
@@ -575,4 +589,166 @@ button.pn-badge {
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
+}
+
+button.icon {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 6px;
+}
+
+svg.icon {
+    width: 16px;
+    height: 16px;
+}
+
+.ag-row.totals-row {
+    background-color: var(--chrome-bg);
+    font-weight: 600;
+}
+
+.group-header-date {
+    margin-left: 8px;
+    color: var(--app-muted);
+    font-size: 12px;
+    font-weight: normal;
+}
+
+.toolbar-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--app-muted);
+}
+
+.toolbar-field input {
+    color: var(--app-fg);
+}
+
+input.build-quantity {
+    width: 70px;
+}
+
+/* Start page */
+
+.app-start {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    background: var(--chrome-bg);
+}
+
+.start-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 32px 16px;
+}
+
+.start-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 32px 24px;
+    border: 2px dashed var(--app-border);
+    border-radius: 12px;
+    background: var(--app-bg);
+    text-align: center;
+}
+
+.start-card.dragging {
+    border-color: var(--app-accent);
+    background: #ddf4ff;
+}
+
+.start-card h1 {
+    margin: 0;
+    font-size: 20px;
+}
+
+.start-card p {
+    margin: 0;
+}
+
+.start-card button.primary {
+    padding: 6px 18px;
+}
+
+.recent-card {
+    border: 1px solid var(--app-border);
+    border-radius: 8px;
+    background: var(--app-bg);
+}
+
+.recent-card h2 {
+    margin: 0;
+    padding: 12px 14px 6px;
+    color: var(--app-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.recent-card ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.recent-card li {
+    display: flex;
+    align-items: center;
+    border-top: 1px solid var(--app-border);
+}
+
+.recent-card li:first-child {
+    border-top: none;
+}
+
+button.recent-open {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 0;
+    background: none;
+    text-align: left;
+}
+
+.recent-name {
+    font-weight: 600;
+}
+
+.recent-kind {
+    margin-left: 8px;
+    color: var(--app-muted);
+    font-size: 11px;
+    font-weight: normal;
+}
+
+.recent-path {
+    color: var(--app-muted);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+button.recent-remove {
+    margin-right: 8px;
+    border: none;
+    background: none;
+    color: var(--app-muted);
+    font-size: 16px;
+    /* Shown on hover; opacity keeps it reachable with the keyboard. */
+    opacity: 0;
+}
+
+.recent-card li:hover button.recent-remove,
+button.recent-remove:focus-visible {
+    opacity: 1;
 }

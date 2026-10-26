@@ -4,6 +4,7 @@ import { dialog, type BrowserWindow } from "electron";
 import type { OpenedFile } from "../../shared/ipc";
 import { showError } from "../dialogs";
 import { log } from "../logging";
+import { addRecent } from "../recent";
 
 // BOM CSV files are a few kB; anything this large is the wrong file.
 const MAX_SIZE = 10 * 1024 * 1024;
@@ -25,6 +26,14 @@ export async function openCsvFile(
     if (result.canceled || !filePath) {
         return null;
     }
+    return readCsvFile(window, filePath);
+}
+
+/** Reads a CSV file to import; shows why when it can't. */
+export async function readCsvFile(
+    window: BrowserWindow,
+    filePath: string
+): Promise<OpenedFile | null> {
     try {
         const { size } = await stat(filePath);
         if (size > MAX_SIZE) {
@@ -34,6 +43,7 @@ export async function openCsvFile(
             );
         }
         const bytes = new Uint8Array(await readFile(filePath));
+        addRecent(filePath);
         return { filePath, fileName: basename(filePath), bytes };
     } catch (error) {
         log.warn("Can't read", filePath, error);

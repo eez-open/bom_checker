@@ -2,8 +2,15 @@
 // exposes `Api` as `window.api`, and main registers one handler per channel.
 
 import type { CsvTable } from "./csv-import";
+import type { DocumentKind } from "./document-kind";
 import type { ExportFormat, ExportSheet } from "./export";
-import type { CollectionRun, LookupResult, Project, SupplierId } from "./model";
+import {
+    SUPPLIER_IDS,
+    type CollectionRun,
+    type LookupResult,
+    type Project,
+    type SupplierId
+} from "./model";
 import type { AppSettings, GeneralSettings } from "./settings";
 import type { SupplierConfig } from "./supplier-config";
 
@@ -19,10 +26,24 @@ export interface AppInfo {
     logFile: string;
 }
 
+/** Table columns that can be hidden together (View menu). */
+export type ColumnGroup = SupplierId | "best";
+export const COLUMN_GROUPS: readonly ColumnGroup[] = [...SUPPLIER_IDS, "best"];
+
+/** What the renderer tells main for enabling menu items. */
+export interface MenuState {
+    /** False on the start page. */
+    documentOpen: boolean;
+    /** Column groups the table has now. */
+    availableColumns: ColumnGroup[];
+    hiddenColumns: ColumnGroup[];
+}
+
 /** Commands sent from the application menu (and the close prompt). */
 export type MenuCommand =
     | "new"
     | "open"
+    | "close"
     | "save"
     | "save-as"
     | "import-csv"
@@ -33,6 +54,8 @@ export type MenuCommand =
     | "add-row"
     | "delete-rows"
     | "edit-columns"
+    | `toggle-columns:${ColumnGroup}`
+    | "show-all-columns"
     | "settings"
     | "lock"
     | "collect"
@@ -48,6 +71,19 @@ export interface OpenedFile {
     fileName: string;
     bytes: Uint8Array;
 }
+
+export interface RecentDocument {
+    path: string;
+    /** File name with extension. */
+    name: string;
+    kind: DocumentKind;
+}
+
+/** A file opened by path: a BOM, or a file to import. */
+export type OpenedDocument =
+    | { kind: "project"; opened: OpenedProject }
+    | { kind: "csv"; file: OpenedFile }
+    | { kind: "kicad"; project: KicadProjectData };
 
 export interface SaveOptions {
     /** Current file, or null for a BOM that was never saved. */
@@ -148,6 +184,20 @@ export interface Api {
         getInfo(): Promise<AppInfo>;
         /** Opens a supplier web page in the default browser. */
         openExternal(url: string): Promise<void>;
+        copyText(text: string): Promise<void>;
+        /** The path of a file dropped on the window; "" if it has none. */
+        pathForFile(file: File): string;
+    };
+    files: {
+        /** Opens a BOM or reads a file to import, by its extension. Null
+         *  when it can't (main has shown why). */
+        openPath(path: string): Promise<OpenedDocument | null>;
+    };
+    recent: {
+        list(): Promise<RecentDocument[]>;
+        remove(path: string): Promise<void>;
+        /** Called with the new list after every change. */
+        onChange(listener: (documents: RecentDocument[]) => void): () => void;
     };
     settings: {
         get(): Promise<AppSettings>;
@@ -169,6 +219,12 @@ export interface Api {
         openSettings(password: string): Promise<string | null>;
         closeSettings(token: string): void;
         getSecretStatus(token: string): Promise<SecretStatus>;
+        /** A stored secret, for Show and Copy; null if it isn't set. */
+        getSecret(
+            token: string,
+            supplier: SupplierId,
+            key: string
+        ): Promise<string | null>;
         /** False if the current password is wrong. */
         changePassword(
             token: string,
@@ -225,14 +281,19 @@ export interface Api {
         setDocumentState(state: DocumentState): void;
         /** Closes the window after a "save-and-close" command succeeded. */
         closeConfirmed(): void;
+        /** Enables and checks menu items to match the UI. */
+        setMenuState(state: MenuState): void;
     };
     /** Subscribes to menu commands; returns an unsubscribe function. */
     onMenuCommand(listener: (command: MenuCommand) => void): () => void;
+    /** File → Open Recent; returns an unsubscribe function. */
+    onOpenRecent(listener: (path: string) => void): () => void;
 }
 
 export const IpcChannel = {
     AppGetInfo: "app:get-info",
     AppOpenExternal: "app:open-external",
+    AppCopyText: "app:copy-text",
     SettingsGet: "settings:get",
     SettingsSaveGeneral: "settings:save-general",
     SettingsSaveSupplier: "settings:save-supplier",
@@ -241,6 +302,7 @@ export const IpcChannel = {
     VaultOpenSettings: "vault:open-settings",
     VaultCloseSettings: "vault:close-settings",
     VaultGetSecretStatus: "vault:get-secret-status",
+    VaultGetSecret: "vault:get-secret",
     VaultChangePassword: "vault:change-password",
     VaultReset: "vault:reset",
     VaultLock: "vault:lock",
@@ -260,5 +322,11 @@ export const IpcChannel = {
     DialogConfirm: "dialog:confirm",
     WindowSetDocumentState: "window:set-document-state",
     WindowCloseConfirmed: "window:close-confirmed",
-    MenuCommand: "menu:command"
+    WindowSetMenuState: "window:set-menu-state",
+    FilesOpenPath: "files:open-path",
+    RecentList: "recent:list",
+    RecentRemove: "recent:remove",
+    RecentChanged: "recent:changed",
+    MenuCommand: "menu:command",
+    MenuOpenRecent: "menu:open-recent"
 } as const;

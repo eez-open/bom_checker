@@ -5,13 +5,27 @@ import {
     shell,
     type MenuItemConstructorOptions
 } from "electron";
-import type { MenuCommand } from "../shared/ipc";
+import { z } from "zod";
+import {
+    COLUMN_GROUPS,
+    IpcChannel,
+    type ColumnGroup,
+    type MenuCommand,
+    type MenuState
+} from "../shared/ipc";
+import { SUPPLIERS } from "../shared/suppliers";
 import { showAbout } from "./about";
+import { on } from "./ipc/handle";
 import { log } from "./logging";
+import { clearRecent, onRecentChange, recentDocuments } from "./recent";
 import { sendMenuCommand } from "./window";
 
 const USER_GUIDE_URL =
     "https://github.com/eez-open/bom_checker/blob/main/docs/user-guide.md";
+
+function targetWindow(): BrowserWindow | undefined {
+    return BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+}
 
 function command(
     label: string,
@@ -21,15 +35,92 @@ function command(
     return {
         label,
         click: () => {
-            const window =
-                BrowserWindow.getFocusedWindow() ??
-                BrowserWindow.getAllWindows()[0];
+            const window = targetWindow();
             if (window) {
                 sendMenuCommand(window, name);
             }
         },
         ...options
     };
+}
+
+let state: MenuState = {
+    documentOpen: false,
+    availableColumns: [],
+    hiddenColumns: []
+};
+
+/** A command that needs an open BOM. */
+function documentCommand(
+    label: string,
+    name: MenuCommand,
+    options: MenuItemConstructorOptions = {}
+): MenuItemConstructorOptions {
+    return command(label, name, { enabled: state.documentOpen, ...options });
+}
+
+function recentItems(): MenuItemConstructorOptions[] {
+    const documents = recentDocuments();
+    if (documents.length === 0) {
+        return [{ label: "No Recent Documents", enabled: false }];
+    }
+    return [
+        ...documents.map((document, index) => ({
+            // "&" would be taken as a mnemonic.
+            label: `&${(index + 1) % 10}  ${document.path.replaceAll("&", "&&")}`,
+            click: () =>
+                targetWindow()?.webContents.send(
+                    IpcChannel.MenuOpenRecent,
+                    document.path
+                )
+        })),
+        { type: "separator" },
+        { label: "&Clear Recently Opened", click: clearRecent }
+    ];
+}
+
+function columnItems(): MenuItemConstructorOptions[] {
+    const { availableColumns, hiddenColumns } = state;
+    const name = (group: ColumnGroup) =>
+        group === "best" ? "Best Price" : SUPPLIERS[group].name;
+    const hidden = hiddenColumns.filter(group =>
+        availableColumns.includes(group)
+    );
+    return [
+        ...COLUMN_GROUPS.map((group, index) =>
+            command(`&${name(group)} Columns`, `toggle-columns:${group}`, {
+                id: `columns:${group}`,
+                type: "checkbox",
+                checked: !hiddenColumns.includes(group),
+                enabled: availableColumns.includes(group),
+                accelerator: `CmdOrCtrl+${index + 1}`
+            })
+        ),
+        command("Show &All Columns", "show-all-columns", {
+            id: "columns:all",
+            enabled: hidden.length > 0
+        })
+    ];
+}
+
+const menuStateSchema = z.object({
+    documentOpen: z.boolean(),
+    availableColumns: z.array(z.enum(COLUMN_GROUPS)),
+    hiddenColumns: z.array(z.enum(COLUMN_GROUPS))
+});
+
+// The menu is rebuilt on changes: changing items in place doesn't show on
+// every Linux desktop.
+function refreshMenu(): void {
+    Menu.setApplicationMenu(createMenu());
+}
+
+export function registerMenuHandlers(): void {
+    on(IpcChannel.WindowSetMenuState, (_context, next) => {
+        state = menuStateSchema.parse(next);
+        refreshMenu();
+    });
+    onRecentChange(refreshMenu);
 }
 
 export function createMenu(): Menu {
@@ -47,9 +138,20 @@ export function createMenu(): Menu {
             submenu: [
                 command("&New", "new", { accelerator: "CmdOrCtrl+N" }),
                 command("&Open…", "open", { accelerator: "CmdOrCtrl+O" }),
+                {
+                    label: "Open &Recent",
+                    id: "recent",
+                    submenu: recentItems()
+                },
+                documentCommand("&Close", "close", {
+                    id: "close",
+                    accelerator: "CmdOrCtrl+W"
+                }),
                 { type: "separator" },
-                command("&Save", "save", { accelerator: "CmdOrCtrl+S" }),
-                command("Save &As…", "save-as", {
+                documentCommand("&Save", "save", {
+                    accelerator: "CmdOrCtrl+S"
+                }),
+                documentCommand("Save &As…", "save-as", {
                     accelerator: "CmdOrCtrl+Shift+S"
                 }),
                 { type: "separator" },
@@ -60,7 +162,9 @@ export function createMenu(): Menu {
                     accelerator: "CmdOrCtrl+K"
                 }),
                 { type: "separator" },
-                command("&Export…", "export", { accelerator: "CmdOrCtrl+E" }),
+                documentCommand("&Export…", "export", {
+                    accelerator: "CmdOrCtrl+E"
+                }),
                 { type: "separator" },
                 { role: "quit", label: "E&xit" }
             ]
@@ -70,11 +174,11 @@ export function createMenu(): Menu {
             submenu: [
                 // The renderer handles these keys itself, so that text fields
                 // keep their own undo while typing.
-                command("&Undo", "undo", {
+                documentCommand("&Undo", "undo", {
                     accelerator: "CmdOrCtrl+Z",
                     registerAccelerator: false
                 }),
-                command("&Redo", "redo", {
+                documentCommand("&Redo", "redo", {
                     accelerator: "CmdOrCtrl+Y",
                     registerAccelerator: false
                 }),
@@ -83,15 +187,17 @@ export function createMenu(): Menu {
                 { role: "copy" },
                 { role: "paste" },
                 { type: "separator" },
-                command("Add &Row", "add-row"),
-                command("&Delete Selected Rows", "delete-rows"),
+                documentCommand("Add &Row", "add-row"),
+                documentCommand("&Delete Selected Rows", "delete-rows"),
                 { type: "separator" },
-                command("&Columns…", "edit-columns")
+                documentCommand("&Columns…", "edit-columns")
             ]
         },
         {
             label: "&View",
             submenu: [
+                ...columnItems(),
+                { type: "separator" },
                 { role: "zoomIn" },
                 { role: "zoomOut" },
                 { role: "resetZoom" },
@@ -101,7 +207,7 @@ export function createMenu(): Menu {
         {
             label: "&Tools",
             submenu: [
-                command("C&ollect Supplier Data…", "collect"),
+                documentCommand("C&ollect Supplier Data…", "collect"),
                 { type: "separator" },
                 command("&Settings…", "settings", {
                     accelerator: "CmdOrCtrl+,"

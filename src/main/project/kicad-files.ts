@@ -5,6 +5,7 @@ import type { KicadProjectData } from "../../shared/ipc";
 import { showError } from "../dialogs";
 import { loadKicadProject } from "../kicad/project";
 import { log } from "../logging";
+import { addRecent } from "../recent";
 
 /** Lets the user pick a KiCad project and reads its BOM for every design
  *  variant; the renderer then lets the user choose one. */
@@ -23,6 +24,14 @@ export async function openKicadProject(
     if (result.canceled || !projectPath) {
         return null;
     }
+    return readKicadProject(window, projectPath);
+}
+
+/** Reads a KiCad project's BOM; shows why when it can't. */
+export async function readKicadProject(
+    window: BrowserWindow,
+    projectPath: string
+): Promise<KicadProjectData | null> {
     try {
         const project = await loadKicadProject(projectPath, path =>
             readFile(path, "utf8")
@@ -34,6 +43,7 @@ export async function openKicadProject(
                 .map(v => `${v.name}: ${v.partCount} parts`)
                 .join(", ")
         );
+        addRecent(projectPath);
         return project;
     } catch (error) {
         log.warn("Can't read KiCad project", projectPath, error);

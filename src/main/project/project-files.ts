@@ -11,14 +11,15 @@ import {
 import { showError } from "../dialogs";
 import { writeFileAtomic } from "../files";
 import { log } from "../logging";
+import { addRecent } from "../recent";
 
 const FILTERS = [
     { name: "EEZ BOM checker project", extensions: [PROJECT_FILE_EXTENSION] },
     { name: "All files", extensions: ["*"] }
 ];
 
-// Paths the user picked in an Open or Save dialog. The renderer can only
-// save to one of these without a dialog, so it can't write files elsewhere.
+// Paths of BOMs that were opened or saved. The renderer can only save to
+// one of these without a dialog, so it can't write files elsewhere.
 const knownPaths = new Set<string>();
 
 export async function openProject(
@@ -33,9 +34,18 @@ export async function openProject(
     if (result.canceled || !filePath) {
         return null;
     }
+    return readProject(window, filePath);
+}
+
+/** Reads a BOM; shows why when it can't. */
+export async function readProject(
+    window: BrowserWindow,
+    filePath: string
+): Promise<OpenedProject | null> {
     try {
         const project = parseProjectFile(await readFile(filePath, "utf8"));
         knownPaths.add(filePath);
+        addRecent(filePath);
         log.info("Opened", filePath);
         return { filePath, project };
     } catch (error) {
@@ -73,6 +83,7 @@ export async function saveProject(
     try {
         await writeFileAtomic(target, serializeProject(project));
         knownPaths.add(target);
+        addRecent(target);
         log.info("Saved", target);
         return target;
     } catch (error) {

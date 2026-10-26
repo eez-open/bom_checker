@@ -1,11 +1,13 @@
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { BrowserWindow } from "electron";
+import { app, BrowserWindow, screen } from "electron";
 import { z } from "zod";
 import { IpcChannel, type MenuCommand } from "../shared/ipc";
 import { askSaveChanges } from "./dialogs";
 import { on } from "./ipc/handle";
 import { log } from "./logging";
 import { devServerUrl } from "./security";
+import { fitToScreens, type WindowState } from "./window-bounds";
 
 /** What the renderer reported about the open BOM. */
 interface WindowDocument {
@@ -18,10 +20,40 @@ interface WindowDocument {
 
 const documents = new WeakMap<BrowserWindow, WindowDocument>();
 
+function windowStatePath(): string {
+    return join(app.getPath("userData"), "window-state.json");
+}
+
+/** Size and position from last time, fitted to the screens now. */
+function loadWindowState(): WindowState {
+    let saved: unknown;
+    try {
+        saved = JSON.parse(readFileSync(windowStatePath(), "utf8"));
+    } catch {
+        saved = undefined; // first start, or unreadable: use the default
+    }
+    return fitToScreens(
+        saved,
+        screen.getAllDisplays().map(display => display.workArea)
+    );
+}
+
+function saveWindowState(window: BrowserWindow): void {
+    const state: WindowState = {
+        bounds: window.getNormalBounds(),
+        maximized: window.isMaximized()
+    };
+    try {
+        writeFileSync(windowStatePath(), JSON.stringify(state, null, 2));
+    } catch (error) {
+        log.warn("Can't save the window position:", error);
+    }
+}
+
 export function createMainWindow(): BrowserWindow {
+    const state = loadWindowState();
     const window = new BrowserWindow({
-        width: 1280,
-        height: 800,
+        ...state.bounds,
         minWidth: 800,
         minHeight: 500,
         show: false,
@@ -41,8 +73,16 @@ export function createMainWindow(): BrowserWindow {
         prompting: false
     });
 
-    window.once("ready-to-show", () => window.show());
-    window.on("close", event => confirmClose(window, event));
+    window.once("ready-to-show", () => {
+        if (state.maximized) {
+            window.maximize();
+        }
+        window.show();
+    });
+    window.on("close", event => {
+        saveWindowState(window);
+        confirmClose(window, event);
+    });
     window.webContents.on("render-process-gone", (_event, details) =>
         log.error("Renderer process gone:", details)
     );

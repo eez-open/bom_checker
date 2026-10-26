@@ -10,7 +10,7 @@ Based on: `BOM checker project scope.md`, the clarifications in section 2, and r
 | Area | Decision |
 |---|---|
 | Platform | Electron + TypeScript, React UI. Windows x64 and Linux x64 (Ubuntu 22.04+ / Mint 21+) builds |
-| Process split | All file access, secrets and supplier API calls run in the Electron **main process**. The UI (renderer) never sees API keys |
+| Process split | All file access, secrets and supplier API calls run in the Electron **main process**. The UI (renderer) sees an API key only when the user shows or copies it in supplier settings |
 | Suppliers | Built-in plugins behind one interface: **DigiKey** (Product Information API v4), **Mouser** (Search API v1), **TME** (API v2). Nothing to install separately |
 | Storage | One BOM = one project file (`.eezbom`, JSON). App settings and the encrypted credential vault live in the user's app-data folder. No database |
 | Calculated columns | Order Qty, Unit price, Total price, Availability and Best price are **calculated, not stored**, so changing Qty updates them instantly without collecting again |
@@ -143,11 +143,12 @@ The project file is a versioned JSON document. 1,000 rows with three suppliers' 
 
 ```ts
 interface Project {
-  schemaVersion: 1;
+  schemaVersion: 3;                     // 2 added `collected`, 3 added `buildQuantity`
   source: { kind: 'manual' | 'csv' | 'kicad'; path?: string; variant?: string; importedAt?: string };
   suppliers: SupplierId[];              // suppliers that have a part-number column in this BOM
   customColumns: ColumnDef[];           // user-defined columns, plus unmapped imported ones (e.g. LCSC)
   rows: BomRow[];
+  buildQuantity: number;                // units to build; every Qty is multiplied by it (1 by default)
   collected: {                         // not part of the undo history
     results: Partial<Record<SupplierId, Record<string, LookupResult>>>;  // by part number (trimmed, upper case)
     runs: Partial<Record<SupplierId, CollectionRun>>;  // last run per supplier; used for "Continue"
@@ -211,7 +212,7 @@ interface SupplierOffer {
 
 For one row and one supplier:
 
-1. **Order Qty** = `ceil(max(Qty, MOQ) / multiple) × multiple`. DigiKey reports no order multiple, so its multiple is 1.
+1. **Order Qty** = `ceil(max(Qty × build quantity, MOQ) / multiple) × multiple`. DigiKey reports no order multiple, so its multiple is 1.
 2. **Unit price** = the price of the largest break whose quantity ≤ Order Qty.
    - The account price list is used when the supplier returned one that isn't empty. Otherwise the list price is used.
    - If Order Qty is below the first break, the first break's price is used and the cell is flagged.
@@ -362,7 +363,9 @@ Files in the app-data folder (`%APPDATA%\EEZ BOM checker\` on Windows, `~/.confi
 
 | File | Contents | Protected |
 |---|---|---|
-| `settings.json` | Locale and rate-limit settings, supplier order, export presets, recent files | No (not sensitive) |
+| `settings.json` | Locale and rate-limit settings, supplier order, export presets | No (not sensitive) |
+| `recent-documents.json` | Up to 10 recently opened BOMs and imported files (start page, File → Open Recent) | No |
+| `window-state.json` | Main window size, position and maximized state | No |
 | `vault.json` | API keys, secrets, Account ID, DigiKey refresh token | Encrypted |
 | `usage.json` | Calls made today per supplier, for daily quotas | No |
 
@@ -381,7 +384,7 @@ Files in the app-data folder (`%APPDATA%\EEZ BOM checker\` on Windows, `~/.confi
 - **Changing the password** re-encrypts only the data key, with a new salt. Writes are atomic (temp file + rename).
 - **Once-per-session unlock.** After the password is entered, the data key stays in main-process memory until the app quits or the user picks **Lock**. The first Collect of a session asks for the password.
 - **Settings access.** Opening the **Suppliers** section of Settings asks for the password every time, even when the vault is unlocked, so the section stays protected while the app is left open. **General** (supplier order for ties, export presets and similar) needs no password.
-- **The UI never receives credential values.** It only learns "set / not set". New values travel one way, to main.
+- **The UI receives credential values only on request.** It learns "set / not set"; a value is sent only when the user clicks Show or Copy next to it in supplier settings, which needs an open settings session (the password). Copying goes through main's clipboard, because the renderer's permission requests are all denied.
 - **First run:** the user creates the password. **Forgotten password:** "Reset vault" deletes all stored credentials; there is no recovery by design.
 - **Limits:** this protects against copying the files and casual access. It cannot protect against malware running as the same user while the vault is unlocked.
 

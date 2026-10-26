@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import {
+    formatDateTime,
+    lastCollectedAt,
     partNumbersToCollect,
     summarizeRun,
     supplierWork,
@@ -168,6 +170,7 @@ export function CollectDialog({ onClose }: { onClose: () => void }) {
     return (
         <Modal
             title="Collect supplier data"
+            name="collect"
             size="large"
             onClose={close}
             footer={
@@ -362,6 +365,7 @@ function ChooseSuppliers({
                     work={supplierWork(project, supplier)}
                     readiness={readiness[supplier]}
                     lastRun={project.collected.runs[supplier]}
+                    collectedAt={lastCollectedAt(project.collected, supplier)}
                     choice={choices[supplier]!}
                     onChange={choice =>
                         setChoices(current => ({
@@ -390,6 +394,7 @@ function SupplierChoice({
     work,
     readiness,
     lastRun,
+    collectedAt,
     choice,
     onChange
 }: {
@@ -397,6 +402,7 @@ function SupplierChoice({
     work: SupplierWork;
     readiness: SupplierReadiness;
     lastRun: CollectionRun | undefined;
+    collectedAt: string | null;
     choice: Choice;
     onChange: (choice: Choice) => void;
 }) {
@@ -452,6 +458,11 @@ function SupplierChoice({
                 <p className="muted">No {name} part numbers in the BOM.</p>
             ) : (
                 <>
+                    <p className="muted">
+                        {collectedAt
+                            ? `Last collected ${formatDateTime(collectedAt)}.`
+                            : "Not collected yet."}
+                    </p>
                     {lastRun?.state === "interrupted" && lastRun.reason && (
                         <p className="warning">
                             Last time it stopped: {lastRun.reason}

@@ -12,7 +12,8 @@ import {
     foreignCurrencies,
     orderQuantity,
     priceAt,
-    supplierLine
+    supplierLine,
+    supplierTotal
 } from "./pricing";
 import { addRow, createProject, createRow } from "./project-ops";
 
@@ -128,7 +129,8 @@ describe("supplier line", () => {
         const line = supplierLine(
             project.rows[0]!,
             "mouser",
-            project.collected
+            project.collected,
+            1
         );
         expect(line).toMatchObject({
             orderQty: 10,
@@ -141,7 +143,7 @@ describe("supplier line", () => {
     it("reports partial stock, no stock and parts that can't be ordered", () => {
         const line = (fields: Partial<SupplierOffer>) => {
             const project = setup(20, { tme: found(fields) });
-            return supplierLine(project.rows[0]!, "tme", project.collected)
+            return supplierLine(project.rows[0]!, "tme", project.collected, 1)
                 ?.availability;
         };
         expect(line({ stockQty: 10 })).toEqual({ kind: "partial", stock: 10 });
@@ -156,7 +158,8 @@ describe("supplier line", () => {
         const line = supplierLine(
             project.rows[0]!,
             "digikey",
-            project.collected
+            project.collected,
+            1
         );
         expect(line).toMatchObject({
             unitPrice: 1,
@@ -164,6 +167,43 @@ describe("supplier line", () => {
             total: null
         });
         expect(foreignCurrencies(project)).toEqual({ digikey: ["USD"] });
+    });
+});
+
+describe("build quantity", () => {
+    it("multiplies Qty for order quantity, price break and stock", () => {
+        const project = {
+            ...setup(3, {
+                mouser: found({
+                    moq: 10,
+                    stockQty: 50,
+                    priceBreaks: [
+                        { qty: 1, unitPrice: 0.2 },
+                        { qty: 50, unitPrice: 0.1 }
+                    ]
+                }),
+                tme: found({
+                    stockQty: 1000,
+                    priceBreaks: [{ qty: 1, unitPrice: 0.15 }]
+                })
+            }),
+            buildQuantity: 25
+        };
+        const row = project.rows[0]!;
+        expect(
+            supplierLine(row, "mouser", project.collected, 25)
+        ).toMatchObject({
+            orderQty: 75,
+            unitPrice: 0.1,
+            total: 7.5,
+            availability: { kind: "partial", stock: 50 }
+        });
+        // Mouser is cheaper but can't deliver 75.
+        expect(
+            bestSupplier(row, project.collected, project.suppliers, [], 25)
+                ?.supplier
+        ).toBe("tme");
+        expect(bomTotals(project, []).total).toBeCloseTo(11.25);
     });
 });
 
@@ -184,7 +224,8 @@ describe("best supplier", () => {
             project.rows[0]!,
             project.collected,
             project.suppliers,
-            ["digikey", "mouser", "tme"]
+            ["digikey", "mouser", "tme"],
+            1
         );
         expect(best?.supplier).toBe("digikey");
         expect(best?.line.total).toBeCloseTo(24);
@@ -204,7 +245,8 @@ describe("best supplier", () => {
                 project.rows[0]!,
                 project.collected,
                 project.suppliers,
-                []
+                [],
+                1
             )?.supplier
         ).toBe("mouser");
     });
@@ -213,16 +255,22 @@ describe("best supplier", () => {
         const project = setup(1, { mouser: found({}), tme: found({}) });
         const row = project.rows[0]!;
         expect(
-            bestSupplier(row, project.collected, project.suppliers, [
-                "tme",
-                "mouser"
-            ])?.supplier
+            bestSupplier(
+                row,
+                project.collected,
+                project.suppliers,
+                ["tme", "mouser"],
+                1
+            )?.supplier
         ).toBe("tme");
         expect(
-            bestSupplier(row, project.collected, project.suppliers, [
-                "mouser",
-                "tme"
-            ])?.supplier
+            bestSupplier(
+                row,
+                project.collected,
+                project.suppliers,
+                ["mouser", "tme"],
+                1
+            )?.supplier
         ).toBe("mouser");
     });
 
@@ -239,7 +287,8 @@ describe("best supplier", () => {
                 project.rows[0]!,
                 project.collected,
                 project.suppliers,
-                []
+                [],
+                1
             )
         ).toBeNull();
         expect(bomTotals(project, [])).toEqual({
@@ -257,6 +306,26 @@ describe("best supplier", () => {
             total: 1,
             covered: 1,
             uncovered: 0
+        });
+    });
+});
+
+describe("supplier total", () => {
+    it("sums the total prices and counts the rows that have one", () => {
+        const project = addRow(
+            setup(4, {
+                mouser: found({ priceBreaks: [{ qty: 1, unitPrice: 0.25 }] }),
+                digikey: found({ currency: "USD" })
+            }),
+            createRow({ qty: 2, partNumbers: { mouser: "PN-mouser" } })
+        );
+        expect(supplierTotal(project, "mouser")).toEqual({
+            total: 1.5,
+            priced: 2
+        });
+        expect(supplierTotal(project, "digikey")).toEqual({
+            total: 0,
+            priced: 0
         });
     });
 });

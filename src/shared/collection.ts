@@ -3,6 +3,7 @@
 
 import {
     partNumberKey,
+    type CollectedData,
     type LookupResult,
     type Project,
     type SupplierId
@@ -11,6 +12,35 @@ import { hasAlternatives, isPartNumberDefined } from "./part-number";
 import { orderQuantity } from "./pricing";
 
 export type CollectMode = "all" | "missing" | "continue";
+
+/** When data was last collected from a supplier (ISO time): the end of
+ *  its latest run or its newest result, whichever is later. */
+export function lastCollectedAt(
+    collected: CollectedData,
+    supplier: SupplierId
+): string | null {
+    let latest = collected.runs[supplier]?.endedAt ?? null;
+    for (const result of Object.values(collected.results[supplier] ?? {})) {
+        if (!latest || result.fetchedAt > latest) {
+            latest = result.fetchedAt;
+        }
+    }
+    return latest;
+}
+
+/** "2026-10-26 17:45" in local time: unambiguous in every language. */
+export function formatDateTime(iso: string): string {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) {
+        return iso;
+    }
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return (
+        `${date.getFullYear()}-${pad(date.getMonth() + 1)}-` +
+        `${pad(date.getDate())} ${pad(date.getHours())}:` +
+        pad(date.getMinutes())
+    );
+}
 
 export interface SupplierWork {
     /** Distinct part numbers in the BOM (flagged cells excluded). */
@@ -119,7 +149,10 @@ export function summarizeRun(
         const value = row.partNumbers[supplier];
         if (isPartNumberDefined(value)) {
             const key = partNumberKey(value!);
-            needed.set(key, (needed.get(key) ?? 0) + row.qty);
+            needed.set(
+                key,
+                (needed.get(key) ?? 0) + row.qty * project.buildQuantity
+            );
         }
     }
     const summary: RunSummary = {

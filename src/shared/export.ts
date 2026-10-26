@@ -3,6 +3,7 @@
 // turns the sheets into an .xlsx, .ods or .csv file.
 
 import { z } from "zod";
+import { formatDateTime, lastCollectedAt } from "./collection";
 import { availabilityText, statusText } from "./line-text";
 import {
     SUPPLIER_IDS,
@@ -141,10 +142,17 @@ function columns(
     selection: ExportSelection
 ): Column[] {
     const { collected } = project;
+    const { buildQuantity } = project;
     const line = (row: BomRow, supplier: SupplierId) =>
-        supplierLine(row, supplier, collected);
+        supplierLine(row, supplier, collected, buildQuantity);
     const best = (row: BomRow) =>
-        bestSupplier(row, collected, project.suppliers, preference);
+        bestSupplier(
+            row,
+            collected,
+            project.suppliers,
+            preference,
+            buildQuantity
+        );
     const unitPrice = (l: SupplierLine | null): ExportCell => {
         if (!l?.offer || l.unitPrice === null) {
             return null;
@@ -171,6 +179,16 @@ function columns(
             format: QUANTITY_FORMAT,
             value: row => row.qty
         },
+        ...(buildQuantity > 1
+            ? [
+                  {
+                      header: "Total Qty",
+                      width: 9,
+                      format: QUANTITY_FORMAT,
+                      value: (row: BomRow) => row.qty * buildQuantity
+                  }
+              ]
+            : []),
         { header: "Footprint", width: 30, value: row => row.footprint }
     ];
 
@@ -297,7 +315,8 @@ function matches(
                     row,
                     project.collected,
                     project.suppliers,
-                    preference
+                    preference,
+                    project.buildQuantity
                 )?.supplier === filter.supplier
             );
         case "not-available":
@@ -309,7 +328,8 @@ function matches(
                     row,
                     project.collected,
                     project.suppliers,
-                    preference
+                    preference,
+                    project.buildQuantity
                 )
             );
     }
@@ -380,14 +400,15 @@ export function buildInfoSheet(
         rows.push(["KiCad variant", project.source.variant]);
     }
     rows.push(
-        ["Exported", exportedAt],
+        ["Exported", formatDateTime(exportedAt)],
         ["Filter", presetName ?? "Custom"],
         ["Rows", describeRowFilter(selection.rows)],
         ["Exported rows", bom.rows.length - 1],
+        ["Build quantity", project.buildQuantity],
         [],
         [
             "Prices",
-            `In ${BASE_CURRENCY}. Order Qty is Qty raised to the MOQ and rounded up to the order multiple; the unit price is the price break for that quantity.`
+            `In ${BASE_CURRENCY}. Order Qty is Qty × build quantity, raised to the MOQ and rounded up to the order multiple; the unit price is the price break for that quantity.`
         ],
         [
             "Best price",
@@ -401,11 +422,12 @@ export function buildInfoSheet(
     );
     for (const supplier of project.suppliers) {
         const run = project.collected.runs[supplier];
+        const collectedAt = lastCollectedAt(project.collected, supplier);
         const name = SUPPLIERS[supplier].name;
         rows.push([
             `${name} data`,
-            run
-                ? `Collected ${run.endedAt ?? run.startedAt}${run.state === "complete" ? "" : ` (${run.state}${run.reason ? `: ${run.reason}` : ""})`}`
+            collectedAt
+                ? `Collected ${formatDateTime(collectedAt)}${!run || run.state === "complete" ? "" : ` (${run.state}${run.reason ? `: ${run.reason}` : ""})`}`
                 : "Not collected"
         ]);
         if (selection.suppliers.includes(supplier)) {
