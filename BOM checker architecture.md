@@ -562,7 +562,13 @@ These points couldn't be settled from documentation and should be the first thin
 
 ---
 
-## 15. Status of version 0.1.0
+## 15. Status
+
+### Version 0.2.0
+
+Built from GitHub issues #1–#8: a Total row, Show and Copy for saved credentials, resizable dialogs and a remembered window position, hiding a supplier's columns from the View menu, collection dates per supplier, a build quantity (file format 3), and a start page with recent documents, file drop and File → Close. Unit tests: 159; end-to-end tests: 11.
+
+### Version 0.1.0
 
 All eight milestones are done. Everything below is covered by unit tests (148) and end-to-end tests (10). The end-to-end tests ran against the packaged Windows app and the packaged Linux app (in WSL), using a local fake supplier server.
 
@@ -596,6 +602,7 @@ All eight milestones are done. Everything below is covered by unit tests (148) a
 
 ### Open
 
-1. **Live verification with real API keys** (section 13). Settings → Test connection answers most points; the log option records the responses.
+1. **Live verification with real API keys** (section 13). DigiKey and Mouser work with real keys; TME is still to be confirmed. Settings → Test connection answers most points; the log option records the responses.
 2. **Code signing** for the Windows installer, to avoid the SmartScreen warning.
-3. **Not in v1:** automatic updates, opening `.eezbom` files by double-click, a recent-files list, dark mode.
+3. **Not built yet:** automatic updates, opening `.eezbom` files by double-click, dark mode.
+4. **Under investigation:** LCSC as a fourth supplier (#9), and finding parts by Value when a row has no supplier part number (#10).

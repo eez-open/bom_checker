@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-26
+
 ### Added
 
 - A start page: Open BOM…, drop a file (.eezbom, .kicad_pro or .csv) on the window, or pick one of the 10 most recent documents. The same list is in File → Open Recent; File → Close (Ctrl+W) goes back to the start page.
