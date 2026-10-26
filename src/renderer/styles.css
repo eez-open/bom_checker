@@ -378,9 +378,14 @@ input.number {
     gap: 4px;
 }
 
-.form-row input:not(.number):not([type="radio"]):not([type="checkbox"]),
-.form-row select {
+.form-row input:not(.number):not([type="radio"]):not([type="checkbox"]) {
     width: 260px;
+}
+
+/* Lists grow with their longest option, e.g. the export row filters. */
+.form-row select {
+    min-width: 260px;
+    max-width: 100%;
 }
 
 .form-actions {
