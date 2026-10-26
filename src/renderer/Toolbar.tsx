@@ -61,6 +61,7 @@ function BuildQuantityInput({ value }: { value: number }) {
 export function Toolbar() {
     const selectedCount = useUi(state => state.selectedRowIds.length);
     const buildQuantity = useDocument(state => state.project.buildQuantity);
+    const open = useDocument(state => state.open);
 
     return (
         <div className="toolbar" role="toolbar" aria-label="BOM">
@@ -78,13 +79,15 @@ export function Toolbar() {
             >
                 Open…
             </button>
-            <button
-                type="button"
-                title="Ctrl+S"
-                onClick={() => void saveDocument()}
-            >
-                Save
-            </button>
+            {open && (
+                <button
+                    type="button"
+                    title="Ctrl+S"
+                    onClick={() => void saveDocument()}
+                >
+                    Save
+                </button>
+            )}
             <span className="toolbar-separator" />
             <button
                 type="button"
@@ -100,36 +103,50 @@ export function Toolbar() {
             >
                 Import KiCad…
             </button>
-            <span className="toolbar-separator" />
-            <button type="button" onClick={addRow}>
-                Add row
-            </button>
-            <button
-                type="button"
-                onClick={deleteSelectedRows}
-                disabled={selectedCount === 0}
-            >
-                {selectedCount > 1
-                    ? `Delete ${selectedCount} rows`
-                    : "Delete row"}
-            </button>
-            <button type="button" onClick={editColumns}>
-                Columns…
-            </button>
-            <span className="toolbar-separator" />
-            <label className="toolbar-field" title={BUILD_QUANTITY_HELP}>
-                Build qty
-                {/* A new key resets the text after undo, redo or opening a
-                    BOM. */}
-                <BuildQuantityInput key={buildQuantity} value={buildQuantity} />
-            </label>
-            <span className="toolbar-separator" />
-            <button type="button" className="primary" onClick={openCollect}>
-                Collect…
-            </button>
-            <button type="button" title="Ctrl+E" onClick={openExport}>
-                Export…
-            </button>
+            {open && (
+                <>
+                    <span className="toolbar-separator" />
+                    <button type="button" onClick={addRow}>
+                        Add row
+                    </button>
+                    <button
+                        type="button"
+                        onClick={deleteSelectedRows}
+                        disabled={selectedCount === 0}
+                    >
+                        {selectedCount > 1
+                            ? `Delete ${selectedCount} rows`
+                            : "Delete row"}
+                    </button>
+                    <button type="button" onClick={editColumns}>
+                        Columns…
+                    </button>
+                    <span className="toolbar-separator" />
+                    <label
+                        className="toolbar-field"
+                        title={BUILD_QUANTITY_HELP}
+                    >
+                        Build qty
+                        {/* A new key resets the text after undo, redo or
+                            opening a BOM. */}
+                        <BuildQuantityInput
+                            key={buildQuantity}
+                            value={buildQuantity}
+                        />
+                    </label>
+                    <span className="toolbar-separator" />
+                    <button
+                        type="button"
+                        className="primary"
+                        onClick={openCollect}
+                    >
+                        Collect…
+                    </button>
+                    <button type="button" title="Ctrl+E" onClick={openExport}>
+                        Export…
+                    </button>
+                </>
+            )}
             <span className="toolbar-spacer" />
             <button type="button" title="Ctrl+," onClick={openSettings}>
                 Settings…

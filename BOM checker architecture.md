@@ -363,7 +363,9 @@ Files in the app-data folder (`%APPDATA%\EEZ BOM checker\` on Windows, `~/.confi
 
 | File | Contents | Protected |
 |---|---|---|
-| `settings.json` | Locale and rate-limit settings, supplier order, export presets, recent files | No (not sensitive) |
+| `settings.json` | Locale and rate-limit settings, supplier order, export presets | No (not sensitive) |
+| `recent-documents.json` | Up to 10 recently opened BOMs and imported files (start page, File → Open Recent) | No |
+| `window-state.json` | Main window size, position and maximized state | No |
 | `vault.json` | API keys, secrets, Account ID, DigiKey refresh token | Encrypted |
 | `usage.json` | Calls made today per supplier, for daily quotas | No |
 

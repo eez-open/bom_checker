@@ -1,23 +1,42 @@
 // Runs in the sandboxed preload context. Exposes only the typed `Api`; the
 // renderer gets no direct access to Node.js or ipcRenderer.
 
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import {
-    IpcChannel,
-    type Api,
-    type CollectEvent,
-    type MenuCommand
-} from "../shared/ipc";
+    contextBridge,
+    ipcRenderer,
+    webUtils,
+    type IpcRendererEvent
+} from "electron";
+import { IpcChannel, type Api } from "../shared/ipc";
 
 function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
     return ipcRenderer.invoke(channel, ...args) as Promise<T>;
+}
+
+/** Listens to events from main; returns an unsubscribe function. */
+function subscribe<T>(
+    channel: string,
+    listener: (value: T) => void
+): () => void {
+    const handler = (_event: IpcRendererEvent, value: T) => listener(value);
+    ipcRenderer.on(channel, handler);
+    return () => ipcRenderer.removeListener(channel, handler);
 }
 
 const api: Api = {
     app: {
         getInfo: () => invoke(IpcChannel.AppGetInfo),
         openExternal: url => invoke(IpcChannel.AppOpenExternal, url),
-        copyText: text => invoke(IpcChannel.AppCopyText, text)
+        copyText: text => invoke(IpcChannel.AppCopyText, text),
+        pathForFile: file => webUtils.getPathForFile(file)
+    },
+    files: {
+        openPath: path => invoke(IpcChannel.FilesOpenPath, path)
+    },
+    recent: {
+        list: () => invoke(IpcChannel.RecentList),
+        remove: path => invoke(IpcChannel.RecentRemove, path),
+        onChange: listener => subscribe(IpcChannel.RecentChanged, listener)
     },
     settings: {
         get: () => invoke(IpcChannel.SettingsGet),
@@ -57,13 +76,7 @@ const api: Api = {
         prepare: () => invoke(IpcChannel.CollectPrepare),
         start: jobs => invoke(IpcChannel.CollectStart, jobs),
         cancel: () => ipcRenderer.send(IpcChannel.CollectCancel),
-        onEvent: listener => {
-            const handler = (_event: IpcRendererEvent, event: CollectEvent) =>
-                listener(event);
-            ipcRenderer.on(IpcChannel.CollectEvent, handler);
-            return () =>
-                ipcRenderer.removeListener(IpcChannel.CollectEvent, handler);
-        },
+        onEvent: listener => subscribe(IpcChannel.CollectEvent, listener),
         testConnection: (token, supplier) =>
             invoke(IpcChannel.CollectTestConnection, token, supplier)
     },
@@ -92,16 +105,11 @@ const api: Api = {
         setDocumentState: state =>
             ipcRenderer.send(IpcChannel.WindowSetDocumentState, state),
         closeConfirmed: () => ipcRenderer.send(IpcChannel.WindowCloseConfirmed),
-        setColumnGroups: state =>
-            ipcRenderer.send(IpcChannel.WindowSetColumnGroups, state)
+        setMenuState: state =>
+            ipcRenderer.send(IpcChannel.WindowSetMenuState, state)
     },
-    onMenuCommand: listener => {
-        const handler = (_event: IpcRendererEvent, command: MenuCommand) =>
-            listener(command);
-        ipcRenderer.on(IpcChannel.MenuCommand, handler);
-        return () =>
-            ipcRenderer.removeListener(IpcChannel.MenuCommand, handler);
-    }
+    onMenuCommand: listener => subscribe(IpcChannel.MenuCommand, listener),
+    onOpenRecent: listener => subscribe(IpcChannel.MenuOpenRecent, listener)
 };
 
 contextBridge.exposeInMainWorld("api", api);

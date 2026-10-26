@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import type { AppInfo, ColumnGroup } from "../shared/ipc";
 import type { SupplierId } from "../shared/model";
 import { BASE_CURRENCY, bomTotals, foreignCurrencies } from "../shared/pricing";
@@ -11,6 +11,7 @@ import { SUPPLIERS } from "../shared/suppliers";
 import {
     closeDialog,
     isTextEditing,
+    openPath,
     openSettings,
     redo,
     runMenuCommand,
@@ -24,6 +25,7 @@ import { CsvImportDialog } from "./dialogs/CsvImportDialog";
 import { ExportDialog } from "./dialogs/ExportDialog";
 import { KicadImportDialog } from "./dialogs/KicadImportDialog";
 import { SettingsDialog } from "./settings/SettingsDialog";
+import { StartPage } from "./StartPage";
 import { documentName, isDirty, useDocument } from "./store/document";
 import { loadAppSettings, useAppSettings } from "./store/settings";
 import { useUi } from "./store/ui";
@@ -39,7 +41,12 @@ function count(n: number, noun: string): string {
     return `${n} ${noun}${n === 1 ? "" : "s"}`;
 }
 
+function hasFiles(event: DragEvent): boolean {
+    return event.dataTransfer.types.includes("Files");
+}
+
 export function App() {
+    const open = useDocument(state => state.open);
     const project = useDocument(state => state.project);
     const name = useDocument(state => documentName(state.filePath));
     const dirty = useDocument(isDirty);
@@ -50,6 +57,9 @@ export function App() {
     const dialog = useUi(state => state.dialog);
     const hiddenColumns = useUi(state => state.hiddenColumns);
     const [info, setInfo] = useState<AppInfo>();
+    // dragenter and dragleave also fire for every child element.
+    const [dragging, setDragging] = useState(false);
+    const dragDepth = useRef(0);
 
     const totals = useMemo(
         () => bomTotals(project, preference),
@@ -77,6 +87,7 @@ export function App() {
     }, []);
 
     useEffect(() => window.api.onMenuCommand(runMenuCommand), []);
+    useEffect(() => window.api.onOpenRecent(path => void openPath(path)), []);
 
     useEffect(() => {
         // Ctrl+Z / Ctrl+Y undo BOM edits; inside text fields the browser's
@@ -99,65 +110,116 @@ export function App() {
     }, []);
 
     useEffect(() => {
-        window.api.window.setColumnGroups({
-            available: availableKey
-                ? (availableKey.split(",") as ColumnGroup[])
-                : [],
-            hidden: hiddenColumns
+        window.api.window.setMenuState({
+            documentOpen: open,
+            availableColumns:
+                open && availableKey
+                    ? (availableKey.split(",") as ColumnGroup[])
+                    : [],
+            hiddenColumns
         });
-    }, [availableKey, hiddenColumns]);
+    }, [open, availableKey, hiddenColumns]);
 
     useEffect(() => {
-        document.title = `${dirty ? "*" : ""}${name} - EEZ BOM checker`;
-        window.api.window.setDocumentState({ name, dirty });
-    }, [name, dirty]);
+        document.title = open
+            ? `${dirty ? "*" : ""}${name} - EEZ BOM checker`
+            : "EEZ BOM checker";
+        window.api.window.setDocumentState({ name, dirty: open && dirty });
+    }, [open, name, dirty]);
+
+    const onDrop = (event: DragEvent) => {
+        if (!hasFiles(event)) {
+            return;
+        }
+        event.preventDefault();
+        dragDepth.current = 0;
+        setDragging(false);
+        const file = event.dataTransfer.files[0];
+        const path = file ? window.api.app.pathForFile(file) : "";
+        if (path && !useUi.getState().dialog) {
+            void openPath(path);
+        }
+    };
 
     return (
-        <div className="app">
+        <div
+            className="app"
+            onDragEnter={event => {
+                if (hasFiles(event)) {
+                    dragDepth.current++;
+                    setDragging(true);
+                }
+            }}
+            onDragLeave={event => {
+                if (hasFiles(event) && --dragDepth.current <= 0) {
+                    dragDepth.current = 0;
+                    setDragging(false);
+                }
+            }}
+            onDragOver={event => {
+                if (hasFiles(event)) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "copy";
+                }
+            }}
+            onDrop={onDrop}
+        >
             <Toolbar />
-            {Object.entries(foreign).map(([supplier, currencies]) => (
-                <div key={supplier} className="banner" role="alert">
-                    {SUPPLIERS[supplier as SupplierId].name} prices are in{" "}
-                    {currencies.join(", ")}. Totals and the best price are only
-                    calculated in {BASE_CURRENCY}, so these prices are left out.
-                    If {SUPPLIERS[supplier as SupplierId].name} can return{" "}
-                    {BASE_CURRENCY}, set it in{" "}
-                    <button
-                        type="button"
-                        className="link"
-                        onClick={openSettings}
-                    >
-                        Settings
-                    </button>{" "}
-                    and collect again.
-                </div>
-            ))}
-            <main className="app-table">
-                <BomTable
-                    project={project}
-                    preference={preference}
-                    hiddenColumns={hiddenColumns}
-                    editRowId={editRowId}
-                    onEditStarted={() => useUi.setState({ editRowId: null })}
-                    onCellEdit={(rowId, key, value) =>
-                        useDocument
-                            .getState()
-                            .edit(p => setCell(p, rowId, key, value))
-                    }
-                    onSelectionChange={ids =>
-                        useUi.setState({ selectedRowIds: ids })
-                    }
-                />
-            </main>
+            {!open && (
+                <main className="app-start">
+                    <StartPage dragging={dragging} />
+                </main>
+            )}
+            {open &&
+                Object.entries(foreign).map(([supplier, currencies]) => (
+                    <div key={supplier} className="banner" role="alert">
+                        {SUPPLIERS[supplier as SupplierId].name} prices are in{" "}
+                        {currencies.join(", ")}. Totals and the best price are
+                        only calculated in {BASE_CURRENCY}, so these prices are
+                        left out. If {SUPPLIERS[supplier as SupplierId].name}{" "}
+                        can return {BASE_CURRENCY}, set it in{" "}
+                        <button
+                            type="button"
+                            className="link"
+                            onClick={openSettings}
+                        >
+                            Settings
+                        </button>{" "}
+                        and collect again.
+                    </div>
+                ))}
+            {open && (
+                <main className="app-table">
+                    <BomTable
+                        project={project}
+                        preference={preference}
+                        hiddenColumns={hiddenColumns}
+                        editRowId={editRowId}
+                        onEditStarted={() =>
+                            useUi.setState({ editRowId: null })
+                        }
+                        onCellEdit={(rowId, key, value) =>
+                            useDocument
+                                .getState()
+                                .edit(p => setCell(p, rowId, key, value))
+                        }
+                        onSelectionChange={ids =>
+                            useUi.setState({ selectedRowIds: ids })
+                        }
+                    />
+                </main>
+            )}
             <footer className="status-bar">
                 <span>
-                    <span data-testid="bom-summary">
-                        {count(project.rows.length, "row")} ·{" "}
-                        {count(totalQuantity(project), "part")}
-                        {project.buildQuantity > 1 &&
-                            ` per unit × ${project.buildQuantity} = ${count(totalQuantity(project) * project.buildQuantity, "part")}`}
-                    </span>
-                    {hidden.length > 0 && (
+                    {open && (
+                        <span data-testid="bom-summary">
+                            {count(project.rows.length, "row")} ·{" "}
+                            {count(totalQuantity(project), "part")}
+                            {project.buildQuantity > 1 &&
+                                ` per unit × ${project.buildQuantity} = ${count(totalQuantity(project) * project.buildQuantity, "part")}`}
+                        </span>
+                    )}
+                    {open && hidden.length > 0 && (
                         <span data-testid="hidden-columns">
                             {" "}
                             · Hidden:{" "}
@@ -178,7 +240,7 @@ export function App() {
                         </span>
                     )}
                 </span>
-                {hasData && (
+                {open && hasData && (
                     <span data-testid="bom-total">
                         Best price total: {MONEY.format(totals.total)}{" "}
                         {BASE_CURRENCY}

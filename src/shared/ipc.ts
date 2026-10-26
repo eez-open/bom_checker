@@ -2,6 +2,7 @@
 // exposes `Api` as `window.api`, and main registers one handler per channel.
 
 import type { CsvTable } from "./csv-import";
+import type { DocumentKind } from "./document-kind";
 import type { ExportFormat, ExportSheet } from "./export";
 import {
     SUPPLIER_IDS,
@@ -29,16 +30,20 @@ export interface AppInfo {
 export type ColumnGroup = SupplierId | "best";
 export const COLUMN_GROUPS: readonly ColumnGroup[] = [...SUPPLIER_IDS, "best"];
 
-export interface ColumnGroupState {
-    /** Groups the table has now. */
-    available: ColumnGroup[];
-    hidden: ColumnGroup[];
+/** What the renderer tells main for enabling menu items. */
+export interface MenuState {
+    /** False on the start page. */
+    documentOpen: boolean;
+    /** Column groups the table has now. */
+    availableColumns: ColumnGroup[];
+    hiddenColumns: ColumnGroup[];
 }
 
 /** Commands sent from the application menu (and the close prompt). */
 export type MenuCommand =
     | "new"
     | "open"
+    | "close"
     | "save"
     | "save-as"
     | "import-csv"
@@ -66,6 +71,19 @@ export interface OpenedFile {
     fileName: string;
     bytes: Uint8Array;
 }
+
+export interface RecentDocument {
+    path: string;
+    /** File name with extension. */
+    name: string;
+    kind: DocumentKind;
+}
+
+/** A file opened by path: a BOM, or a file to import. */
+export type OpenedDocument =
+    | { kind: "project"; opened: OpenedProject }
+    | { kind: "csv"; file: OpenedFile }
+    | { kind: "kicad"; project: KicadProjectData };
 
 export interface SaveOptions {
     /** Current file, or null for a BOM that was never saved. */
@@ -167,6 +185,19 @@ export interface Api {
         /** Opens a supplier web page in the default browser. */
         openExternal(url: string): Promise<void>;
         copyText(text: string): Promise<void>;
+        /** The path of a file dropped on the window; "" if it has none. */
+        pathForFile(file: File): string;
+    };
+    files: {
+        /** Opens a BOM or reads a file to import, by its extension. Null
+         *  when it can't (main has shown why). */
+        openPath(path: string): Promise<OpenedDocument | null>;
+    };
+    recent: {
+        list(): Promise<RecentDocument[]>;
+        remove(path: string): Promise<void>;
+        /** Called with the new list after every change. */
+        onChange(listener: (documents: RecentDocument[]) => void): () => void;
     };
     settings: {
         get(): Promise<AppSettings>;
@@ -250,11 +281,13 @@ export interface Api {
         setDocumentState(state: DocumentState): void;
         /** Closes the window after a "save-and-close" command succeeded. */
         closeConfirmed(): void;
-        /** Updates the column items of the View menu. */
-        setColumnGroups(state: ColumnGroupState): void;
+        /** Enables and checks menu items to match the UI. */
+        setMenuState(state: MenuState): void;
     };
     /** Subscribes to menu commands; returns an unsubscribe function. */
     onMenuCommand(listener: (command: MenuCommand) => void): () => void;
+    /** File → Open Recent; returns an unsubscribe function. */
+    onOpenRecent(listener: (path: string) => void): () => void;
 }
 
 export const IpcChannel = {
@@ -289,6 +322,11 @@ export const IpcChannel = {
     DialogConfirm: "dialog:confirm",
     WindowSetDocumentState: "window:set-document-state",
     WindowCloseConfirmed: "window:close-confirmed",
-    WindowSetColumnGroups: "window:set-column-groups",
-    MenuCommand: "menu:command"
+    WindowSetMenuState: "window:set-menu-state",
+    FilesOpenPath: "files:open-path",
+    RecentList: "recent:list",
+    RecentRemove: "recent:remove",
+    RecentChanged: "recent:changed",
+    MenuCommand: "menu:command",
+    MenuOpenRecent: "menu:open-recent"
 } as const;

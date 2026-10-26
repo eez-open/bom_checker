@@ -57,6 +57,8 @@ The private key returns your own prices. **Country** (default HR), **Language** 
 
 ## Creating a BOM
 
+The app starts on a start page: **Open BOM…**, or drop a file on the window (a BOM `.eezbom`, a KiCad project `.kicad_pro` or a CSV file). Below are the **recent documents**: BOMs you opened or saved, and the files you imported from. Click one to open it again; the × that appears on hover removes it from the list. The same list is in **File → Open Recent**. **File → Close** (Ctrl+W) goes back to the start page.
+
 ### By hand
 
 **New**, then **Add row**: the Reference cell starts editing. Type, then press Tab to move to the next cell and Enter to finish. **Columns…** adds part-number columns for DigiKey, Mouser and TME, and your own text or number columns. Select rows with their checkboxes to delete them.
@@ -137,7 +139,7 @@ Column names follow the pattern `Supplier_Column`, e.g. `Mouser_Stock Qty`, `Mou
 
 ## Files and security
 
-- **Save** (Ctrl+S) stores the BOM with all collected data in an `.eezbom` file. The app asks before closing, or before opening another BOM, if there are unsaved changes.
+- **Save** (Ctrl+S) stores the BOM with all collected data in an `.eezbom` file. The app asks before closing, or before opening another BOM, if there are unsaved changes. Dropping a file on the window opens it too.
 - **Settings and credentials** are kept in the app's data folder: `%APPDATA%\EEZ BOM checker` on Windows, `~/.config/EEZ BOM checker` on Linux. Credentials are encrypted with your password (scrypt and AES-256-GCM); the password itself isn't stored.
 - **Supplier settings** always ask for the password, even while the credentials are unlocked for collecting. **Tools → Lock Credentials** locks them until you enter the password again.
 

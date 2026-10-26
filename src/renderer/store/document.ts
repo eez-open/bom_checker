@@ -6,6 +6,9 @@ import { createProject } from "../../shared/project-ops";
 const HISTORY_LIMIT = 100;
 
 interface DocumentStore {
+    /** False on the start page, before a BOM is created, opened or
+     *  imported, and after File → Close. */
+    open: boolean;
     project: Project;
     /** The project as last opened or saved; null if it never was. Unsaved
      *  changes exist when `project !== savedProject`. */
@@ -24,6 +27,8 @@ interface DocumentStore {
         options: { filePath: string | null; saved: boolean }
     ) => void;
     markSaved: (project: Project, filePath: string) => void;
+    /** Closes the BOM, back to the start page. */
+    close: () => void;
     /** Updates collected supplier data. Not an undo step: undo and redo
      *  keep the latest collected data. */
     applyCollected: (
@@ -39,14 +44,21 @@ function withCollected(snapshot: Project, current: Project): Project {
         : { ...snapshot, collected: current.collected };
 }
 
-export const useDocument = create<DocumentStore>()((set, get) => {
-    const initial = createProject();
+function closed() {
+    const empty = createProject();
     return {
-        project: initial,
-        savedProject: initial,
+        open: false,
+        project: empty,
+        savedProject: empty,
         filePath: null,
         past: [],
-        future: [],
+        future: []
+    };
+}
+
+export const useDocument = create<DocumentStore>()((set, get) => {
+    return {
+        ...closed(),
 
         edit: change => {
             const { project, past } = get();
@@ -89,6 +101,7 @@ export const useDocument = create<DocumentStore>()((set, get) => {
         },
         load: (project, { filePath, saved }) =>
             set({
+                open: true,
                 project,
                 savedProject: saved ? project : null,
                 filePath,
@@ -96,7 +109,8 @@ export const useDocument = create<DocumentStore>()((set, get) => {
                 future: []
             }),
         markSaved: (project, filePath) =>
-            set({ savedProject: project, filePath })
+            set({ savedProject: project, filePath }),
+        close: () => set(closed())
     };
 });
 

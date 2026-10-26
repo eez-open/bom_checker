@@ -628,3 +628,127 @@ svg.icon {
 input.build-quantity {
     width: 70px;
 }
+
+/* Start page */
+
+.app-start {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    background: var(--chrome-bg);
+}
+
+.start-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 32px 16px;
+}
+
+.start-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 32px 24px;
+    border: 2px dashed var(--app-border);
+    border-radius: 12px;
+    background: var(--app-bg);
+    text-align: center;
+}
+
+.start-card.dragging {
+    border-color: var(--app-accent);
+    background: #ddf4ff;
+}
+
+.start-card h1 {
+    margin: 0;
+    font-size: 20px;
+}
+
+.start-card p {
+    margin: 0;
+}
+
+.start-card button.primary {
+    padding: 6px 18px;
+}
+
+.recent-card {
+    border: 1px solid var(--app-border);
+    border-radius: 8px;
+    background: var(--app-bg);
+}
+
+.recent-card h2 {
+    margin: 0;
+    padding: 12px 14px 6px;
+    color: var(--app-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.recent-card ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.recent-card li {
+    display: flex;
+    align-items: center;
+    border-top: 1px solid var(--app-border);
+}
+
+.recent-card li:first-child {
+    border-top: none;
+}
+
+button.recent-open {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 0;
+    background: none;
+    text-align: left;
+}
+
+.recent-name {
+    font-weight: 600;
+}
+
+.recent-kind {
+    margin-left: 8px;
+    color: var(--app-muted);
+    font-size: 11px;
+    font-weight: normal;
+}
+
+.recent-path {
+    color: var(--app-muted);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+button.recent-remove {
+    margin-right: 8px;
+    border: none;
+    background: none;
+    color: var(--app-muted);
+    font-size: 16px;
+    /* Shown on hover; opacity keeps it reachable with the keyboard. */
+    opacity: 0;
+}
+
+.recent-card li:hover button.recent-remove,
+button.recent-remove:focus-visible {
+    opacity: 1;
+}

@@ -82,6 +82,40 @@ export async function openDocument(): Promise<void> {
     }
 }
 
+/** Back to the start page, after offering to save. */
+export async function closeDocument(): Promise<void> {
+    if (await confirmDiscardChanges()) {
+        useDocument.getState().close();
+    }
+}
+
+/** Opens a BOM, or starts importing a CSV file or KiCad project: from the
+ *  recent documents, or a file dropped on the window. */
+export async function openPath(path: string): Promise<void> {
+    if (!(await confirmDiscardChanges())) {
+        return;
+    }
+    const opened = await window.api.files.openPath(path);
+    switch (opened?.kind) {
+        case "project":
+            useDocument.getState().load(opened.opened.project, {
+                filePath: opened.opened.filePath,
+                saved: true
+            });
+            break;
+        case "csv":
+            useUi.setState({
+                dialog: { kind: "csv-import", file: opened.file }
+            });
+            break;
+        case "kicad":
+            useUi.setState({
+                dialog: { kind: "kicad-import", project: opened.project }
+            });
+            break;
+    }
+}
+
 export async function importCsv(): Promise<void> {
     if (!(await confirmDiscardChanges())) {
         return;
@@ -213,6 +247,7 @@ export function isTextEditing(): boolean {
 const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     new: newDocument,
     open: openDocument,
+    close: closeDocument,
     save: () => saveDocument(),
     "save-as": () => saveDocument(true),
     "import-csv": importCsv,
@@ -236,7 +271,21 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     "save-and-close": saveAndClose
 };
 
+/** Commands that work without an open BOM, e.g. on the start page. */
+const WITHOUT_DOCUMENT = new Set<MenuCommand>([
+    "new",
+    "open",
+    "import-csv",
+    "import-kicad",
+    "settings",
+    "lock"
+]);
+
 export function runMenuCommand(command: MenuCommand): void {
+    // The menu disables the others too; this also covers their shortcuts.
+    if (!useDocument.getState().open && !WITHOUT_DOCUMENT.has(command)) {
+        return;
+    }
     Promise.resolve(MENU_COMMANDS[command]()).catch((error: unknown) =>
         console.error(`Command "${command}" failed`, error)
     );
