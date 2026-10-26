@@ -95,10 +95,28 @@ describe("older project files", () => {
             ]
         });
         const project = parseProjectFile(version1);
-        expect(project.schemaVersion).toBe(2);
+        expect(project.schemaVersion).toBe(PROJECT_SCHEMA_VERSION);
         expect(project.collected).toEqual({ results: {}, runs: {} });
+        expect(project.buildQuantity).toBe(1);
         expect(project.rows[0]?.partNumbers.mouser).toBe(
             "81-GRT1885C2A102JA2D"
+        );
+    });
+
+    it("opens a version 2 file (before the build quantity)", () => {
+        const version2: Record<string, unknown> = {
+            ...sampleProject(),
+            schemaVersion: 2
+        };
+        delete version2.buildQuantity;
+        const project = parseProjectFile(JSON.stringify(version2));
+        expect(project.schemaVersion).toBe(PROJECT_SCHEMA_VERSION);
+        expect(project.buildQuantity).toBe(1);
+    });
+
+    it("rejects a build quantity below 1", () => {
+        expect(() => parseProjectFile(fileWith({ buildQuantity: 0 }))).toThrow(
+            /damaged/
         );
     });
 });

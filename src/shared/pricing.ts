@@ -75,11 +75,13 @@ export interface SupplierLine {
     availability: Availability | null;
 }
 
-/** Null when the row has no usable part number or nothing was collected. */
+/** Null when the row has no usable part number or nothing was collected.
+ *  The row's Qty is multiplied by `buildQuantity`. */
 export function supplierLine(
     row: BomRow,
     supplier: SupplierId,
-    collected: CollectedData
+    collected: CollectedData,
+    buildQuantity: number
 ): SupplierLine | null {
     const partNumber = row.partNumbers[supplier];
     if (!isPartNumberDefined(partNumber) || hasAlternatives(partNumber)) {
@@ -102,7 +104,11 @@ export function supplierLine(
         };
     }
     const { offer } = result;
-    const orderQty = orderQuantity(row.qty, offer.moq, offer.orderMultiple);
+    const orderQty = orderQuantity(
+        row.qty * buildQuantity,
+        offer.moq,
+        offer.orderMultiple
+    );
     const price = priceAt(offer.priceBreaks, orderQty);
     const inBaseCurrency = offer.currency === BASE_CURRENCY;
     return {
@@ -147,11 +153,12 @@ export function bestSupplier(
     row: BomRow,
     collected: CollectedData,
     suppliers: readonly SupplierId[],
-    preference: readonly SupplierId[]
+    preference: readonly SupplierId[],
+    buildQuantity: number
 ): BestChoice | null {
     const candidates: BestChoice[] = [];
     for (const supplier of suppliers) {
-        const line = supplierLine(row, supplier, collected);
+        const line = supplierLine(row, supplier, collected, buildQuantity);
         if (
             line?.offer &&
             line.orderQty &&
@@ -191,13 +198,16 @@ export function bomTotals(
             row,
             project.collected,
             project.suppliers,
-            preference
+            preference,
+            project.buildQuantity
         );
         if (best) {
             totals.total += best.line.total;
             totals.covered++;
         } else if (
-            project.suppliers.some(s => supplierLine(row, s, project.collected))
+            project.suppliers.some(s =>
+                supplierLine(row, s, project.collected, project.buildQuantity)
+            )
         ) {
             totals.uncovered++;
         }
@@ -219,7 +229,12 @@ export function supplierTotal(
 ): ColumnTotal {
     const sum: ColumnTotal = { total: 0, priced: 0 };
     for (const row of project.rows) {
-        const total = supplierLine(row, supplier, project.collected)?.total;
+        const total = supplierLine(
+            row,
+            supplier,
+            project.collected,
+            project.buildQuantity
+        )?.total;
         if (total != null) {
             sum.total += total;
             sum.priced++;
@@ -236,7 +251,12 @@ export function foreignCurrencies(
     const found: Partial<Record<SupplierId, Set<string>>> = {};
     for (const row of project.rows) {
         for (const supplier of project.suppliers) {
-            const line = supplierLine(row, supplier, project.collected);
+            const line = supplierLine(
+                row,
+                supplier,
+                project.collected,
+                project.buildQuantity
+            );
             if (line?.offer && !line.inBaseCurrency) {
                 (found[supplier] ??= new Set()).add(
                     line.offer.currency || "unknown"

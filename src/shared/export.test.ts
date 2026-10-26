@@ -219,6 +219,21 @@ describe("export", () => {
         expect(sheet.rows[1]!.at(-1)).toBeCloseTo(21); // MOQ 10 × 2.10
     });
 
+    it("adds Total Qty and uses it for orders when building several units", () => {
+        const project = { ...sampleProject(), buildQuantity: 3 };
+        const [headers, c1] = buildBomSheet(
+            project,
+            PREFERENCE,
+            preset(project, "All data")
+        ).rows;
+        const qty = headers!.indexOf("Qty");
+        expect(headers![qty + 1]).toBe("Total Qty");
+        expect(c1![qty + 1]).toBe(Number(c1![qty]) * 3);
+        expect(c1![headers!.indexOf("DigiKey_Order Qty")]).toBe(
+            Number(c1![qty]) * 3
+        );
+    });
+
     it("exports all of one supplier's rows, and the rows nobody can deliver", () => {
         const project = sampleProject();
         const mouser = buildBomSheet(

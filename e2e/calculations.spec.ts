@@ -126,6 +126,21 @@ test("calculates order quantities, prices and the best supplier", async () => {
         await page.keyboard.press("Control+Z");
         await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("50");
 
+        // Build quantity: every Qty × 30, undone with Ctrl+Z.
+        const buildQty = page.getByLabel("Build qty");
+        await buildQty.fill("30");
+        await buildQty.press("Enter");
+        await expect(cell(page, D1, "totalQty")).toHaveText("60");
+        await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("100");
+        await expect(cell(page, D1, "data:tme:totalPrice")).toHaveText("1.24");
+        await expect(page.getByTestId("bom-summary")).toHaveText(
+            "4 rows · 35 parts per unit × 30 = 1050 parts"
+        );
+        await page.keyboard.press("Control+Z");
+        await expect(buildQty).toHaveValue("1");
+        await expect(cell(page, D1, "totalQty")).toHaveCount(0);
+        await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("50");
+
         // View menu: hide all of TME's columns, then show them again.
         await clickMenuItem(app, "columns:tme");
         await expect(cell(page, D1, "pn:tme")).toHaveCount(0);

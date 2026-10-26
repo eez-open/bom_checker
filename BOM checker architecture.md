@@ -143,11 +143,12 @@ The project file is a versioned JSON document. 1,000 rows with three suppliers' 
 
 ```ts
 interface Project {
-  schemaVersion: 1;
+  schemaVersion: 3;                     // 2 added `collected`, 3 added `buildQuantity`
   source: { kind: 'manual' | 'csv' | 'kicad'; path?: string; variant?: string; importedAt?: string };
   suppliers: SupplierId[];              // suppliers that have a part-number column in this BOM
   customColumns: ColumnDef[];           // user-defined columns, plus unmapped imported ones (e.g. LCSC)
   rows: BomRow[];
+  buildQuantity: number;                // units to build; every Qty is multiplied by it (1 by default)
   collected: {                         // not part of the undo history
     results: Partial<Record<SupplierId, Record<string, LookupResult>>>;  // by part number (trimmed, upper case)
     runs: Partial<Record<SupplierId, CollectionRun>>;  // last run per supplier; used for "Continue"
@@ -211,7 +212,7 @@ interface SupplierOffer {
 
 For one row and one supplier:
 
-1. **Order Qty** = `ceil(max(Qty, MOQ) / multiple) × multiple`. DigiKey reports no order multiple, so its multiple is 1.
+1. **Order Qty** = `ceil(max(Qty × build quantity, MOQ) / multiple) × multiple`. DigiKey reports no order multiple, so its multiple is 1.
 2. **Unit price** = the price of the largest break whose quantity ≤ Order Qty.
    - The account price list is used when the supplier returned one that isn't empty. Otherwise the list price is used.
    - If Order Qty is below the first break, the first break's price is used and the cell is flagged.

@@ -97,6 +97,7 @@ input[aria-invalid="true"] {
 
 .toolbar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
@@ -611,4 +612,19 @@ svg.icon {
     color: var(--app-muted);
     font-size: 12px;
     font-weight: normal;
+}
+
+.toolbar-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--app-muted);
+}
+
+.toolbar-field input {
+    color: var(--app-fg);
+}
+
+input.build-quantity {
+    width: 70px;
 }

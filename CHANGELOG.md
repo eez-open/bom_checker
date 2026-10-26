@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Build quantity (Build qty on the toolbar): multiplies every row's Qty for order quantities, prices, availability, the best price and exports, e.g. 25 boards. A Total Qty column shows the result. Saved with the BOM (file format 3; older files open with 1).
 - When each supplier's data was last collected, in its column group header and in Collect…. Dates in tooltips and on the export's Info sheet use the same form, e.g. 2026-10-26 17:45.
 - Hide or show all columns of a supplier, or the Best price columns, from the View menu (Ctrl+1 to Ctrl+4). The status bar lists hidden groups, with Show all.
 - A Total row at the top of the table: the sum of each supplier's Total price column, of the Best price totals and of Qty.

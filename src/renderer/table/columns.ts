@@ -76,8 +76,14 @@ function lineOf(
     params: { data?: BomRow; context: unknown },
     supplier: SupplierId
 ): SupplierLine | null {
+    const table = context(params);
     return params.data
-        ? supplierLine(params.data, supplier, context(params).getCollected())
+        ? supplierLine(
+              params.data,
+              supplier,
+              table.getCollected(),
+              table.getBuildQuantity()
+          )
         : null;
 }
 
@@ -183,8 +189,12 @@ function dataColumns(supplier: SupplierId): ColDef<BomRow>[] {
         column("orderQty", "Order Qty", line => line?.orderQty, {
             ...numeric,
             columnGroupShow: "open",
-            tooltipValueGetter: () =>
-                "Qty raised to the MOQ and rounded up to the order multiple."
+            tooltipValueGetter: params => {
+                const build = context(params).getBuildQuantity();
+                return build > 1
+                    ? `Qty × ${build} (build quantity), raised to the MOQ and rounded up to the order multiple.`
+                    : "Qty raised to the MOQ and rounded up to the order multiple.";
+            }
         }),
         column("unitPrice", "Unit price", line => line?.unitPrice, {
             type: "rightAligned",
@@ -281,7 +291,8 @@ function bestColumns(project: Project): ColGroupDef<BomRow> {
                   params.data,
                   context(params).getCollected(),
                   project.suppliers,
-                  context(params).getPreference()
+                  context(params).getPreference(),
+                  context(params).getBuildQuantity()
               )
             : null;
     const column = (
@@ -312,7 +323,8 @@ function bestColumns(project: Project): ColGroupDef<BomRow> {
                             supplierLine(
                                 params.data!,
                                 s,
-                                context(params).getCollected()
+                                context(params).getCollected(),
+                                context(params).getBuildQuantity()
                             )
                         );
                     return hasData ? "None in stock" : "";
@@ -422,6 +434,19 @@ export function buildColumns(
             // Row and Reference stay in view while scrolling to supplier data.
             pinned: column.field === "reference" ? "left" : undefined
         });
+        if (column.field === "qty" && project.buildQuantity > 1) {
+            columnDefs.push({
+                colId: "totalQty",
+                headerName: "Total Qty",
+                headerTooltip: `Qty × ${project.buildQuantity} (build quantity)`,
+                type: "rightAligned",
+                initialWidth: 100,
+                editable: false,
+                valueGetter: params =>
+                    (params.data?.qty ?? 0) * project.buildQuantity,
+                valueFormatter: params => formatQuantity(params.value)
+            });
+        }
     }
 
     for (const supplier of project.suppliers) {

@@ -142,10 +142,17 @@ function columns(
     selection: ExportSelection
 ): Column[] {
     const { collected } = project;
+    const { buildQuantity } = project;
     const line = (row: BomRow, supplier: SupplierId) =>
-        supplierLine(row, supplier, collected);
+        supplierLine(row, supplier, collected, buildQuantity);
     const best = (row: BomRow) =>
-        bestSupplier(row, collected, project.suppliers, preference);
+        bestSupplier(
+            row,
+            collected,
+            project.suppliers,
+            preference,
+            buildQuantity
+        );
     const unitPrice = (l: SupplierLine | null): ExportCell => {
         if (!l?.offer || l.unitPrice === null) {
             return null;
@@ -172,6 +179,16 @@ function columns(
             format: QUANTITY_FORMAT,
             value: row => row.qty
         },
+        ...(buildQuantity > 1
+            ? [
+                  {
+                      header: "Total Qty",
+                      width: 9,
+                      format: QUANTITY_FORMAT,
+                      value: (row: BomRow) => row.qty * buildQuantity
+                  }
+              ]
+            : []),
         { header: "Footprint", width: 30, value: row => row.footprint }
     ];
 
@@ -298,7 +315,8 @@ function matches(
                     row,
                     project.collected,
                     project.suppliers,
-                    preference
+                    preference,
+                    project.buildQuantity
                 )?.supplier === filter.supplier
             );
         case "not-available":
@@ -310,7 +328,8 @@ function matches(
                     row,
                     project.collected,
                     project.suppliers,
-                    preference
+                    preference,
+                    project.buildQuantity
                 )
             );
     }
@@ -385,10 +404,11 @@ export function buildInfoSheet(
         ["Filter", presetName ?? "Custom"],
         ["Rows", describeRowFilter(selection.rows)],
         ["Exported rows", bom.rows.length - 1],
+        ["Build quantity", project.buildQuantity],
         [],
         [
             "Prices",
-            `In ${BASE_CURRENCY}. Order Qty is Qty raised to the MOQ and rounded up to the order multiple; the unit price is the price break for that quantity.`
+            `In ${BASE_CURRENCY}. Order Qty is Qty × build quantity, raised to the MOQ and rounded up to the order multiple; the unit price is the price break for that quantity.`
         ],
         [
             "Best price",

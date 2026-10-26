@@ -36,7 +36,9 @@ export interface ProjectSource {
     importedAt?: string;
 }
 
-export const PROJECT_SCHEMA_VERSION = 2;
+export const PROJECT_SCHEMA_VERSION = 3;
+
+export const MAX_BUILD_QUANTITY = 1_000_000;
 
 export interface Project {
     schemaVersion: typeof PROJECT_SCHEMA_VERSION;
@@ -45,6 +47,9 @@ export interface Project {
     suppliers: SupplierId[];
     customColumns: CustomColumn[];
     rows: BomRow[];
+    /** How many units (e.g. boards) to build: every row's Qty is multiplied
+     *  by it for order quantities, prices and availability. */
+    buildQuantity: number;
     /** Data collected from suppliers. Not part of the undo history: undo
      *  and redo keep the latest collected data. */
     collected: CollectedData;

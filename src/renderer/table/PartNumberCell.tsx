@@ -16,6 +16,8 @@ export interface TableContext {
     getCollected: () => CollectedData;
     /** Preferred supplier order, for best price ties. */
     getPreference: () => readonly SupplierId[];
+    /** Every row's Qty is multiplied by it. */
+    getBuildQuantity: () => number;
     /** Sums for the pinned Total row. */
     getTotals: () => TableTotals;
 }

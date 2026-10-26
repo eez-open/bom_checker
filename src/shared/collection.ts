@@ -149,7 +149,10 @@ export function summarizeRun(
         const value = row.partNumbers[supplier];
         if (isPartNumberDefined(value)) {
             const key = partNumberKey(value!);
-            needed.set(key, (needed.get(key) ?? 0) + row.qty);
+            needed.set(
+                key,
+                (needed.get(key) ?? 0) + row.qty * project.buildQuantity
+            );
         }
     }
     const summary: RunSummary = {

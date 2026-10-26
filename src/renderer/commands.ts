@@ -102,6 +102,7 @@ export function loadImported(project: Project): void {
     load(
         {
             ...project,
+            buildQuantity: current.buildQuantity,
             collected: {
                 ...project.collected,
                 results: current.collected.results

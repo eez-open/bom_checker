@@ -3,7 +3,12 @@
 // from the previous version to MIGRATIONS, with a test using an old file.
 
 import { z } from "zod";
-import { PROJECT_SCHEMA_VERSION, SUPPLIER_IDS, type Project } from "./model";
+import {
+    MAX_BUILD_QUANTITY,
+    PROJECT_SCHEMA_VERSION,
+    SUPPLIER_IDS,
+    type Project
+} from "./model";
 
 export const PROJECT_FILE_EXTENSION = "eezbom";
 
@@ -112,6 +117,7 @@ const projectSchema: z.ZodType<Project> = z
             })
         ),
         rows: z.array(rowSchema),
+        buildQuantity: z.number().int().min(1).max(MAX_BUILD_QUANTITY),
         collected: collectedSchema
     })
     .superRefine((project, context) => {
@@ -134,7 +140,9 @@ type Migration = (data: Record<string, unknown>) => Record<string, unknown>;
 /** MIGRATIONS[n] converts a version-n file into version n + 1. */
 const MIGRATIONS: Partial<Record<number, Migration>> = {
     // Version 2 added collected supplier data.
-    1: data => ({ ...data, collected: { results: {}, runs: {} } })
+    1: data => ({ ...data, collected: { results: {}, runs: {} } }),
+    // Version 3 added the build quantity.
+    2: data => ({ ...data, buildQuantity: 1 })
 };
 
 export function parseProjectFile(text: string): Project {

@@ -90,6 +90,7 @@ export function BomTable({
     // refreshing the cells.
     const collected = useRef(project.collected);
     const preferenceRef = useRef(preference);
+    const buildQuantity = useRef(project.buildQuantity);
     const totals = useMemo<TableTotals>(
         () => ({
             rows: project.rows.length,
@@ -105,6 +106,7 @@ export function BomTable({
         () => ({
             getCollected: () => collected.current,
             getPreference: () => preferenceRef.current,
+            getBuildQuantity: () => buildQuantity.current,
             getTotals: () => totalsRef.current
         }),
         []
@@ -113,8 +115,9 @@ export function BomTable({
     useEffect(() => {
         collected.current = project.collected;
         preferenceRef.current = preference;
+        buildQuantity.current = project.buildQuantity;
         apiRef.current?.refreshCells({ force: true });
-    }, [project.collected, preference]);
+    }, [project.collected, preference, project.buildQuantity]);
 
     useEffect(() => {
         totalsRef.current = totals;
@@ -140,14 +143,15 @@ export function BomTable({
                 new Set(hidden.split(",") as ColumnGroup[])
             ),
         // Columns change only when suppliers, custom columns, the
-        // suppliers with data, their collection times or the hidden
-        // groups do.
+        // suppliers with data, their collection times, the build quantity
+        // (Total Qty) or the hidden groups do.
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [
             project.suppliers,
             project.customColumns,
             withData,
             collectedAt,
+            project.buildQuantity,
             hidden
         ]
     );

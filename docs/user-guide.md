@@ -8,10 +8,11 @@ EEZ BOM checker takes a bill of materials (BOM) and checks every part at DigiKey
 2. [Setting up supplier access](#setting-up-supplier-access)
 3. [Creating a BOM](#creating-a-bom)
 4. [Collecting supplier data](#collecting-supplier-data)
-5. [Reading the table](#reading-the-table)
-6. [Exporting](#exporting)
-7. [Files and security](#files-and-security)
-8. [Troubleshooting](#troubleshooting)
+5. [Building several units](#building-several-units)
+6. [Reading the table](#reading-the-table)
+7. [Exporting](#exporting)
+8. [Files and security](#files-and-security)
+9. [Troubleshooting](#troubleshooting)
 
 ## Installing
 
@@ -90,6 +91,10 @@ Click **Collect…**. The first time in a session, enter your password. Then, fo
 
 The summary shows how long it took, how many part numbers were found, not found or matched several items, and how many have enough stock for the order quantity.
 
+## Building several units
+
+To check prices and stock for a production batch, enter the number of units in **Build qty** on the toolbar and press Enter. Every row's Qty is multiplied by it: a part used 10 times per board needs 250 for 25 boards. Order quantities, price breaks, availability and the best price follow at once, without collecting again, since the collected data has every price break. A *Total Qty* column shows the multiplied quantity, and the status bar shows the parts per unit and in total. The build quantity is saved with the BOM, Ctrl+Z undoes a change, and exports include it.
+
 ## Reading the table
 
 Each supplier has a group of columns. Click the arrow in the group header to show only the part number, *Total price* and *Availability*. The group header also shows when that supplier's data was last collected. The date is saved with the BOM, and also appears in **Collect…** and on the Info sheet of exports.
@@ -100,7 +105,7 @@ To hide all columns of a supplier, or the Best price columns, uncheck them in th
 |---|---|
 | Badge in the part-number cell | ✓ found, ✗ not found, ? several items match (click to choose one), ! couldn't check. Hover over the cell for the details the supplier returned. |
 | Manufacturer, Stock Qty, MOQ | As reported by the supplier. |
-| Order Qty | What you need to buy: Qty, raised to the MOQ and rounded up to the order multiple. Example: Qty 3 with MOQ 10 → 10. |
+| Order Qty | What you need to buy: Qty (× build quantity), raised to the MOQ and rounded up to the order multiple. Example: Qty 3 with MOQ 10 → 10. |
 | Unit price | The price break that applies to the Order Qty; highlighted if the quantity is below the first break. Hover to see whether it's your account's price. |
 | Total price | Unit price × Order Qty, in EUR. |
 | Availability | In stock, Partial (with the quantity in stock), Out of stock, or Not orderable. |

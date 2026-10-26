@@ -154,6 +154,8 @@ export function App() {
                     <span data-testid="bom-summary">
                         {count(project.rows.length, "row")} ·{" "}
                         {count(totalQuantity(project), "part")}
+                        {project.buildQuantity > 1 &&
+                            ` per unit × ${project.buildQuantity} = ${count(totalQuantity(project) * project.buildQuantity, "part")}`}
                     </span>
                     {hidden.length > 0 && (
                         <span data-testid="hidden-columns">

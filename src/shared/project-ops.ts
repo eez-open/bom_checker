@@ -4,6 +4,7 @@
 
 import {
     BASE_COLUMNS,
+    MAX_BUILD_QUANTITY,
     PROJECT_SCHEMA_VERSION,
     partNumberKey,
     type BomRow,
@@ -23,6 +24,7 @@ export function createProject(): Project {
         suppliers: [],
         customColumns: [],
         rows: [],
+        buildQuantity: 1,
         collected: { results: {}, runs: {} }
     };
 }
@@ -348,6 +350,19 @@ function assertValidName(project: Project, name: string, exceptId?: string) {
 /** Number of designators in a "C1,C2, C3" style reference list. */
 export function countReferences(reference: string): number {
     return reference.split(/[\s,]+/).filter(Boolean).length;
+}
+
+export function setBuildQuantity(project: Project, quantity: number): Project {
+    if (
+        !Number.isInteger(quantity) ||
+        quantity < 1 ||
+        quantity > MAX_BUILD_QUANTITY
+    ) {
+        throw new Error(`Invalid build quantity: ${quantity}`);
+    }
+    return quantity === project.buildQuantity
+        ? project
+        : { ...project, buildQuantity: quantity };
 }
 
 /** Suppliers of the BOM that have collected data. */
