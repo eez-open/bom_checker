@@ -1,4 +1,4 @@
-Create an application in Electron and make executable for Linux Ubuntu / Linux Mint that will take data from the KiCad "Symbol Fields Table" (BOM) which contains part numbers from different suppliers: DigiKey, Mouser and TME. With the part number of an individual supplier, using their API for which we have API keys, we connect to their website and retrieve data about the component.
+Create an desktop application in Electron and make executable for Windows and Linux (Ubuntu / Mint) that will take data from the KiCad "Symbol Fields Table" (BOM) which contains part numbers from different suppliers: DigiKey, Mouser and TME. With the part number of an individual supplier, using their API for which we have API keys, we connect to their website and retrieve data about the component.
 
 Below are the application details.
 
@@ -6,7 +6,7 @@ Application name: **EEZ BOM checker**
 
 The basis of the application is a table view of electronic and related components from different suppliers that offer API access to their online store.  
 Such a table typically contains around a hundred rows; very rarely more than 300. So, when selecting the storage type, one can assume a maximum of 1,000 rows per table.  
-Components can be entered into the table: manually or by importing a .csv file.  
+Components can be entered into the table: manually or by importing a .csv file.
 
 Optionally, if it will not increase the complexity too much, the application could load the table directly from the KiCad project (with `.kicad_pro` extension) all components (i.e. "symbols") that are not marked as `DNP` or `Exclude from BOM`.  
 If this option is to be added, only KiCad version 10 and above need to be supported, noting that this version offers more project variants; therefore, if more are detected - as is the case, for example, in the project: https://github.com/eez-open/dib-dcp405plus/blob/main/KiCad/EEZ%20DIB%20DCP405plus.kicad_pro - you should be asked to choose which variant you want to load (in this example: *Default* or *Basic*).  
@@ -25,6 +25,7 @@ The mandatory fields/columns of the newly created table are as follows:
 
 Column names added during data collection from a selected supplier should include a prefix consisting of the supplier's name: for example, for Mouser, this would be `Mouser_`.
 
+
 The procedure for processing table data is as follows:  
 
 1. When loading a .csv file, the user needs to specify which fields represent the supplier's ordering/part number for which APIs exist. When populating the table, trim spaces from both sides of the imported values. 
@@ -32,7 +33,7 @@ The procedure for processing table data is as follows:
 One of the important parameters is the allowed number of queries per minute and per day. Accordingly, the number of queries should be regulated so that the web service does not reject further processing.  
 **Important**: Since API parameters are sensitive data, they must be stored in an encrypted format. Furthermore, access to the settings section where these parameters are edited or defined must be protected by a user password, which must also be stored in an encrypted format. Consequently, the settings section should include an option to edit this user password.  
 If the APIs of the mentioned suppliers are too different, perhaps they should be implemented as plugins, where each plug-in will contain the configuration GUI and business logic necessary for communication and data collection.  
-1. Data checking is started by the user clicking on the "Collect" button for one of the identified suppliers from the BOM table. Display a progress bar while the data is being collected and for which component the data is currently being collected. Data is collected only for components that have a defined part number of the selected supplier. It is considered that the supplier's part number is not defined if the field is empty or contains `-`.  
+1. Data checking is started by the user clicking on the "Collect" button for one or more (or all) of the identified suppliers from the BOM table. Display a progress bar while the data is being collected and for which component the data is currently being collected. Data is collected only for components that have a defined part number of the selected supplier. It is considered that the supplier's part number is not defined if the field is empty or contains `-`.  
 Once data collection is complete, display a summary:
     * how long the collection process took,
     * how many components were requested versus how many were found, and
