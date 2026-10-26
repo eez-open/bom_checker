@@ -2,12 +2,16 @@ import {
     app,
     BrowserWindow,
     Menu,
+    shell,
     type MenuItemConstructorOptions
 } from "electron";
 import type { MenuCommand } from "../shared/ipc";
 import { showAbout } from "./about";
 import { log } from "./logging";
 import { sendMenuCommand } from "./window";
+
+const USER_GUIDE_URL =
+    "https://github.com/eez-open/bom_checker/blob/main/docs/user-guide.md";
 
 function command(
     label: string,
@@ -108,6 +112,17 @@ export function createMenu(): Menu {
         {
             label: "&Help",
             submenu: [
+                {
+                    label: "&User Guide",
+                    click: () => {
+                        shell
+                            .openExternal(USER_GUIDE_URL)
+                            .catch((error: unknown) =>
+                                log.error("Can't open the user guide:", error)
+                            );
+                    }
+                },
+                { type: "separator" },
                 {
                     label: `&About ${app.getName()}`,
                     click: () => {

@@ -34,5 +34,7 @@ linux:
   category: Development
   synopsis: Check KiCad BOMs against DigiKey, Mouser and TME
   maintainer: Envox <eez@envox.hr>
+  # Lets desktops match the running window to the menu entry.
+  syncDesktopName: true
 
 publish: null

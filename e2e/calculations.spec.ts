@@ -5,6 +5,7 @@ import {
     answerOpenDialog,
     cell,
     closeApp,
+    editor,
     launchApp,
     setUpCredentials
 } from "./helpers";
@@ -96,6 +97,7 @@ test("calculates order quantities, prices and the best supplier", async () => {
 
         // Changing Qty recalculates at once; undo brings it back.
         await cell(page, D1, "qty").dblclick();
+        await expect(editor(page, "qty")).toBeFocused();
         await page.keyboard.press("Control+A");
         await page.keyboard.type("60");
         await page.keyboard.press("Enter");

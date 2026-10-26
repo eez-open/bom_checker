@@ -7,6 +7,7 @@ import {
     answerOpenDialog,
     answerSaveDialog,
     cell,
+    editor,
     closeApp,
     launchApp
 } from "./helpers";
@@ -19,20 +20,23 @@ test("builds a BOM from scratch, saves, undoes and reopens it", async () => {
         // Add a row; its Reference cell starts editing right away, and Tab
         // moves on to the next cell.
         await page.getByRole("button", { name: "Add row" }).click();
-        await expect(
-            page.locator(".ag-cell-inline-editing input")
-        ).toBeFocused();
+        await expect(editor(page, "reference")).toBeFocused();
         await page.keyboard.type("C1, C2 ");
         await page.keyboard.press("Tab");
+        await expect(editor(page, "value")).toBeFocused();
         await page.keyboard.type("100n");
         await page.keyboard.press("Tab");
+        await expect(editor(page, "qty")).toBeFocused();
         await page.keyboard.press("Control+A");
         await page.keyboard.type("2");
         await page.keyboard.press("Tab");
+        await expect(editor(page, "footprint")).toBeFocused();
         await page.keyboard.type("0603");
         await page.keyboard.press("Enter");
 
         await expect(cell(page, 0, "reference")).toHaveText("C1, C2");
+        await expect(cell(page, 0, "value")).toHaveText("100n");
+        await expect(cell(page, 0, "footprint")).toHaveText("0603");
         await expect(page.getByTestId("bom-summary")).toHaveText(
             "1 row · 2 parts"
         );
@@ -52,10 +56,12 @@ test("builds a BOM from scratch, saves, undoes and reopens it", async () => {
         ).toBeVisible();
 
         await cell(page, 0, "pn:mouser").dblclick();
+        await expect(editor(page, "pn:mouser")).toBeFocused();
         await page.keyboard.type("80-C0603C104M4R or 81-X");
         await page.keyboard.press("Enter");
         await expect(cell(page, 0, "pn:mouser")).toHaveClass(/cell-invalid/);
         await cell(page, 0, "pn:mouser").dblclick();
+        await expect(editor(page, "pn:mouser")).toBeFocused();
         await page.keyboard.press("Control+A");
         await page.keyboard.type("80-C0603C104M4R");
         await page.keyboard.press("Enter");
@@ -118,9 +124,7 @@ test("asks before closing with unsaved changes", async () => {
     const closed = app.waitForEvent("close");
     try {
         await page.getByRole("button", { name: "Add row" }).click();
-        await expect(
-            page.locator(".ag-cell-inline-editing input")
-        ).toBeFocused();
+        await expect(editor(page, "reference")).toBeFocused();
         await page.keyboard.type("R1");
         await page.keyboard.press("Enter");
         await expect(page).toHaveTitle("*Untitled - EEZ BOM checker");

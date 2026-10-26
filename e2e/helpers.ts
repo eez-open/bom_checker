@@ -88,6 +88,12 @@ export async function answerMessageBox(
     }, response);
 }
 
+/** The text input of the cell being edited in column `columnId`; typing
+ *  must wait until it has focus. */
+export function editor(page: Page, columnId: string) {
+    return page.locator(`.ag-cell-inline-editing[col-id="${columnId}"] input`);
+}
+
 export function cell(page: Page, rowIndex: number, columnId: string) {
     return page.locator(
         `.ag-row[row-index="${rowIndex}"] .ag-cell[col-id="${columnId}"]`
