@@ -51,6 +51,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     return (
         <Modal
             title="Settings"
+            name="settings"
             size="large"
             onClose={onClose}
             footer={

@@ -22,6 +22,7 @@ export function ColumnsDialog({ onClose }: { onClose: () => void }) {
     return (
         <Modal
             title="Columns"
+            name="columns"
             onClose={onClose}
             footer={
                 <button type="button" onClick={onClose}>

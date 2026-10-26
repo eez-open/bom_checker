@@ -145,6 +145,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         <Modal
             title="Export"
             size="large"
+            name="export"
             onClose={onClose}
             footer={
                 <>

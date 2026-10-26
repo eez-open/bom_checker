@@ -7,6 +7,12 @@ All notable changes to this project are documented in this file. The format is b
 ### Changed
 
 - Clearer help for TME credentials, in Settings and in the user guide: where the Token (private key) and App secret are found on developers.tme.eu.
+- The main window opens with the size, position and maximized state it had last time (on a screen that is still connected).
+- Dialogs grow with the window and their content, and can be resized from the bottom-right corner; each dialog remembers its size.
+
+### Fixed
+
+- The Rows list in Export cut off its longest choice.
 
 ## [0.1.0] - 2026-10-26
 

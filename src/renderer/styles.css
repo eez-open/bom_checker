@@ -143,9 +143,16 @@ input[aria-invalid="true"] {
 
 /* Dialogs */
 
+/* Dialogs fit their content up to the window size, and can be resized
+   from the bottom-right corner (see Modal.tsx). */
 .modal {
     width: min(720px, calc(100vw - 48px));
-    max-height: calc(100vh - 48px);
+    min-width: min(400px, calc(100vw - 24px));
+    min-height: 200px;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+    overflow: hidden;
+    resize: both;
     padding: 0;
     border: 1px solid var(--app-border);
     border-radius: 8px;
@@ -257,8 +264,9 @@ input[aria-invalid="true"] {
 }
 
 .modal-large {
-    width: min(860px, calc(100vw - 48px));
-    height: min(640px, calc(100vh - 48px));
+    width: min(900px, calc(100vw - 48px));
+    /* Less jumping when the content changes, e.g. Settings tabs. */
+    min-height: min(560px, calc(100vh - 24px));
 }
 
 /* Shared form pieces */

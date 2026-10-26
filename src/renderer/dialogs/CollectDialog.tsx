@@ -168,6 +168,7 @@ export function CollectDialog({ onClose }: { onClose: () => void }) {
     return (
         <Modal
             title="Collect supplier data"
+            name="collect"
             size="large"
             onClose={close}
             footer={
