@@ -576,6 +576,10 @@ These points couldn't be settled from documentation and should be the first thin
 
 ## 15. Status
 
+### Version 0.3.0
+
+LCSC as a fourth supplier (#9), built from LCSC's API guide, and an optional lookup of the Value as a manufacturer part number for rows without one (#10, section 8). Unit tests: 172; end-to-end tests: 12.
+
 ### Version 0.2.0
 
 Built from GitHub issues #1–#8: a Total row, Show and Copy for saved credentials, resizable dialogs and a remembered window position, hiding a supplier's columns from the View menu, collection dates per supplier, a build quantity (file format 3), and a start page with recent documents, file drop and File → Close. Unit tests: 159; end-to-end tests: 11.

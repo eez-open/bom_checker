@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-26
+
 ### Added
 
 - Look up the Value where a part number is missing (option in Collect…): for rows with an empty part-number cell, the Value is searched as a manufacturer part number. One match fills in the supplier's part number; several leave the Value to choose the item from. Generic values such as 100n or 10k are skipped.
