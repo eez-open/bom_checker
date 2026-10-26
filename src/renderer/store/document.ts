@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Project } from "../../shared/model";
+import type { CollectedData, Project } from "../../shared/model";
 import { PROJECT_FILE_EXTENSION } from "../../shared/project-file";
 import { createProject } from "../../shared/project-ops";
 
@@ -24,6 +24,19 @@ interface DocumentStore {
         options: { filePath: string | null; saved: boolean }
     ) => void;
     markSaved: (project: Project, filePath: string) => void;
+    /** Updates collected supplier data. Not an undo step: undo and redo
+     *  keep the latest collected data. */
+    applyCollected: (
+        change: (collected: CollectedData) => CollectedData
+    ) => void;
+}
+
+/** `snapshot` with the current collected data. Keeps the same object when
+ *  it already has it, so returning to the saved version isn't "unsaved". */
+function withCollected(snapshot: Project, current: Project): Project {
+    return snapshot.collected === current.collected
+        ? snapshot
+        : { ...snapshot, collected: current.collected };
 }
 
 export const useDocument = create<DocumentStore>()((set, get) => {
@@ -51,7 +64,7 @@ export const useDocument = create<DocumentStore>()((set, get) => {
             const previous = past.at(-1);
             if (previous) {
                 set({
-                    project: previous,
+                    project: withCollected(previous, project),
                     past: past.slice(0, -1),
                     future: [project, ...future]
                 });
@@ -61,8 +74,18 @@ export const useDocument = create<DocumentStore>()((set, get) => {
             const { project, past, future } = get();
             const [next, ...rest] = future;
             if (next) {
-                set({ project: next, past: [...past, project], future: rest });
+                set({
+                    project: withCollected(next, project),
+                    past: [...past, project],
+                    future: rest
+                });
             }
+        },
+        applyCollected: change => {
+            const { project } = get();
+            set({
+                project: { ...project, collected: change(project.collected) }
+            });
         },
         load: (project, { filePath, saved }) =>
             set({

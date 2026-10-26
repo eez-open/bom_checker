@@ -92,6 +92,8 @@ export function createMenu(): Menu {
         {
             label: "&Tools",
             submenu: [
+                command("C&ollect Supplier Data…", "collect"),
+                { type: "separator" },
                 command("&Settings…", "settings", {
                     accelerator: "CmdOrCtrl+,"
                 }),

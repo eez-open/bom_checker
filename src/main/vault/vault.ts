@@ -85,7 +85,8 @@ function openSession(): string {
     return token;
 }
 
-function checkSession(token: string): void {
+/** Throws SettingsLockedError unless `token` is an open settings session. */
+export function checkSession(token: string): void {
     const expiry = sessions.get(token);
     if (!expiry || expiry < Date.now() || !dataKey) {
         sessions.delete(token);

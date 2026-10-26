@@ -36,7 +36,7 @@ export interface ProjectSource {
     importedAt?: string;
 }
 
-export const PROJECT_SCHEMA_VERSION = 1;
+export const PROJECT_SCHEMA_VERSION = 2;
 
 export interface Project {
     schemaVersion: typeof PROJECT_SCHEMA_VERSION;
@@ -45,6 +45,93 @@ export interface Project {
     suppliers: SupplierId[];
     customColumns: CustomColumn[];
     rows: BomRow[];
+    /** Data collected from suppliers. Not part of the undo history: undo
+     *  and redo keep the latest collected data. */
+    collected: CollectedData;
+}
+
+// --- Collected supplier data --------------------------------------------------
+
+export type Lifecycle =
+    | "active"
+    | "new"
+    | "nrnd"
+    | "eol"
+    | "special-order"
+    | "obsolete"
+    | "not-orderable";
+
+export interface PriceBreak {
+    qty: number;
+    /** In `SupplierOffer.currency`. */
+    unitPrice: number;
+}
+
+/** One orderable item (a specific packaging) as reported by a supplier. */
+export interface SupplierOffer {
+    supplierPartNumber: string;
+    manufacturer: string;
+    manufacturerPartNumber: string;
+    description: string;
+    packaging?: string;
+    stockQty: number;
+    moq: number;
+    /** 1 when the supplier doesn't report one. */
+    orderMultiple: number;
+    /** Ascending by quantity. */
+    priceBreaks: PriceBreak[];
+    /** "account": the user's own prices; "list": public prices;
+     *  "unknown": the supplier doesn't say. */
+    priceKind: "account" | "list" | "unknown";
+    /** ISO 4217 code, as reported by the supplier. */
+    currency: string;
+    lifecycle: Lifecycle | null;
+    /** The supplier's own status text, shown in tooltips. */
+    lifecycleRaw: string | null;
+    rohs: string | null;
+    productUrl?: string;
+    datasheetUrl?: string;
+    /** Caveats worth showing, e.g. "Prices include VAT". */
+    notes?: string[];
+}
+
+export type LookupOutcome =
+    | {
+          status: "found";
+          offer: SupplierOffer;
+          /** "mpn": the cell held a manufacturer part number. */
+          matchedBy: "supplierPartNumber" | "mpn";
+      }
+    | { status: "notFound" }
+    | { status: "ambiguous"; candidates: SupplierOffer[] }
+    | { status: "error"; message: string };
+
+export type LookupResult = LookupOutcome & {
+    runId: string;
+    fetchedAt: string;
+};
+
+export interface CollectionRun {
+    id: string;
+    startedAt: string;
+    endedAt?: string;
+    state: "running" | "complete" | "interrupted";
+    /** Why an interrupted run stopped, e.g. "Daily request limit reached". */
+    reason?: string;
+}
+
+export interface CollectedData {
+    /** By supplier, then by `partNumberKey()` of the part number. */
+    results: Partial<Record<SupplierId, Record<string, LookupResult>>>;
+    /** The latest run per supplier; "Continue" resumes it. */
+    runs: Partial<Record<SupplierId, CollectionRun>>;
+}
+
+/** Results are stored per part number, not per row: a part number used in
+ *  several rows is looked up once, and editing a cell picks up whatever was
+ *  collected for its new value. */
+export function partNumberKey(partNumber: string): string {
+    return partNumber.trim().toUpperCase();
 }
 
 /** The editable mandatory columns; "Row" is computed. */

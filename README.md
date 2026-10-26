@@ -54,6 +54,8 @@ Dependencies used only by the UI (React, AG Grid) are `devDependencies`, because
 
 Settings (`settings.json`), the encrypted supplier credentials (`vault.json`) and logs are stored in the app's data folder: `%APPDATA%\EEZ BOM checker` on Windows, `~/.config/EEZ BOM checker` on Linux. Set `EEZ_BOM_CHECKER_USER_DATA` to another folder to start with an empty profile; the end-to-end tests do this, so they never touch your own settings.
 
+`EEZ_BOM_CHECKER_API_URLS` points the supplier integrations at other addresses, e.g. `{"mouser":"http://127.0.0.1:4567/mouser"}`. The end-to-end tests use it with the fake supplier server in `e2e/fake-suppliers.ts`, so they need neither network access nor real API keys.
+
 The credential vault design is described in [BOM checker architecture.md](BOM%20checker%20architecture.md), section 7.2.
 
 ### Troubleshooting

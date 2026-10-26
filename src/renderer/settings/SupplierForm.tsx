@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import type { SecretChanges } from "../../shared/ipc";
+import type { ConnectionTest, SecretChanges } from "../../shared/ipc";
 import type { SupplierId } from "../../shared/model";
 import type { AppSettings } from "../../shared/settings";
 import {
@@ -101,6 +101,20 @@ export function SupplierForm({
         }
     };
 
+    const [test, setTest] = useState<ConnectionTest | "running" | null>(null);
+    const testConnection = async () => {
+        setTest("running");
+        try {
+            setTest(await window.api.collect.testConnection(token, supplier));
+        } catch (error) {
+            if (isSettingsLocked(error)) {
+                onLocked();
+            } else {
+                setTest({ ok: false, lines: [errorMessage(error)] });
+            }
+        }
+    };
+
     const setInput = (key: string, value: string) => {
         setInputs(current => ({ ...current, [key]: value }));
         setMessage(null);
@@ -187,6 +201,14 @@ export function SupplierForm({
             )}
             <div className="form-actions">
                 <button
+                    type="button"
+                    title={changed ? "Save the changes first" : undefined}
+                    disabled={changed || test === "running"}
+                    onClick={() => void testConnection()}
+                >
+                    {test === "running" ? "Testing…" : "Test connection"}
+                </button>
+                <button
                     type="submit"
                     className="primary"
                     disabled={!changed || Object.keys(errors).length > 0}
@@ -194,6 +216,18 @@ export function SupplierForm({
                     Save {SUPPLIERS[supplier].name} settings
                 </button>
             </div>
+            {test && test !== "running" && (
+                <div
+                    className={
+                        test.ok ? "test-result" : "test-result field-error"
+                    }
+                    role="status"
+                >
+                    {test.lines.map((line, index) => (
+                        <div key={index}>{line}</div>
+                    ))}
+                </div>
+            )}
         </form>
     );
 }

@@ -1,7 +1,7 @@
 // The contract between the renderer and the main process. The preload script
 // exposes `Api` as `window.api`, and main registers one handler per channel.
 
-import type { Project, SupplierId } from "./model";
+import type { CollectionRun, LookupResult, Project, SupplierId } from "./model";
 import type { AppSettings, GeneralSettings } from "./settings";
 import type { SupplierConfig } from "./supplier-config";
 
@@ -31,6 +31,7 @@ export type MenuCommand =
     | "edit-columns"
     | "settings"
     | "lock"
+    | "collect"
     | "save-and-close";
 
 export interface OpenedProject {
@@ -75,6 +76,44 @@ export type SecretStatus = Record<SupplierId, Record<string, boolean>>;
 /** New secret values by field key; null removes one. Others don't change. */
 export type SecretChanges = Record<string, string | null>;
 
+/** Whether a supplier can be collected now, and what it would cost. */
+export interface SupplierReadiness {
+    /** Why collecting isn't possible, or null. */
+    problem: string | null;
+    batchSize: number;
+    requestsPerBatch: number;
+    /** Requests left today; null without a daily limit. */
+    remainingToday: number | null;
+}
+
+export interface CollectJob {
+    supplier: SupplierId;
+    runId: string;
+    partNumbers: string[];
+}
+
+export type CollectEvent =
+    | {
+          type: "progress";
+          supplier: SupplierId;
+          done: number;
+          total: number;
+          current: string | null;
+      }
+    | {
+          type: "results";
+          supplier: SupplierId;
+          /** By `partNumberKey()`. */
+          results: Record<string, LookupResult>;
+      }
+    | { type: "supplier-done"; supplier: SupplierId; run: CollectionRun }
+    | { type: "done" };
+
+export interface ConnectionTest {
+    ok: boolean;
+    lines: string[];
+}
+
 export interface Api {
     app: {
         getInfo(): Promise<AppInfo>;
@@ -111,6 +150,22 @@ export interface Api {
          *  the password. True if it did. */
         reset(): Promise<boolean>;
         lock(): Promise<void>;
+        /** Unlocks the credentials for this session; false if the password
+         *  is wrong. */
+        unlock(password: string): Promise<boolean>;
+    };
+    collect: {
+        prepare(): Promise<Record<SupplierId, SupplierReadiness>>;
+        /** Starts collecting; progress and results arrive as events. */
+        start(jobs: CollectJob[]): Promise<void>;
+        cancel(): void;
+        onEvent(listener: (event: CollectEvent) => void): () => void;
+        /** Looks up the supplier's test part number with the saved
+         *  settings. `token` is a supplier settings session. */
+        testConnection(
+            token: string,
+            supplier: SupplierId
+        ): Promise<ConnectionTest>;
     };
     project: {
         /** Null when cancelled, or when the file can't be opened (main
@@ -150,6 +205,12 @@ export const IpcChannel = {
     VaultChangePassword: "vault:change-password",
     VaultReset: "vault:reset",
     VaultLock: "vault:lock",
+    VaultUnlock: "vault:unlock",
+    CollectPrepare: "collect:prepare",
+    CollectStart: "collect:start",
+    CollectCancel: "collect:cancel",
+    CollectEvent: "collect:event",
+    CollectTestConnection: "collect:test-connection",
     ProjectOpen: "project:open",
     ProjectSave: "project:save",
     CsvOpen: "csv:open",

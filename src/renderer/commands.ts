@@ -102,6 +102,10 @@ export function editColumns(): void {
     useUi.setState({ dialog: { kind: "columns" } });
 }
 
+export function openCollect(): void {
+    useUi.setState({ dialog: { kind: "collect" } });
+}
+
 export function openSettings(): void {
     useUi.setState({ dialog: { kind: "settings" } });
 }
@@ -157,6 +161,7 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     "delete-rows": deleteSelectedRows,
     "edit-columns": editColumns,
     settings: openSettings,
+    collect: openCollect,
     lock: lockCredentials,
     "save-and-close": saveAndClose
 };

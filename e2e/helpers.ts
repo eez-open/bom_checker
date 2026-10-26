@@ -22,7 +22,9 @@ function electronEnv(): Record<string, string> {
  *  E2E_APP_PATH is set; CI does the latter after electron-builder has run.
  *  Each launch gets an empty profile folder (settings, credentials, logs)
  *  unless `userData` names one. */
-export async function launchApp(options: { userData?: string } = {}): Promise<{
+export async function launchApp(
+    options: { userData?: string; env?: Record<string, string> } = {}
+): Promise<{
     app: ElectronApplication;
     page: Page;
     userData: string;
@@ -33,7 +35,11 @@ export async function launchApp(options: { userData?: string } = {}): Promise<{
     const executablePath = process.env.E2E_APP_PATH;
     const app = await electron.launch({
         ...(executablePath ? { executablePath } : { args: ["."] }),
-        env: { ...electronEnv(), EEZ_BOM_CHECKER_USER_DATA: userData }
+        env: {
+            ...electronEnv(),
+            ...options.env,
+            EEZ_BOM_CHECKER_USER_DATA: userData
+        }
     });
     const page = await app.firstWindow();
     return { app, page, userData };

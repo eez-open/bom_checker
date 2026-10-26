@@ -2,7 +2,12 @@
 // renderer gets no direct access to Node.js or ipcRenderer.
 
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
-import { IpcChannel, type Api, type MenuCommand } from "../shared/ipc";
+import {
+    IpcChannel,
+    type Api,
+    type CollectEvent,
+    type MenuCommand
+} from "../shared/ipc";
 
 function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
     return ipcRenderer.invoke(channel, ...args) as Promise<T>;
@@ -42,7 +47,22 @@ const api: Api = {
                 newPassword
             ),
         reset: () => invoke(IpcChannel.VaultReset),
-        lock: () => invoke(IpcChannel.VaultLock)
+        lock: () => invoke(IpcChannel.VaultLock),
+        unlock: password => invoke(IpcChannel.VaultUnlock, password)
+    },
+    collect: {
+        prepare: () => invoke(IpcChannel.CollectPrepare),
+        start: jobs => invoke(IpcChannel.CollectStart, jobs),
+        cancel: () => ipcRenderer.send(IpcChannel.CollectCancel),
+        onEvent: listener => {
+            const handler = (_event: IpcRendererEvent, event: CollectEvent) =>
+                listener(event);
+            ipcRenderer.on(IpcChannel.CollectEvent, handler);
+            return () =>
+                ipcRenderer.removeListener(IpcChannel.CollectEvent, handler);
+        },
+        testConnection: (token, supplier) =>
+            invoke(IpcChannel.CollectTestConnection, token, supplier)
     },
     project: {
         open: () => invoke(IpcChannel.ProjectOpen),

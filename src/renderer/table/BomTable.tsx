@@ -8,9 +8,10 @@ import {
     type SelectionChangedEvent
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { BomRow, ColumnKey, Project } from "../../shared/model";
 import { buildColumns } from "./columns";
+import type { TableContext } from "./PartNumberCell";
 
 // AG Grid is used only inside this folder (see "BOM checker architecture.md").
 
@@ -57,6 +58,19 @@ export function BomTable({
     onEditStarted
 }: BomTableProps) {
     const apiRef = useRef<GridApi<BomRow> | null>(null);
+    // Cells read collected data through the grid context, which stays the
+    // same object; changes are shown by refreshing the cells.
+    const collected = useRef(project.collected);
+    const context = useMemo<TableContext>(
+        () => ({ getCollected: () => collected.current }),
+        []
+    );
+
+    useEffect(() => {
+        collected.current = project.collected;
+        apiRef.current?.refreshCells({ force: true });
+    }, [project.collected]);
+
     const { columnDefs, keys } = useMemo(
         () => buildColumns(project),
         // Columns change only when suppliers or custom columns do.
@@ -88,6 +102,7 @@ export function BomTable({
             singleClickEdit={false}
             stopEditingWhenCellsLoseFocus
             tooltipShowDelay={300}
+            context={context}
             noRowsOverlayComponent={EmptyTable}
             onGridReady={(event: GridReadyEvent<BomRow>) =>
                 (apiRef.current = event.api)

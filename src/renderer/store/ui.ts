@@ -5,6 +5,7 @@ export type OpenDialog =
     | { kind: "columns" }
     | { kind: "csv-import"; file: OpenedFile }
     | { kind: "settings" }
+    | { kind: "collect" }
     | null;
 
 /** UI state that isn't part of the BOM (not saved, not undoable). */

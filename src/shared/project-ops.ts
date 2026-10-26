@@ -21,7 +21,8 @@ export function createProject(): Project {
         source: { kind: "manual" },
         suppliers: [],
         customColumns: [],
-        rows: []
+        rows: [],
+        collected: { results: {}, runs: {} }
     };
 }
 

@@ -9,6 +9,7 @@ import {
     undo
 } from "./commands";
 import { ColumnsDialog } from "./dialogs/ColumnsDialog";
+import { CollectDialog } from "./dialogs/CollectDialog";
 import { CsvImportDialog } from "./dialogs/CsvImportDialog";
 import { SettingsDialog } from "./settings/SettingsDialog";
 import { documentName, isDirty, useDocument } from "./store/document";
@@ -96,6 +97,9 @@ export function App() {
             )}
             {dialog?.kind === "csv-import" && (
                 <CsvImportDialog file={dialog.file} onClose={closeDialog} />
+            )}
+            {dialog?.kind === "collect" && (
+                <CollectDialog onClose={closeDialog} />
             )}
             {dialog?.kind === "settings" && (
                 <SettingsDialog onClose={closeDialog} />

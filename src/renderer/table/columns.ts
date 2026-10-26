@@ -7,6 +7,8 @@ import {
 } from "../../shared/model";
 import { hasAlternatives } from "../../shared/part-number";
 import { SUPPLIERS } from "../../shared/suppliers";
+import { PartNumberCell, resultFor } from "./PartNumberCell";
+import { describeResult } from "./result-text";
 
 export interface TableColumns {
     columnDefs: ColDef<BomRow>[];
@@ -65,12 +67,25 @@ export function buildColumns(project: Project): TableColumns {
             cellDataType: "text",
             width: 190,
             valueGetter: params => params.data?.partNumbers[supplier] ?? "",
+            cellRenderer: PartNumberCell,
+            cellRendererParams: { supplier },
             cellClassRules: {
                 "cell-invalid": params => hasAlternatives(params.value),
                 "cell-none": params => params.value === "-"
             },
-            tooltipValueGetter: params =>
-                hasAlternatives(params.value) ? ALTERNATIVES_TOOLTIP : undefined
+            tooltipValueGetter: params => {
+                if (hasAlternatives(params.value)) {
+                    return ALTERNATIVES_TOOLTIP;
+                }
+                const result = resultFor(
+                    params.context,
+                    supplier,
+                    params.value
+                );
+                return result
+                    ? describeResult(SUPPLIERS[supplier].name, result)
+                    : undefined;
+            }
         };
         columnDefs.push(partNumberColumn);
     }

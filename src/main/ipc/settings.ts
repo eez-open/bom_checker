@@ -14,14 +14,18 @@ import {
     lock,
     openSettings,
     resetVault,
-    saveSecrets
+    saveSecrets,
+    unlock
 } from "../vault/vault";
 import { handle, on } from "./handle";
 
 const supplierId = z.enum(SUPPLIER_IDS);
 const token = z.string().min(1);
 const password = z.string();
-const generalSchema = z.object({ supplierOrder: z.array(supplierId) });
+const generalSchema = z.object({
+    supplierOrder: z.array(supplierId),
+    logApiResponses: z.boolean()
+});
 const configSchema = z.record(z.string(), z.union([z.string(), z.number()]));
 const secretChangesSchema = z.record(z.string(), z.string().nullable());
 
@@ -29,10 +33,13 @@ export function registerSettingsHandlers(): void {
     handle(IpcChannel.SettingsGet, () => getSettings());
 
     handle(IpcChannel.SettingsSaveGeneral, (_context, general) => {
-        const { supplierOrder } = generalSchema.parse(general);
+        const { supplierOrder, logApiResponses } = generalSchema.parse(general);
         return updateSettings(settings => ({
             ...settings,
-            general: { supplierOrder: normalizeOrder(supplierOrder) }
+            general: {
+                supplierOrder: normalizeOrder(supplierOrder),
+                logApiResponses
+            }
         }));
     });
 
@@ -97,4 +104,7 @@ export function registerSettingsHandlers(): void {
         return confirmed;
     });
     handle(IpcChannel.VaultLock, () => lock());
+    handle(IpcChannel.VaultUnlock, (_context, enteredPassword) =>
+        unlock(password.parse(enteredPassword))
+    );
 }

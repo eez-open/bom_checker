@@ -148,7 +148,10 @@ interface Project {
   suppliers: SupplierId[];              // suppliers that have a part-number column in this BOM
   customColumns: ColumnDef[];           // user-defined columns, plus unmapped imported ones (e.g. LCSC)
   rows: BomRow[];
-  runs: Partial<Record<SupplierId, CollectionRun>>;  // last run per supplier; used for "Continue"
+  collected: {                         // not part of the undo history
+    results: Partial<Record<SupplierId, Record<string, LookupResult>>>;  // by part number (trimmed, upper case)
+    runs: Partial<Record<SupplierId, CollectionRun>>;  // last run per supplier; used for "Continue"
+  };
 }
 
 interface BomRow {
@@ -159,7 +162,6 @@ interface BomRow {
   footprint: string;
   custom: Record<string, string>;
   partNumbers: Partial<Record<SupplierId, string>>;  // trimmed; "" or "-" means not defined
-  results: Partial<Record<SupplierId, LookupResult>>;
 }
 
 type LookupResult =
@@ -189,6 +191,7 @@ interface SupplierOffer {
 ```
 
 - **`Row` isn't stored.** It's the display index (1…n), renumbered when rows are sorted or deleted. On CSV import the `#` column maps to it and is otherwise ignored.
+- **Results are stored per supplier part number**, not per row. A part number used in several rows is looked up once, editing a cell shows whatever was collected for its new value, and undoing an edit never loses collected data.
 - **Supplier offers are stored exactly as returned**, in the original currency, plus the normalised fields above.
 - **DigiKey's API terms forbid building a parts database** from API data. Results live only inside the BOM they were collected for, and the app keeps no shared cache.
 
@@ -532,7 +535,7 @@ The `kicad-cli sch export bom --variant` alternative was rejected. It requires K
 
 ## 13. To verify with live credentials
 
-These points couldn't be settled from documentation and should be the first thing tested once the plugins can make calls:
+These points couldn't be settled from documentation and should be the first thing tested once the plugins can make calls. **Test connection** in Settings → Suppliers answers most of them: it shows the currency and whether the prices are the account's own. For the rest, turn on **Write supplier API responses to the log file** (Settings → General) and look at the responses in the log file.
 
 1. **DigiKey:** does client credentials + Account ID return `MyPricing`? If not, build the browser sign-in (7.1).
 2. **DigiKey:** with site `SI` and currency EUR, does `MyPricing` come back, and do the prices match what the user actually pays? If the user's own prices come only in USD, add the exchange-rate fallback (5.5).

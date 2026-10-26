@@ -96,17 +96,19 @@ function GeneralPanel({
     const order = settings.general.supplierOrder;
     const [error, setError] = useState<string | null>(null);
 
-    const move = async (index: number, offset: number) => {
-        const next = [...order];
-        const [item] = next.splice(index, 1);
-        next.splice(index + offset, 0, item!);
+    const save = async (general: AppSettings["general"]) => {
         try {
-            onChange(
-                await window.api.settings.saveGeneral({ supplierOrder: next })
-            );
+            onChange(await window.api.settings.saveGeneral(general));
         } catch (caught) {
             setError(errorMessage(caught));
         }
+    };
+
+    const move = (index: number, offset: number) => {
+        const next = [...order];
+        const [item] = next.splice(index, 1);
+        next.splice(index + offset, 0, item!);
+        return save({ ...settings.general, supplierOrder: next });
     };
 
     return (
@@ -139,6 +141,25 @@ function GeneralPanel({
                     </li>
                 ))}
             </ol>
+            <h3 className="section-gap">Troubleshooting</h3>
+            <label className="checkbox">
+                <input
+                    type="checkbox"
+                    checked={settings.general.logApiResponses}
+                    onChange={event =>
+                        void save({
+                            ...settings.general,
+                            logApiResponses: event.target.checked
+                        })
+                    }
+                />
+                Write supplier API responses to the log file
+            </label>
+            <p className="muted">
+                Helps to find out why a supplier's data looks wrong. Responses
+                can include your account's prices; API keys are left out. Help →
+                About shows where the log file is.
+            </p>
             {error && <p className="field-error">{error}</p>}
         </section>
     );

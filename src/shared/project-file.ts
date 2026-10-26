@@ -23,6 +23,77 @@ const rowSchema = z.object({
     custom: z.record(z.string(), z.union([z.string(), z.number()]))
 });
 
+const offerSchema = z.object({
+    supplierPartNumber: z.string(),
+    manufacturer: z.string(),
+    manufacturerPartNumber: z.string(),
+    description: z.string(),
+    packaging: z.string().optional(),
+    stockQty: z.number().nonnegative(),
+    moq: z.number().int().positive(),
+    orderMultiple: z.number().int().positive(),
+    priceBreaks: z.array(
+        z.object({ qty: z.number().positive(), unitPrice: z.number() })
+    ),
+    priceKind: z.enum(["account", "list", "unknown"]),
+    currency: z.string(),
+    lifecycle: z
+        .enum([
+            "active",
+            "new",
+            "nrnd",
+            "eol",
+            "special-order",
+            "obsolete",
+            "not-orderable"
+        ])
+        .nullable(),
+    lifecycleRaw: z.string().nullable(),
+    rohs: z.string().nullable(),
+    productUrl: z.string().optional(),
+    datasheetUrl: z.string().optional(),
+    notes: z.array(z.string()).optional()
+});
+
+const resultBase = { runId: z.string(), fetchedAt: z.string() };
+
+const lookupResultSchema = z.discriminatedUnion("status", [
+    z.object({
+        ...resultBase,
+        status: z.literal("found"),
+        offer: offerSchema,
+        matchedBy: z.enum(["supplierPartNumber", "mpn"])
+    }),
+    z.object({ ...resultBase, status: z.literal("notFound") }),
+    z.object({
+        ...resultBase,
+        status: z.literal("ambiguous"),
+        candidates: z.array(offerSchema)
+    }),
+    z.object({
+        ...resultBase,
+        status: z.literal("error"),
+        message: z.string()
+    })
+]);
+
+const collectedSchema = z.object({
+    results: z.partialRecord(
+        supplierId,
+        z.record(z.string(), lookupResultSchema)
+    ),
+    runs: z.partialRecord(
+        supplierId,
+        z.object({
+            id: z.string(),
+            startedAt: z.string(),
+            endedAt: z.string().optional(),
+            state: z.enum(["running", "complete", "interrupted"]),
+            reason: z.string().optional()
+        })
+    )
+});
+
 const projectSchema: z.ZodType<Project> = z
     .object({
         schemaVersion: z.literal(PROJECT_SCHEMA_VERSION),
@@ -40,7 +111,8 @@ const projectSchema: z.ZodType<Project> = z
                 type: z.enum(["text", "number"])
             })
         ),
-        rows: z.array(rowSchema)
+        rows: z.array(rowSchema),
+        collected: collectedSchema
     })
     .superRefine((project, context) => {
         for (const [path, ids] of [
@@ -60,7 +132,10 @@ const projectSchema: z.ZodType<Project> = z
 type Migration = (data: Record<string, unknown>) => Record<string, unknown>;
 
 /** MIGRATIONS[n] converts a version-n file into version n + 1. */
-const MIGRATIONS: Partial<Record<number, Migration>> = {};
+const MIGRATIONS: Partial<Record<number, Migration>> = {
+    // Version 2 added collected supplier data.
+    1: data => ({ ...data, collected: { results: {}, runs: {} } })
+};
 
 export function parseProjectFile(text: string): Project {
     let data: unknown;

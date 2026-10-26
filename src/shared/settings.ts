@@ -10,6 +10,8 @@ import {
 export interface GeneralSettings {
     /** Preferred supplier first; decides between equal best prices. */
     supplierOrder: SupplierId[];
+    /** Write supplier API responses to the log file, for troubleshooting. */
+    logApiResponses: boolean;
 }
 
 export interface AppSettings {
@@ -30,7 +32,10 @@ export function normalizeSettings(raw: unknown): AppSettings {
     const general = isRecord(file.general) ? file.general : {};
     const suppliers = isRecord(file.suppliers) ? file.suppliers : {};
     return {
-        general: { supplierOrder: normalizeOrder(general.supplierOrder) },
+        general: {
+            supplierOrder: normalizeOrder(general.supplierOrder),
+            logApiResponses: general.logApiResponses === true
+        },
         suppliers: Object.fromEntries(
             SUPPLIER_IDS.map(id => [
                 id,
