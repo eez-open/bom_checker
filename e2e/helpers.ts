@@ -94,6 +94,25 @@ export function editor(page: Page, columnId: string) {
     return page.locator(`.ag-cell-inline-editing[col-id="${columnId}"] input`);
 }
 
+/**
+ * Enters `text` in the open cell editor of `columnId`. Right after an
+ * editor opens it may still select or reset its content (on a slow machine
+ * this swallowed typed characters), so this retries until the editor holds
+ * the text.
+ */
+export async function fillEditor(
+    page: Page,
+    columnId: string,
+    text: string
+): Promise<void> {
+    const input = editor(page, columnId);
+    await expect(input).toBeFocused();
+    await expect(async () => {
+        await input.fill(text);
+        await expect(input).toHaveValue(text, { timeout: 1000 });
+    }).toPass();
+}
+
 export function cell(page: Page, rowIndex: number, columnId: string) {
     return page.locator(
         `.ag-row[row-index="${rowIndex}"] .ag-cell[col-id="${columnId}"]`
