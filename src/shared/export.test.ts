@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { formatDateTime } from "./collection";
 import {
     buildBomSheet,
     buildInfoSheet,
@@ -259,8 +260,9 @@ describe("export", () => {
             BOM: "Board",
             Filter: "All data",
             "Exported rows": 3,
-            "Mouser data": `Collected ${AT}`,
-            "DigiKey data": "Not collected",
+            Exported: formatDateTime(AT),
+            "Mouser data": `Collected ${formatDateTime(AT)}`,
+            "DigiKey data": `Collected ${formatDateTime(AT)}`,
             "Best price total (EUR)": 45
         });
     });

@@ -605,3 +605,10 @@ svg.icon {
     background-color: var(--chrome-bg);
     font-weight: 600;
 }
+
+.group-header-date {
+    margin-left: 8px;
+    color: var(--app-muted);
+    font-size: 12px;
+    font-weight: normal;
+}

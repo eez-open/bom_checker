@@ -4,6 +4,7 @@ import type {
     ColGroupDef,
     ValueGetterParams
 } from "ag-grid-community";
+import { lastCollectedAt } from "../../shared/collection";
 import type { ColumnGroup } from "../../shared/ipc";
 import { availabilityText, statusText } from "../../shared/line-text";
 import {
@@ -27,6 +28,7 @@ import { PartNumberCell, resultFor, type TableContext } from "./PartNumberCell";
 /** Id of the pinned row with the column totals. */
 export const TOTALS_ROW_ID = "totals";
 import { describeResult } from "./result-text";
+import { SupplierGroupHeader } from "./SupplierGroupHeader";
 
 export interface TableColumns {
     columnDefs: (ColDef<BomRow> | ColGroupDef<BomRow>)[];
@@ -435,6 +437,15 @@ export function buildColumns(
                 {
                     groupId: `group:${supplier}`,
                     headerName: SUPPLIERS[supplier].name,
+                    headerGroupComponentParams: {
+                        innerHeaderGroupComponent: SupplierGroupHeader,
+                        innerHeaderGroupComponentParams: {
+                            collectedAt: lastCollectedAt(
+                                project.collected,
+                                supplier
+                            )
+                        }
+                    },
                     openByDefault: true,
                     children
                 },

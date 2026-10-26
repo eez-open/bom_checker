@@ -3,6 +3,7 @@
 // turns the sheets into an .xlsx, .ods or .csv file.
 
 import { z } from "zod";
+import { formatDateTime, lastCollectedAt } from "./collection";
 import { availabilityText, statusText } from "./line-text";
 import {
     SUPPLIER_IDS,
@@ -380,7 +381,7 @@ export function buildInfoSheet(
         rows.push(["KiCad variant", project.source.variant]);
     }
     rows.push(
-        ["Exported", exportedAt],
+        ["Exported", formatDateTime(exportedAt)],
         ["Filter", presetName ?? "Custom"],
         ["Rows", describeRowFilter(selection.rows)],
         ["Exported rows", bom.rows.length - 1],
@@ -401,11 +402,12 @@ export function buildInfoSheet(
     );
     for (const supplier of project.suppliers) {
         const run = project.collected.runs[supplier];
+        const collectedAt = lastCollectedAt(project.collected, supplier);
         const name = SUPPLIERS[supplier].name;
         rows.push([
             `${name} data`,
-            run
-                ? `Collected ${run.endedAt ?? run.startedAt}${run.state === "complete" ? "" : ` (${run.state}${run.reason ? `: ${run.reason}` : ""})`}`
+            collectedAt
+                ? `Collected ${formatDateTime(collectedAt)}${!run || run.state === "complete" ? "" : ` (${run.state}${run.reason ? `: ${run.reason}` : ""})`}`
                 : "Not collected"
         ]);
         if (selection.suppliers.includes(supplier)) {

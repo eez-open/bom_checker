@@ -1,3 +1,4 @@
+import { formatDateTime } from "../../shared/collection";
 import { LIFECYCLE_LABELS } from "../../shared/lifecycle";
 import type { LookupResult, SupplierOffer } from "../../shared/model";
 
@@ -46,7 +47,7 @@ export function describeResult(
     supplierName: string,
     result: LookupResult
 ): string {
-    const checked = `Checked ${new Date(result.fetchedAt).toLocaleString()}`;
+    const checked = `Checked ${formatDateTime(result.fetchedAt)}`;
     switch (result.status) {
         case "found":
             return [

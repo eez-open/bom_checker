@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- When each supplier's data was last collected, in its column group header and in Collect…. Dates in tooltips and on the export's Info sheet use the same form, e.g. 2026-10-26 17:45.
 - Hide or show all columns of a supplier, or the Best price columns, from the View menu (Ctrl+1 to Ctrl+4). The status bar lists hidden groups, with Show all.
 - A Total row at the top of the table: the sum of each supplier's Total price column, of the Best price totals and of Qty.
 - Show and copy buttons next to each API credential in Settings → Suppliers. The section is protected by the password, so saved values can be shown there.

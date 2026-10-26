@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { partNumbersToCollect, summarizeRun, supplierWork } from "./collection";
+import {
+    formatDateTime,
+    lastCollectedAt,
+    partNumbersToCollect,
+    summarizeRun,
+    supplierWork
+} from "./collection";
 import { digikeyLifecycle, mouserLifecycle, tmeLifecycle } from "./lifecycle";
 import type { LookupResult, Project, SupplierOffer } from "./model";
 import { addRow, createProject, createRow } from "./project-ops";
@@ -165,5 +171,54 @@ describe("lifecycle", () => {
             "eol"
         );
         expect(tmeLifecycle(["DANGEROUS", "OVERSIZED"])).toBe("active");
+    });
+});
+
+describe("collection time", () => {
+    it("is the end of the latest run or the newest result", () => {
+        const result = (fetchedAt: string): LookupResult => ({
+            status: "notFound",
+            runId: "r1",
+            fetchedAt
+        });
+        expect(
+            lastCollectedAt(
+                {
+                    results: {
+                        mouser: {
+                            A: result("2026-10-20T08:00:00.000Z"),
+                            B: result("2026-10-26T09:00:00.000Z")
+                        }
+                    },
+                    runs: {
+                        mouser: {
+                            id: "r1",
+                            startedAt: "2026-10-26T08:59:00.000Z",
+                            endedAt: "2026-10-26T09:01:00.000Z",
+                            state: "complete"
+                        }
+                    }
+                },
+                "mouser"
+            )
+        ).toBe("2026-10-26T09:01:00.000Z");
+        expect(
+            lastCollectedAt(
+                {
+                    results: { tme: { A: result("2026-10-20T08:00:00.000Z") } },
+                    runs: {}
+                },
+                "tme"
+            )
+        ).toBe("2026-10-20T08:00:00.000Z");
+        expect(
+            lastCollectedAt({ results: {}, runs: {} }, "digikey")
+        ).toBeNull();
+    });
+
+    it("is shown as local date and time", () => {
+        const local = new Date(2026, 9, 6, 7, 5, 30);
+        expect(formatDateTime(local.toISOString())).toBe("2026-10-06 07:05");
+        expect(formatDateTime("garbage")).toBe("garbage");
     });
 });

@@ -10,6 +10,7 @@ import {
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { lastCollectedAt } from "../../shared/collection";
 import type { ColumnGroup } from "../../shared/ipc";
 import type {
     BomRow,
@@ -127,6 +128,9 @@ export function BomTable({
     // Suppliers with collected data get the calculated columns.
     const withData = suppliersWithData(project).join(",");
     const hidden = hiddenColumns.join(",");
+    const collectedAt = project.suppliers
+        .map(s => lastCollectedAt(project.collected, s))
+        .join(",");
 
     const { columnDefs, keys } = useMemo(
         () =>
@@ -136,9 +140,16 @@ export function BomTable({
                 new Set(hidden.split(",") as ColumnGroup[])
             ),
         // Columns change only when suppliers, custom columns, the
-        // suppliers with data or the hidden groups do.
+        // suppliers with data, their collection times or the hidden
+        // groups do.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [project.suppliers, project.customColumns, withData, hidden]
+        [
+            project.suppliers,
+            project.customColumns,
+            withData,
+            collectedAt,
+            hidden
+        ]
     );
 
     // Shown once there are prices to add up.
