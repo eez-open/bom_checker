@@ -4,7 +4,7 @@ import type {
     ColGroupDef,
     ValueGetterParams
 } from "ag-grid-community";
-import { LIFECYCLE_LABELS } from "../../shared/lifecycle";
+import { availabilityText, statusText } from "../../shared/line-text";
 import {
     BASE_COLUMNS,
     type BomRow,
@@ -77,34 +77,6 @@ function lineOf(
 
 function formatQuantity(value: unknown): string {
     return typeof value === "number" ? QUANTITY.format(value) : "";
-}
-
-/** The text of the Availability column, including lookups without data. */
-function availabilityText(line: SupplierLine | null): string {
-    if (!line) {
-        return "";
-    }
-    switch (line.result.status) {
-        case "notFound":
-            return "Not found";
-        case "ambiguous":
-            return "Choose an item";
-        case "error":
-            return "Couldn't check";
-        case "found":
-            break;
-    }
-    const availability = line.availability!;
-    switch (availability.kind) {
-        case "in-stock":
-            return "In stock";
-        case "partial":
-            return `Partial: ${QUANTITY.format(availability.stock)}`;
-        case "out-of-stock":
-            return "Out of stock";
-        case "not-orderable":
-            return "Not orderable";
-    }
 }
 
 function availabilityClass(line: SupplierLine | null): string | undefined {
@@ -263,29 +235,18 @@ function dataColumns(supplier: SupplierId): ColDef<BomRow>[] {
             cellClass: (params: CellClassParams<BomRow>) =>
                 availabilityClass(lineOf(params, supplier))
         }),
-        column(
-            "status",
-            "Status",
-            line =>
-                line?.offer
-                    ? line.offer.lifecycle
-                        ? LIFECYCLE_LABELS[line.offer.lifecycle]
-                        : line.offer.lifecycleRaw
-                    : null,
-            {
-                width: 140,
-                columnGroupShow: "open",
-                cellClass: (params: CellClassParams<BomRow>) => {
-                    const lifecycle = lineOf(params, supplier)?.offer
-                        ?.lifecycle;
-                    return lifecycle
-                        ? (LIFECYCLE_CLASS[lifecycle] ?? undefined)
-                        : undefined;
-                },
-                tooltipValueGetter: params =>
-                    lineOf(params, supplier)?.offer?.lifecycleRaw ?? undefined
-            }
-        ),
+        column("status", "Status", line => statusText(line?.offer) || null, {
+            width: 140,
+            columnGroupShow: "open",
+            cellClass: (params: CellClassParams<BomRow>) => {
+                const lifecycle = lineOf(params, supplier)?.offer?.lifecycle;
+                return lifecycle
+                    ? (LIFECYCLE_CLASS[lifecycle] ?? undefined)
+                    : undefined;
+            },
+            tooltipValueGetter: params =>
+                lineOf(params, supplier)?.offer?.lifecycleRaw ?? undefined
+        }),
         column("rohs", "RoHS", line => line?.offer?.rohs, {
             width: 150,
             columnGroupShow: "open"

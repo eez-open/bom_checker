@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Export to Excel (.xlsx), LibreOffice (.ods) or CSV (File → Export…, Ctrl+E). Choose the suppliers' columns, the Best price columns and custom columns, and which rows: all, rows with a supplier's part number, rows where a supplier has the best price, or rows no supplier can deliver. Built-in presets such as "All Mouser data" and "Best price from Mouser"; your own combinations can be saved as presets. Column names follow the scope (e.g. `Mouser_Stock Qty`); numbers are written as numbers. xlsx and ods files get an Info sheet with the source, filter, collection dates and totals. CSV is UTF-8 with a byte order mark.
 - Import a BOM straight from a KiCad 10 project (Import KiCad…, Ctrl+K): choose the design variant; symbols that are DNP or excluded from the BOM in that variant are left out, including through their sheets; variant field overrides (e.g. other part numbers) are applied. Rows are grouped like KiCad's Symbol Fields Table, by the project's group-by fields, without merging different supplier part numbers. Fields the project's BOM hides start as "Don't import". KiCad 9 and older files are refused with an explanation.
 - Importing again (KiCad or CSV) keeps the supplier data already collected for part numbers that are still in the BOM.
 - Saving an imported BOM suggests the source's name, with the KiCad variant ("Board (Basic).eezbom").

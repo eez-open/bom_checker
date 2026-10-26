@@ -1,6 +1,8 @@
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { expect } from "@playwright/test";
+import { FAKE_CREDENTIALS } from "./fake-suppliers";
 import {
     _electron as electron,
     type ElectronApplication,
@@ -90,4 +92,44 @@ export function cell(page: Page, rowIndex: number, columnId: string) {
     return page.locator(
         `.ag-row[row-index="${rowIndex}"] .ag-cell[col-id="${columnId}"]`
     );
+}
+
+/** Sets a password and saves the fake suppliers' credentials. */
+export async function setUpCredentials(page: Page) {
+    await page.getByRole("button", { name: "Settings…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Settings" });
+    await dialog.getByRole("tab", { name: "Suppliers" }).click();
+    await dialog.getByLabel("Password", { exact: true }).fill("correct horse");
+    await dialog.getByLabel("Repeat password").fill("correct horse");
+    await dialog.getByRole("button", { name: "Set password" }).click();
+    const suppliers: [string, Record<string, string>][] = [
+        [
+            "DigiKey",
+            {
+                "Client ID": FAKE_CREDENTIALS.digikey.clientId,
+                "Client secret": FAKE_CREDENTIALS.digikey.clientSecret
+            }
+        ],
+        ["Mouser", { "Search API key": FAKE_CREDENTIALS.mouser.apiKey }],
+        [
+            "TME",
+            {
+                Token: FAKE_CREDENTIALS.tme.token,
+                "App secret": FAKE_CREDENTIALS.tme.appSecret
+            }
+        ]
+    ];
+    for (const [supplier, fields] of suppliers) {
+        await dialog
+            .getByRole("button", { name: supplier, exact: true })
+            .click();
+        for (const [label, value] of Object.entries(fields)) {
+            await dialog.getByLabel(label, { exact: true }).fill(value);
+        }
+        await dialog
+            .getByRole("button", { name: `Save ${supplier} settings` })
+            .click();
+        await expect(dialog.getByText("Saved.")).toBeVisible();
+    }
+    await dialog.getByRole("button", { name: "Close" }).click();
 }

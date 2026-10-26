@@ -5,11 +5,11 @@ import { rename, rm, writeFile } from "node:fs/promises";
  *  half-written file behind. */
 export async function writeFileAtomic(
     path: string,
-    content: string
+    content: string | Uint8Array
 ): Promise<void> {
     const temporary = `${path}.${randomUUID()}.tmp`;
     try {
-        await writeFile(temporary, content, "utf8");
+        await writeFile(temporary, content);
         await rename(temporary, path);
     } catch (error) {
         await rm(temporary, { force: true });

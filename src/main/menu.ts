@@ -56,6 +56,8 @@ export function createMenu(): Menu {
                     accelerator: "CmdOrCtrl+K"
                 }),
                 { type: "separator" },
+                command("&Export…", "export", { accelerator: "CmdOrCtrl+E" }),
+                { type: "separator" },
                 { role: "quit", label: "E&xit" }
             ]
         },

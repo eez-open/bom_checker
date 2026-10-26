@@ -75,6 +75,11 @@ const api: Api = {
     kicad: {
         open: () => invoke(IpcChannel.KicadOpen)
     },
+    export: {
+        save: request => invoke(IpcChannel.ExportSave, request),
+        showInFolder: path =>
+            ipcRenderer.send(IpcChannel.ExportShowInFolder, path)
+    },
     dialog: {
         askSaveChanges: documentName =>
             invoke(IpcChannel.DialogAskSaveChanges, documentName),

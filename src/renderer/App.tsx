@@ -16,6 +16,7 @@ import { ChooseItemDialog } from "./dialogs/ChooseItemDialog";
 import { ColumnsDialog } from "./dialogs/ColumnsDialog";
 import { CollectDialog } from "./dialogs/CollectDialog";
 import { CsvImportDialog } from "./dialogs/CsvImportDialog";
+import { ExportDialog } from "./dialogs/ExportDialog";
 import { KicadImportDialog } from "./dialogs/KicadImportDialog";
 import { SettingsDialog } from "./settings/SettingsDialog";
 import { documentName, isDirty, useDocument } from "./store/document";
@@ -154,6 +155,9 @@ export function App() {
                     project={dialog.project}
                     onClose={closeDialog}
                 />
+            )}
+            {dialog?.kind === "export" && (
+                <ExportDialog onClose={closeDialog} />
             )}
             {dialog?.kind === "collect" && (
                 <CollectDialog onClose={closeDialog} />

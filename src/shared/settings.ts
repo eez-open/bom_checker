@@ -1,5 +1,6 @@
 // App settings that aren't secret (settings.json). Secrets are in the vault.
 
+import { exportPresetSchema, type ExportPreset } from "./export";
 import { SUPPLIER_IDS, type SupplierId } from "./model";
 import {
     isSupplierId,
@@ -12,6 +13,8 @@ export interface GeneralSettings {
     supplierOrder: SupplierId[];
     /** Write supplier API responses to the log file, for troubleshooting. */
     logApiResponses: boolean;
+    /** Export settings saved under a name. */
+    exportPresets: ExportPreset[];
 }
 
 export interface AppSettings {
@@ -34,7 +37,13 @@ export function normalizeSettings(raw: unknown): AppSettings {
     return {
         general: {
             supplierOrder: normalizeOrder(general.supplierOrder),
-            logApiResponses: general.logApiResponses === true
+            logApiResponses: general.logApiResponses === true,
+            exportPresets: Array.isArray(general.exportPresets)
+                ? general.exportPresets.flatMap(preset => {
+                      const parsed = exportPresetSchema.safeParse(preset);
+                      return parsed.success ? [parsed.data] : [];
+                  })
+                : []
         },
         suppliers: Object.fromEntries(
             SUPPLIER_IDS.map(id => [

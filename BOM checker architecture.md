@@ -511,7 +511,7 @@ The `kicad-cli sch export bom --variant` alternative was rejected. It requires K
   "Mouser" in these presets can be any supplier.
 
 - **Typed cells:** numbers and prices are written as numeric cells, not text.
-- **Metadata sheet** (xlsx/ods only): project, source file, KiCad variant, collection dates per supplier, and export filter.
+- **Info sheet** (xlsx/ods only): BOM, source file, KiCad variant, export filter, how prices and the best price were chosen, the preferred supplier order, collection dates per supplier, and total prices.
 - **No colours:** SheetJS Community Edition can't write cell styles, so status colours don't appear in exported files. If coloured `.xlsx` output is wanted, ExcelJS could be added for xlsx only.
 
 ---

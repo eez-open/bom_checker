@@ -141,6 +141,10 @@ export function editColumns(): void {
     useUi.setState({ dialog: { kind: "columns" } });
 }
 
+export function openExport(): void {
+    useUi.setState({ dialog: { kind: "export" } });
+}
+
 export function openCollect(): void {
     useUi.setState({ dialog: { kind: "collect" } });
 }
@@ -195,6 +199,7 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     "save-as": () => saveDocument(true),
     "import-csv": importCsv,
     "import-kicad": importKicad,
+    export: openExport,
     undo,
     redo,
     "add-row": addRow,

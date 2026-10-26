@@ -1,7 +1,13 @@
 import { join } from "node:path";
-import { expect, test, type Page } from "@playwright/test";
-import { FAKE_CREDENTIALS, startFakeSuppliers } from "./fake-suppliers";
-import { answerOpenDialog, cell, closeApp, launchApp } from "./helpers";
+import { expect, test } from "@playwright/test";
+import { startFakeSuppliers } from "./fake-suppliers";
+import {
+    answerOpenDialog,
+    cell,
+    closeApp,
+    launchApp,
+    setUpCredentials
+} from "./helpers";
 
 const BOM = join(__dirname, "fixtures/calc-bom.csv");
 // Rows of calc-bom.csv, in order.
@@ -9,45 +15,6 @@ const D1 = 0;
 const U1 = 1;
 const R1 = 2;
 const C1 = 3;
-
-async function setUpCredentials(page: Page) {
-    await page.getByRole("button", { name: "Settings…" }).click();
-    const dialog = page.getByRole("dialog", { name: "Settings" });
-    await dialog.getByRole("tab", { name: "Suppliers" }).click();
-    await dialog.getByLabel("Password", { exact: true }).fill("correct horse");
-    await dialog.getByLabel("Repeat password").fill("correct horse");
-    await dialog.getByRole("button", { name: "Set password" }).click();
-    const suppliers: [string, Record<string, string>][] = [
-        [
-            "DigiKey",
-            {
-                "Client ID": FAKE_CREDENTIALS.digikey.clientId,
-                "Client secret": FAKE_CREDENTIALS.digikey.clientSecret
-            }
-        ],
-        ["Mouser", { "Search API key": FAKE_CREDENTIALS.mouser.apiKey }],
-        [
-            "TME",
-            {
-                Token: FAKE_CREDENTIALS.tme.token,
-                "App secret": FAKE_CREDENTIALS.tme.appSecret
-            }
-        ]
-    ];
-    for (const [supplier, fields] of suppliers) {
-        await dialog
-            .getByRole("button", { name: supplier, exact: true })
-            .click();
-        for (const [label, value] of Object.entries(fields)) {
-            await dialog.getByLabel(label, { exact: true }).fill(value);
-        }
-        await dialog
-            .getByRole("button", { name: `Save ${supplier} settings` })
-            .click();
-        await expect(dialog.getByText("Saved.")).toBeVisible();
-    }
-    await dialog.getByRole("button", { name: "Close" }).click();
-}
 
 test("calculates order quantities, prices and the best supplier", async () => {
     const fake = await startFakeSuppliers();

@@ -2,6 +2,7 @@
 // exposes `Api` as `window.api`, and main registers one handler per channel.
 
 import type { CsvTable } from "./csv-import";
+import type { ExportFormat, ExportSheet } from "./export";
 import type { CollectionRun, LookupResult, Project, SupplierId } from "./model";
 import type { AppSettings, GeneralSettings } from "./settings";
 import type { SupplierConfig } from "./supplier-config";
@@ -26,6 +27,7 @@ export type MenuCommand =
     | "save-as"
     | "import-csv"
     | "import-kicad"
+    | "export"
     | "undo"
     | "redo"
     | "add-row"
@@ -72,6 +74,13 @@ export interface KicadProjectData {
     warnings: string[];
     /** Fields the project's own BOM settings show; null if it has none. */
     bomFields: string[] | null;
+}
+
+export interface ExportRequest {
+    format: ExportFormat;
+    /** File name offered in the Save dialog, without extension. */
+    suggestedName: string;
+    sheets: ExportSheet[];
 }
 
 export type SaveChangesChoice = "save" | "discard" | "cancel";
@@ -197,6 +206,11 @@ export interface Api {
     csv: {
         open(): Promise<OpenedFile | null>;
     };
+    export: {
+        /** Asks where to save and writes the file; the path, or null. */
+        save(request: ExportRequest): Promise<string | null>;
+        showInFolder(path: string): void;
+    };
     kicad: {
         /** Lets the user pick a .kicad_pro and reads its BOM. Null when
          *  cancelled or the project can't be read (main shows why). */
@@ -240,6 +254,8 @@ export const IpcChannel = {
     ProjectSave: "project:save",
     CsvOpen: "csv:open",
     KicadOpen: "kicad:open",
+    ExportSave: "export:save",
+    ExportShowInFolder: "export:show-in-folder",
     DialogAskSaveChanges: "dialog:ask-save-changes",
     DialogConfirm: "dialog:confirm",
     WindowSetDocumentState: "window:set-document-state",

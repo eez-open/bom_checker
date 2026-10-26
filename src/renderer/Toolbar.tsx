@@ -6,6 +6,7 @@ import {
     importKicad,
     newDocument,
     openCollect,
+    openExport,
     openDocument,
     openSettings,
     saveDocument
@@ -72,6 +73,9 @@ export function Toolbar() {
             <span className="toolbar-separator" />
             <button type="button" className="primary" onClick={openCollect}>
                 Collect…
+            </button>
+            <button type="button" title="Ctrl+E" onClick={openExport}>
+                Export…
             </button>
             <span className="toolbar-spacer" />
             <button type="button" title="Ctrl+," onClick={openSettings}>

@@ -378,7 +378,7 @@ input.number {
     gap: 4px;
 }
 
-.form-row input:not(.number),
+.form-row input:not(.number):not([type="radio"]):not([type="checkbox"]),
 .form-row select {
     width: 260px;
 }
@@ -568,4 +568,11 @@ button.pn-badge {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+}
+
+.checkbox-list {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
 }

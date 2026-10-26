@@ -8,6 +8,7 @@ export type OpenDialog =
     | { kind: "kicad-import"; project: KicadProjectData }
     | { kind: "settings" }
     | { kind: "collect" }
+    | { kind: "export" }
     | { kind: "choose-item"; supplier: SupplierId; key: string }
     | null;
 
