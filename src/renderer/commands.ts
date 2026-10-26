@@ -1,6 +1,10 @@
 // Actions shared by the menu, the toolbar and keyboard shortcuts.
 
-import type { MenuCommand } from "../shared/ipc";
+import {
+    COLUMN_GROUPS,
+    type ColumnGroup,
+    type MenuCommand
+} from "../shared/ipc";
 import type { Project, ProjectSource } from "../shared/model";
 import {
     addRow as addRowToProject,
@@ -10,7 +14,7 @@ import {
 } from "../shared/project-ops";
 import { PROJECT_FILE_EXTENSION } from "../shared/project-file";
 import { documentName, isDirty, useDocument } from "./store/document";
-import { useUi } from "./store/ui";
+import { setHiddenColumns, useUi } from "./store/ui";
 
 export async function saveDocument(saveAs = false): Promise<boolean> {
     const { project, filePath, markSaved } = useDocument.getState();
@@ -141,6 +145,19 @@ export function editColumns(): void {
     useUi.setState({ dialog: { kind: "columns" } });
 }
 
+export function toggleColumns(group: ColumnGroup): void {
+    const hidden = useUi.getState().hiddenColumns;
+    setHiddenColumns(
+        hidden.includes(group)
+            ? hidden.filter(g => g !== group)
+            : [...hidden, group]
+    );
+}
+
+export function showAllColumns(): void {
+    setHiddenColumns([]);
+}
+
 export function openExport(): void {
     useUi.setState({ dialog: { kind: "export" } });
 }
@@ -205,6 +222,13 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     "add-row": addRow,
     "delete-rows": deleteSelectedRows,
     "edit-columns": editColumns,
+    ...(Object.fromEntries(
+        COLUMN_GROUPS.map(group => [
+            `toggle-columns:${group}`,
+            () => toggleColumns(group)
+        ])
+    ) as Record<`toggle-columns:${ColumnGroup}`, () => void>),
+    "show-all-columns": showAllColumns,
     settings: openSettings,
     collect: openCollect,
     lock: lockCredentials,

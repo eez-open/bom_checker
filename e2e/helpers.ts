@@ -159,3 +159,27 @@ export async function setUpCredentials(page: Page) {
     }
     await dialog.getByRole("button", { name: "Close" }).click();
 }
+
+/** Clicks an application menu item by its id (see main/menu.ts). */
+export async function clickMenuItem(app: ElectronApplication, id: string) {
+    await app.evaluate(({ Menu }, itemId) => {
+        const item = Menu.getApplicationMenu()?.getMenuItemById(itemId);
+        if (!item) {
+            throw new Error(`No menu item ${itemId}`);
+        }
+        // Typed as Function; the menu calls it the same way.
+        const click = item.click as () => void;
+        click();
+    }, id);
+}
+
+export function menuItemChecked(
+    app: ElectronApplication,
+    id: string
+): Promise<boolean | undefined> {
+    return app.evaluate(
+        ({ Menu }, itemId) =>
+            Menu.getApplicationMenu()?.getMenuItemById(itemId)?.checked,
+        id
+    );
+}

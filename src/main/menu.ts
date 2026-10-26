@@ -5,8 +5,17 @@ import {
     shell,
     type MenuItemConstructorOptions
 } from "electron";
-import type { MenuCommand } from "../shared/ipc";
+import { z } from "zod";
+import {
+    COLUMN_GROUPS,
+    IpcChannel,
+    type ColumnGroup,
+    type ColumnGroupState,
+    type MenuCommand
+} from "../shared/ipc";
+import { SUPPLIERS } from "../shared/suppliers";
 import { showAbout } from "./about";
+import { on } from "./ipc/handle";
 import { log } from "./logging";
 import { sendMenuCommand } from "./window";
 
@@ -30,6 +39,45 @@ function command(
         },
         ...options
     };
+}
+
+let columns: ColumnGroupState = { available: [], hidden: [] };
+
+function columnItems(): MenuItemConstructorOptions[] {
+    const name = (group: ColumnGroup) =>
+        group === "best" ? "Best Price" : SUPPLIERS[group].name;
+    const hidden = columns.hidden.filter(group =>
+        columns.available.includes(group)
+    );
+    return [
+        ...COLUMN_GROUPS.map((group, index) =>
+            command(`&${name(group)} Columns`, `toggle-columns:${group}`, {
+                id: `columns:${group}`,
+                type: "checkbox",
+                checked: !columns.hidden.includes(group),
+                enabled: columns.available.includes(group),
+                accelerator: `CmdOrCtrl+${index + 1}`
+            })
+        ),
+        command("Show &All Columns", "show-all-columns", {
+            id: "columns:all",
+            enabled: hidden.length > 0
+        })
+    ];
+}
+
+const columnGroupStateSchema = z.object({
+    available: z.array(z.enum(COLUMN_GROUPS)),
+    hidden: z.array(z.enum(COLUMN_GROUPS))
+});
+
+export function registerMenuHandlers(): void {
+    // The menu is rebuilt: changing items in place doesn't show on every
+    // Linux desktop.
+    on(IpcChannel.WindowSetColumnGroups, (_context, state) => {
+        columns = columnGroupStateSchema.parse(state);
+        Menu.setApplicationMenu(createMenu());
+    });
 }
 
 export function createMenu(): Menu {
@@ -92,6 +140,8 @@ export function createMenu(): Menu {
         {
             label: "&View",
             submenu: [
+                ...columnItems(),
+                { type: "separator" },
                 { role: "zoomIn" },
                 { role: "zoomOut" },
                 { role: "resetZoom" },

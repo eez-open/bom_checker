@@ -10,6 +10,7 @@ import {
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import type { ColumnGroup } from "../../shared/ipc";
 import type {
     BomRow,
     ColumnKey,
@@ -17,7 +18,11 @@ import type {
     SupplierId
 } from "../../shared/model";
 import { bomTotals, supplierTotal } from "../../shared/pricing";
-import { createRow } from "../../shared/project-ops";
+import {
+    createRow,
+    suppliersWithData,
+    totalQuantity
+} from "../../shared/project-ops";
 import { buildColumns, TOTALS_ROW_ID } from "./columns";
 import type { TableContext, TableTotals } from "./PartNumberCell";
 
@@ -52,6 +57,7 @@ interface BomTableProps {
     project: Project;
     /** Preferred supplier order, for best price ties. */
     preference: readonly SupplierId[];
+    hiddenColumns: readonly ColumnGroup[];
     onCellEdit: (rowId: string, key: ColumnKey, value: unknown) => void;
     onSelectionChange: (rowIds: string[]) => void;
     /** A newly added row whose Reference cell should start editing. */
@@ -71,6 +77,7 @@ function EmptyTable() {
 export function BomTable({
     project,
     preference,
+    hiddenColumns,
     onCellEdit,
     onSelectionChange,
     editRowId,
@@ -118,24 +125,24 @@ export function BomTable({
     }, [totals]);
 
     // Suppliers with collected data get the calculated columns.
-    const withData = project.suppliers
-        .filter(s => Object.keys(project.collected.results[s] ?? {}).length > 0)
-        .join(",");
+    const withData = suppliersWithData(project).join(",");
+    const hidden = hiddenColumns.join(",");
 
     const { columnDefs, keys } = useMemo(
         () =>
             buildColumns(
                 project,
-                withData ? (withData.split(",") as SupplierId[]) : []
+                withData ? (withData.split(",") as SupplierId[]) : [],
+                new Set(hidden.split(",") as ColumnGroup[])
             ),
-        // Columns change only when suppliers, custom columns or the
-        // suppliers with data do.
+        // Columns change only when suppliers, custom columns, the
+        // suppliers with data or the hidden groups do.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [project.suppliers, project.customColumns, withData]
+        [project.suppliers, project.customColumns, withData, hidden]
     );
 
     // Shown once there are prices to add up.
-    const parts = project.rows.reduce((sum, row) => sum + row.qty, 0);
+    const parts = totalQuantity(project);
     const pinnedRows = useMemo(
         () =>
             withData

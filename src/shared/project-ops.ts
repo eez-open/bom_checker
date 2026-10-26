@@ -350,6 +350,13 @@ export function countReferences(reference: string): number {
     return reference.split(/[\s,]+/).filter(Boolean).length;
 }
 
+/** Suppliers of the BOM that have collected data. */
+export function suppliersWithData(project: Project): SupplierId[] {
+    return project.suppliers.filter(
+        s => Object.keys(project.collected.results[s] ?? {}).length > 0
+    );
+}
+
 /** Total number of parts (sum of Qty). */
 export function totalQuantity(project: Project): number {
     return project.rows.reduce((sum, row) => sum + row.qty, 0);

@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import type { AppInfo } from "../shared/ipc";
+import type { AppInfo, ColumnGroup } from "../shared/ipc";
 import type { SupplierId } from "../shared/model";
 import { BASE_CURRENCY, bomTotals, foreignCurrencies } from "../shared/pricing";
-import { setCell, totalQuantity } from "../shared/project-ops";
+import {
+    setCell,
+    suppliersWithData,
+    totalQuantity
+} from "../shared/project-ops";
 import { SUPPLIERS } from "../shared/suppliers";
 import {
     closeDialog,
@@ -10,6 +14,7 @@ import {
     openSettings,
     redo,
     runMenuCommand,
+    showAllColumns,
     undo
 } from "./commands";
 import { ChooseItemDialog } from "./dialogs/ChooseItemDialog";
@@ -43,6 +48,7 @@ export function App() {
     );
     const editRowId = useUi(state => state.editRowId);
     const dialog = useUi(state => state.dialog);
+    const hiddenColumns = useUi(state => state.hiddenColumns);
     const [info, setInfo] = useState<AppInfo>();
 
     const totals = useMemo(
@@ -50,9 +56,15 @@ export function App() {
         [project, preference]
     );
     const foreign = useMemo(() => foreignCurrencies(project), [project]);
-    const hasData = project.suppliers.some(
-        s => Object.keys(project.collected.results[s] ?? {}).length > 0
-    );
+    const withData = suppliersWithData(project);
+    const hasData = withData.length > 0;
+    // The table shows Best price once two suppliers have data.
+    const available: ColumnGroup[] = [
+        ...project.suppliers,
+        ...(withData.length >= 2 ? (["best"] as const) : [])
+    ];
+    const hidden = hiddenColumns.filter(group => available.includes(group));
+    const availableKey = available.join(",");
 
     useEffect(() => {
         loadAppSettings();
@@ -87,6 +99,15 @@ export function App() {
     }, []);
 
     useEffect(() => {
+        window.api.window.setColumnGroups({
+            available: availableKey
+                ? (availableKey.split(",") as ColumnGroup[])
+                : [],
+            hidden: hiddenColumns
+        });
+    }, [availableKey, hiddenColumns]);
+
+    useEffect(() => {
         document.title = `${dirty ? "*" : ""}${name} - EEZ BOM checker`;
         window.api.window.setDocumentState({ name, dirty });
     }, [name, dirty]);
@@ -115,6 +136,7 @@ export function App() {
                 <BomTable
                     project={project}
                     preference={preference}
+                    hiddenColumns={hiddenColumns}
                     editRowId={editRowId}
                     onEditStarted={() => useUi.setState({ editRowId: null })}
                     onCellEdit={(rowId, key, value) =>
@@ -128,9 +150,31 @@ export function App() {
                 />
             </main>
             <footer className="status-bar">
-                <span data-testid="bom-summary">
-                    {count(project.rows.length, "row")} ·{" "}
-                    {count(totalQuantity(project), "part")}
+                <span>
+                    <span data-testid="bom-summary">
+                        {count(project.rows.length, "row")} ·{" "}
+                        {count(totalQuantity(project), "part")}
+                    </span>
+                    {hidden.length > 0 && (
+                        <span data-testid="hidden-columns">
+                            {" "}
+                            · Hidden:{" "}
+                            {hidden
+                                .map(group =>
+                                    group === "best"
+                                        ? "Best price"
+                                        : SUPPLIERS[group].name
+                                )
+                                .join(", ")}{" "}
+                            <button
+                                type="button"
+                                className="link"
+                                onClick={showAllColumns}
+                            >
+                                Show all
+                            </button>
+                        </span>
+                    )}
                 </span>
                 {hasData && (
                     <span data-testid="bom-total">

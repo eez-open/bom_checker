@@ -91,7 +91,9 @@ const api: Api = {
     window: {
         setDocumentState: state =>
             ipcRenderer.send(IpcChannel.WindowSetDocumentState, state),
-        closeConfirmed: () => ipcRenderer.send(IpcChannel.WindowCloseConfirmed)
+        closeConfirmed: () => ipcRenderer.send(IpcChannel.WindowCloseConfirmed),
+        setColumnGroups: state =>
+            ipcRenderer.send(IpcChannel.WindowSetColumnGroups, state)
     },
     onMenuCommand: listener => {
         const handler = (_event: IpcRendererEvent, command: MenuCommand) =>

@@ -4,9 +4,11 @@ import { startFakeSuppliers } from "./fake-suppliers";
 import {
     answerOpenDialog,
     cell,
+    clickMenuItem,
     closeApp,
     fillEditor,
     launchApp,
+    menuItemChecked,
     setUpCredentials
 } from "./helpers";
 
@@ -123,6 +125,25 @@ test("calculates order quantities, prices and the best supplier", async () => {
         );
         await page.keyboard.press("Control+Z");
         await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("50");
+
+        // View menu: hide all of TME's columns, then show them again.
+        await clickMenuItem(app, "columns:tme");
+        await expect(cell(page, D1, "pn:tme")).toHaveCount(0);
+        await expect(cell(page, D1, "data:tme:totalPrice")).toHaveCount(0);
+        await expect(cell(page, D1, "pn:mouser")).toHaveCount(1);
+        await expect(page.getByTestId("hidden-columns")).toContainText(
+            "Hidden: TME"
+        );
+        await expect
+            .poll(() => menuItemChecked(app, "columns:tme"))
+            .toBe(false);
+        await page
+            .getByTestId("hidden-columns")
+            .getByRole("button", { name: "Show all" })
+            .click();
+        await expect(cell(page, D1, "data:tme:totalPrice")).toHaveText("0.62");
+        await expect(page.getByTestId("hidden-columns")).toHaveCount(0);
+        await expect.poll(() => menuItemChecked(app, "columns:tme")).toBe(true);
     } finally {
         await closeApp(app);
         await fake.close();

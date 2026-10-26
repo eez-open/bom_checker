@@ -94,6 +94,8 @@ The summary shows how long it took, how many part numbers were found, not found 
 
 Each supplier has a group of columns. Click the arrow in the group header to show only the part number, *Total price* and *Availability*.
 
+To hide all columns of a supplier, or the Best price columns, uncheck them in the **View** menu (Ctrl+1 to Ctrl+4). Hiding only changes the view: the data stays, still counts for the best price, and can still be exported. The status bar lists hidden groups, with **Show all** to bring them back. The app remembers hidden groups for next time.
+
 | Column | Meaning |
 |---|---|
 | Badge in the part-number cell | ✓ found, ✗ not found, ? several items match (click to choose one), ! couldn't check. Hover over the cell for the details the supplier returned. |

@@ -4,6 +4,7 @@ import type {
     ColGroupDef,
     ValueGetterParams
 } from "ag-grid-community";
+import type { ColumnGroup } from "../../shared/ipc";
 import { availabilityText, statusText } from "../../shared/line-text";
 import {
     BASE_COLUMNS,
@@ -107,7 +108,7 @@ function partNumberColumn(supplier: SupplierId): ColDef<BomRow, string> {
         headerName: SUPPLIERS[supplier].name,
         headerTooltip: `${SUPPLIERS[supplier].name} part number`,
         cellDataType: "text",
-        width: 190,
+        initialWidth: 190,
         valueGetter: params => params.data?.partNumbers[supplier] ?? "",
         cellRenderer: PartNumberCell,
         cellRendererParams: { supplier },
@@ -147,7 +148,7 @@ function dataColumns(supplier: SupplierId): ColDef<BomRow>[] {
     });
     const numeric: ColDef<BomRow> = {
         type: "rightAligned",
-        width: 110,
+        initialWidth: 110,
         valueFormatter: params => formatQuantity(params.value)
     };
 
@@ -158,7 +159,7 @@ function dataColumns(supplier: SupplierId): ColDef<BomRow>[] {
             line => line?.offer?.manufacturer,
             {
                 columnGroupShow: "open",
-                width: 170
+                initialWidth: 170
             }
         ),
         column("stockQty", "Stock Qty", line => line?.offer?.stockQty, {
@@ -167,7 +168,7 @@ function dataColumns(supplier: SupplierId): ColDef<BomRow>[] {
         }),
         column("moq", "MOQ", line => line?.offer?.moq, {
             ...numeric,
-            width: 90,
+            initialWidth: 90,
             columnGroupShow: "open",
             tooltipValueGetter: params => {
                 const multiple =
@@ -185,7 +186,7 @@ function dataColumns(supplier: SupplierId): ColDef<BomRow>[] {
         }),
         column("unitPrice", "Unit price", line => line?.unitPrice, {
             type: "rightAligned",
-            width: 110,
+            initialWidth: 110,
             columnGroupShow: "open",
             valueFormatter: params => {
                 const line = lineOf(params, supplier);
@@ -220,7 +221,7 @@ function dataColumns(supplier: SupplierId): ColDef<BomRow>[] {
         }),
         column("totalPrice", "Total price", line => line?.total, {
             type: "rightAligned",
-            width: 110,
+            initialWidth: 110,
             valueGetter: params => {
                 if (params.node?.rowPinned) {
                     const sum = context(params).getTotals().suppliers[supplier];
@@ -248,12 +249,12 @@ function dataColumns(supplier: SupplierId): ColDef<BomRow>[] {
             }
         }),
         column("availability", "Availability", availabilityText, {
-            width: 140,
+            initialWidth: 140,
             cellClass: (params: CellClassParams<BomRow>) =>
                 availabilityClass(lineOf(params, supplier))
         }),
         column("status", "Status", line => statusText(line?.offer) || null, {
-            width: 140,
+            initialWidth: 140,
             columnGroupShow: "open",
             cellClass: (params: CellClassParams<BomRow>) => {
                 const lifecycle = lineOf(params, supplier)?.offer?.lifecycle;
@@ -265,7 +266,7 @@ function dataColumns(supplier: SupplierId): ColDef<BomRow>[] {
                 lineOf(params, supplier)?.offer?.lifecycleRaw ?? undefined
         }),
         column("rohs", "RoHS", line => line?.offer?.rohs, {
-            width: 150,
+            initialWidth: 150,
             columnGroupShow: "open"
         })
     ];
@@ -297,7 +298,7 @@ function bestColumns(project: Project): ColGroupDef<BomRow> {
         headerName: "Best price",
         children: [
             column("supplier", "Supplier", {
-                width: 130,
+                initialWidth: 130,
                 valueGetter: params => {
                     const choice = best(params);
                     if (choice) {
@@ -324,13 +325,13 @@ function bestColumns(project: Project): ColGroupDef<BomRow> {
             }),
             column("orderQty", "Order Qty", {
                 type: "rightAligned",
-                width: 110,
+                initialWidth: 110,
                 valueGetter: params => best(params)?.line.orderQty ?? null,
                 valueFormatter: params => formatQuantity(params.value)
             }),
             column("unitPrice", "Unit price", {
                 type: "rightAligned",
-                width: 110,
+                initialWidth: 110,
                 valueGetter: params => best(params)?.line.unitPrice ?? null,
                 valueFormatter: params =>
                     typeof params.value === "number"
@@ -339,7 +340,7 @@ function bestColumns(project: Project): ColGroupDef<BomRow> {
             }),
             column("totalPrice", "Total price", {
                 type: "rightAligned",
-                width: 110,
+                initialWidth: 110,
                 headerTooltip: `Best_Total price (${BASE_CURRENCY})`,
                 valueGetter: params => {
                     if (params.node?.rowPinned) {
@@ -364,13 +365,27 @@ function bestColumns(project: Project): ColGroupDef<BomRow> {
     };
 }
 
+/** Hides or shows all columns of a group. Set on every column, because a
+ *  column without `hide` keeps its previous state. */
+function hideGroup(
+    group: ColGroupDef<BomRow>,
+    hide: boolean
+): ColGroupDef<BomRow> {
+    return {
+        ...group,
+        children: group.children.map(child => ({ ...child, hide }))
+    };
+}
+
 /**
  * @param withData suppliers that have collected data; only they get the
  *   calculated columns.
+ * @param hidden column groups the user has hidden.
  */
 export function buildColumns(
     project: Project,
-    withData: readonly SupplierId[]
+    withData: readonly SupplierId[],
+    hidden: ReadonlySet<ColumnGroup> = new Set()
 ): TableColumns {
     const keys = new Map<string, ColumnKey>();
     const columnDefs: (ColDef<BomRow> | ColGroupDef<BomRow>)[] = [];
@@ -382,7 +397,7 @@ export function buildColumns(
                 colId: "row",
                 headerName: column.header,
                 type: "rightAligned",
-                width: WIDTHS.row,
+                initialWidth: WIDTHS.row,
                 pinned: "left",
                 editable: false,
                 sortable: false,
@@ -401,7 +416,7 @@ export function buildColumns(
             type: numeric ? "rightAligned" : undefined,
             cellDataType: numeric ? "number" : "text",
             cellEditorParams: numeric ? { min: 0, precision: 0 } : undefined,
-            width: WIDTHS[column.field],
+            initialWidth: WIDTHS[column.field],
             // Row and Reference stay in view while scrolling to supplier data.
             pinned: column.field === "reference" ? "left" : undefined
         });
@@ -415,16 +430,21 @@ export function buildColumns(
         if (withData.includes(supplier)) {
             children.push(...dataColumns(supplier));
         }
-        columnDefs.push({
-            groupId: `group:${supplier}`,
-            headerName: SUPPLIERS[supplier].name,
-            openByDefault: true,
-            children
-        });
+        columnDefs.push(
+            hideGroup(
+                {
+                    groupId: `group:${supplier}`,
+                    headerName: SUPPLIERS[supplier].name,
+                    openByDefault: true,
+                    children
+                },
+                hidden.has(supplier)
+            )
+        );
     }
 
     if (withData.length >= 2) {
-        columnDefs.push(bestColumns(project));
+        columnDefs.push(hideGroup(bestColumns(project), hidden.has("best")));
     }
 
     for (const column of project.customColumns) {
@@ -436,7 +456,7 @@ export function buildColumns(
             headerName: column.name,
             type: numeric ? "rightAligned" : undefined,
             cellDataType: numeric ? "number" : "text",
-            width: 150,
+            initialWidth: 150,
             valueGetter: params => params.data?.custom[column.id] ?? null
         });
     }

@@ -3,7 +3,13 @@
 
 import type { CsvTable } from "./csv-import";
 import type { ExportFormat, ExportSheet } from "./export";
-import type { CollectionRun, LookupResult, Project, SupplierId } from "./model";
+import {
+    SUPPLIER_IDS,
+    type CollectionRun,
+    type LookupResult,
+    type Project,
+    type SupplierId
+} from "./model";
 import type { AppSettings, GeneralSettings } from "./settings";
 import type { SupplierConfig } from "./supplier-config";
 
@@ -17,6 +23,16 @@ export interface AppInfo {
     };
     platform: string;
     logFile: string;
+}
+
+/** Table columns that can be hidden together (View menu). */
+export type ColumnGroup = SupplierId | "best";
+export const COLUMN_GROUPS: readonly ColumnGroup[] = [...SUPPLIER_IDS, "best"];
+
+export interface ColumnGroupState {
+    /** Groups the table has now. */
+    available: ColumnGroup[];
+    hidden: ColumnGroup[];
 }
 
 /** Commands sent from the application menu (and the close prompt). */
@@ -33,6 +49,8 @@ export type MenuCommand =
     | "add-row"
     | "delete-rows"
     | "edit-columns"
+    | `toggle-columns:${ColumnGroup}`
+    | "show-all-columns"
     | "settings"
     | "lock"
     | "collect"
@@ -232,6 +250,8 @@ export interface Api {
         setDocumentState(state: DocumentState): void;
         /** Closes the window after a "save-and-close" command succeeded. */
         closeConfirmed(): void;
+        /** Updates the column items of the View menu. */
+        setColumnGroups(state: ColumnGroupState): void;
     };
     /** Subscribes to menu commands; returns an unsubscribe function. */
     onMenuCommand(listener: (command: MenuCommand) => void): () => void;
@@ -269,5 +289,6 @@ export const IpcChannel = {
     DialogConfirm: "dialog:confirm",
     WindowSetDocumentState: "window:set-document-state",
     WindowCloseConfirmed: "window:close-confirmed",
+    WindowSetColumnGroups: "window:set-column-groups",
     MenuCommand: "menu:command"
 } as const;
