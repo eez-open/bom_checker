@@ -585,9 +585,9 @@ These points couldn't be settled from documentation and should be the first thin
 
 ## 15. Status
 
-### Next version
+### Version 0.4.0
 
-Writing part numbers back into the KiCad project (#11, section 9.3).
+Writing part numbers back into the KiCad project (#11, section 9.3). Unit tests: 185; end-to-end tests: 13.
 
 ### Version 0.3.0
 
