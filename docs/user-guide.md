@@ -104,6 +104,16 @@ Click **Collect…**. The first time in a session, enter your password. Then, fo
 
 The summary shows how long it took, how many part numbers were found, not found or matched several items, and how many have enough stock for the order quantity.
 
+### Finding part numbers from the Value
+
+Tick **Look up the Value where a part number is missing** to search for rows whose part-number cell is empty. The Value is searched as a manufacturer part number at each selected supplier (e.g. *TPS54331DDA* or *1N4007*), so the supplier needs a part-number column (add one with **Columns…**).
+
+- One matching item fills in the supplier's part number.
+- When several items match, typically different packagings, the cell gets the Value with a **?** badge: click it to choose the item.
+- When nothing matches, the cell stays empty.
+
+Generic values such as *100n*, *4u7* or *10k*, names like *LED* or *Conn_01x04*, and cells with "-" are skipped: a value alone can't pick one capacitor out of thousands. The summary says how many part numbers were filled in, are left to choose, or weren't found. Filling in is one step that **Ctrl+Z** undoes. The option is remembered for next time.
+
 ## Building several units
 
 To check prices and stock for a production batch, enter the number of units in **Build qty** on the toolbar and press Enter. Every row's Qty is multiplied by it: a part used 10 times per board needs 250 for 25 boards. Order quantities, price breaks, availability and the best price follow at once, without collecting again, since the collected data has every price break. A *Total Qty* column shows the multiplied quantity, and the status bar shows the parts per unit and in total. The build quantity is saved with the BOM, Ctrl+Z undoes a change, and exports include it.

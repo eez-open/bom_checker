@@ -428,6 +428,11 @@ Files in the app-data folder (`%APPDATA%\EEZ BOM checker\` on Windows, `~/.confi
 - available (In stock) / not available;
 - API calls used and remaining today.
 
+**Looking up Values** (optional, GitHub #10)
+- **Work list:** with the option on, rows whose cell for the supplier is empty (not "-") add their Value to the work list when it looks like a manufacturer part number (`valueAsPartNumber`: letters and digits, no spaces). Generic passive values (100n, 4u7, 10k, 0R010) are skipped; SI prefixes are case-sensitive, so 1N4148 isn't read as "1n". The plugins already resolve manufacturer part numbers (6.2), so nothing supplier-specific is added.
+- **Filling in:** when the run ends, one match puts the supplier's part number in the cell (its result is copied under that number); several matches put the Value in the cell, so the user chooses the item; no match leaves the cell empty. This is one undo step.
+- **Not done:** turning a generic value plus footprint into one part. The APIs can only return candidates for that, and choosing one needs defaults for dielectric, voltage, tolerance and packaging.
+
 ---
 
 ## 9. Creating and importing a BOM
@@ -612,4 +617,4 @@ All eight milestones are done. Everything below is covered by unit tests (148) a
 1. **Live verification with real API keys** (section 13). DigiKey and Mouser work with real keys; TME is still to be confirmed. Settings → Test connection answers most points; the log option records the responses.
 2. **Code signing** for the Windows installer, to avoid the SmartScreen warning.
 3. **Not built yet:** automatic updates, opening `.eezbom` files by double-click, dark mode.
-4. **Under investigation:** LCSC as a fourth supplier (#9), and finding parts by Value when a row has no supplier part number (#10).
+4. **LCSC** (#9) is built from LCSC's API guide and still needs a test with a real key.

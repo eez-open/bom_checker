@@ -3,12 +3,18 @@
 
 import {
     partNumberKey,
+    type BomRow,
     type CollectedData,
     type LookupResult,
     type Project,
     type SupplierId
 } from "./model";
-import { hasAlternatives, isPartNumberDefined } from "./part-number";
+import {
+    hasAlternatives,
+    isPartNumberDefined,
+    normalizeCell,
+    valueAsPartNumber
+} from "./part-number";
 import { orderQuantity } from "./pricing";
 
 export type CollectMode = "all" | "missing" | "continue";
@@ -53,11 +59,24 @@ export interface SupplierWork {
     remaining: number;
 }
 
+/**
+ * The Value to look up for a row without a part number for the supplier
+ * (the "Look up the Value" option); null if the cell isn't empty ("-" means
+ * the supplier has no such part) or the Value isn't a part number.
+ */
+function valueQuery(row: BomRow, supplier: SupplierId): string | null {
+    return normalizeCell(row.partNumbers[supplier]) === ""
+        ? valueAsPartNumber(row.value)
+        : null;
+}
+
 /** Distinct part numbers of a supplier, keyed by `partNumberKey`, with
- *  the text of the first cell that has it. */
+ *  the text of the first cell that has it; with `byValue`, also the
+ *  Values of rows without a part number. */
 function partNumbers(
     project: Project,
-    supplier: SupplierId
+    supplier: SupplierId,
+    byValue: boolean
 ): { byKey: Map<string, string>; flagged: number } {
     const byKey = new Map<string, string>();
     let flagged = 0;
@@ -73,6 +92,14 @@ function partNumbers(
         const key = partNumberKey(value!);
         if (!byKey.has(key)) {
             byKey.set(key, value!.trim());
+        }
+    }
+    if (byValue) {
+        for (const row of project.rows) {
+            const query = valueQuery(row, supplier);
+            if (query && !byKey.has(partNumberKey(query))) {
+                byKey.set(partNumberKey(query), query);
+            }
         }
     }
     return { byKey, flagged };
@@ -95,9 +122,10 @@ function isPending(
 
 export function supplierWork(
     project: Project,
-    supplier: SupplierId
+    supplier: SupplierId,
+    byValue = false
 ): SupplierWork {
-    const { byKey, flagged } = partNumbers(project, supplier);
+    const { byKey, flagged } = partNumbers(project, supplier, byValue);
     const results = project.collected.results[supplier] ?? {};
     const run = project.collected.runs[supplier];
     const unfinished = run && run.state !== "complete";
@@ -116,9 +144,10 @@ export function supplierWork(
 export function partNumbersToCollect(
     project: Project,
     supplier: SupplierId,
-    mode: CollectMode
+    mode: CollectMode,
+    byValue = false
 ): string[] {
-    const { byKey } = partNumbers(project, supplier);
+    const { byKey } = partNumbers(project, supplier, byValue);
     const results = project.collected.results[supplier] ?? {};
     const runId = project.collected.runs[supplier]?.id;
     return [...byKey]
@@ -193,4 +222,49 @@ export function summarizeRun(
         }
     }
     return summary;
+}
+
+export interface ValueMatches {
+    /** Cells to fill: the supplier's part number for a single match, or the
+     *  Value when several items match, so the user can choose one. */
+    cells: { rowId: string; partNumber: string; result: LookupResult }[];
+    found: number;
+    ambiguous: number;
+    notFound: number;
+}
+
+/** What run `runId` found for the rows it looked up by Value. */
+export function valueMatches(
+    project: Project,
+    supplier: SupplierId,
+    runId: string
+): ValueMatches {
+    const matches: ValueMatches = {
+        cells: [],
+        found: 0,
+        ambiguous: 0,
+        notFound: 0
+    };
+    const results = project.collected.results[supplier] ?? {};
+    for (const row of project.rows) {
+        const query = valueQuery(row, supplier);
+        const result = query ? results[partNumberKey(query)] : undefined;
+        if (!query || result?.runId !== runId) {
+            continue;
+        }
+        if (result.status === "found") {
+            matches.found++;
+            matches.cells.push({
+                rowId: row.id,
+                partNumber: result.offer.supplierPartNumber,
+                result
+            });
+        } else if (result.status === "ambiguous") {
+            matches.ambiguous++;
+            matches.cells.push({ rowId: row.id, partNumber: query, result });
+        } else {
+            matches.notFound++;
+        }
+    }
+    return matches;
 }

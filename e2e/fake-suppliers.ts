@@ -194,8 +194,14 @@ export async function startFakeSuppliers() {
                         ]
                     });
                 }
+                // Mouser's part-number search also finds manufacturer numbers.
                 const parts = requested.flatMap(pn =>
-                    MOUSER_PARTS[pn] ? [MOUSER_PARTS[pn]] : []
+                    Object.values(MOUSER_PARTS).filter(
+                        part =>
+                            MOUSER_PARTS[pn] === part ||
+                            (part as { ManufacturerPartNumber: string })
+                                .ManufacturerPartNumber === pn
+                    )
                 );
                 return send(response, 200, {
                     Errors: [],

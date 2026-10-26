@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
     hasAlternatives,
     isPartNumberDefined,
-    normalizeCell
+    normalizeCell,
+    valueAsPartNumber
 } from "./part-number";
 
 // Values taken from "BOM example.csv".
@@ -43,5 +44,43 @@ describe("hasAlternatives", () => {
     it("ignores 'or' inside a part number", () => {
         expect(hasAlternatives("TBP03P2-350-03BEOR")).toBe(false);
         expect(hasAlternatives("B4PS-VH (LF)(SN)")).toBe(false);
+    });
+});
+
+describe("valueAsPartNumber", () => {
+    it("takes Values that look like manufacturer part numbers", () => {
+        for (const value of [
+            "TPS54331DDA",
+            "1N4007",
+            "2N7002",
+            "LM358",
+            "ESP32-S3-WROOM-1",
+            " STM32F103C8T6 "
+        ]) {
+            expect(valueAsPartNumber(value)).toBe(value.trim());
+        }
+    });
+
+    it("skips generic values, symbol names and text", () => {
+        for (const value of [
+            "100n",
+            "4u7",
+            "10k",
+            "1k5",
+            "0R010",
+            "2.2uF",
+            "100nF/50V",
+            "10k 1%",
+            "47pF",
+            "1M",
+            "100",
+            "LED",
+            "DNP",
+            "Conn_01x04",
+            "100nF 50V X7R",
+            ""
+        ]) {
+            expect(valueAsPartNumber(value)).toBeNull();
+        }
     });
 });
