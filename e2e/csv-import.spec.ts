@@ -14,7 +14,7 @@ test("imports BOM example.csv", async () => {
             name: "Import BOM example.csv"
         });
         await expect(dialog.getByLabel('Import "LCSC" as')).toHaveValue(
-            "custom:text"
+            "pn:lcsc"
         );
         await expect(dialog.getByText("125 rows")).toBeVisible();
 

@@ -129,7 +129,7 @@ describe("supplier columns", () => {
 
 describe("custom columns", () => {
     it("rejects empty, built-in, reserved and duplicate names", () => {
-        const { project } = addCustomColumn(createProject(), "LCSC", "text");
+        const { project } = addCustomColumn(createProject(), "Farnell", "text");
         expect(validateColumnName(project, " ")).toMatch(/Enter/);
         expect(validateColumnName(project, "qty")).toMatch(/built-in/);
         expect(validateColumnName(project, "Mouser")).toMatch(/built-in/);
@@ -137,7 +137,9 @@ describe("custom columns", () => {
             /reserved/
         );
         expect(validateColumnName(project, "best_price")).toMatch(/reserved/);
-        expect(validateColumnName(project, "lcsc")).toMatch(/already exists/);
+        expect(validateColumnName(project, "farnell")).toMatch(
+            /already exists/
+        );
         expect(validateColumnName(project, "Notes")).toBeNull();
     });
 
@@ -152,8 +154,8 @@ describe("custom columns", () => {
     });
 
     it("makes imported names unique", () => {
-        const { project } = addCustomColumn(createProject(), "LCSC", "text");
-        expect(uniqueColumnName(project, "LCSC")).toBe("LCSC (2)");
+        const { project } = addCustomColumn(createProject(), "Farnell", "text");
+        expect(uniqueColumnName(project, "Farnell")).toBe("Farnell (2)");
         expect(uniqueColumnName(project, "Value")).toBe("Value (2)");
         expect(uniqueColumnName(project, "")).toBe("Column");
     });

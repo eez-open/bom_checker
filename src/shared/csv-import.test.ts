@@ -53,7 +53,7 @@ describe("BOM example.csv", () => {
             { kind: "partNumber", supplier: "digikey" },
             { kind: "partNumber", supplier: "mouser" },
             { kind: "partNumber", supplier: "tme" },
-            { kind: "custom", type: "text" }
+            { kind: "partNumber", supplier: "lcsc" }
         ]);
         expect(validateMapping(mapping)).toEqual([]);
     });
@@ -61,8 +61,8 @@ describe("BOM example.csv", () => {
     it("imports all rows with trimmed values", () => {
         const { project, warnings } = importExample();
         expect(warnings).toEqual([]);
-        expect(project.suppliers).toEqual(["digikey", "mouser", "tme"]);
-        expect(project.customColumns.map(c => c.name)).toEqual(["LCSC"]);
+        expect(project.suppliers).toEqual(["digikey", "mouser", "tme", "lcsc"]);
+        expect(project.customColumns).toEqual([]);
         expect(project.rows).toHaveLength(125);
         expect(project.rows.reduce((sum, row) => sum + row.qty, 0)).toBe(367);
         expect(project.rows[0]).toMatchObject({
@@ -85,14 +85,13 @@ describe("BOM example.csv", () => {
         expect(hasAlternatives(tr1?.partNumbers.digikey)).toBe(true);
         const r88 = project.rows.find(row => row.reference === "R88");
         expect(r88?.partNumbers.tme).toBe("-");
-        const lcsc = project.customColumns[0]!.id;
-        expect(r88?.custom[lcsc]).toBe("-");
+        expect(r88?.partNumbers.lcsc).toBe("-");
         const c5 = project.rows.find(
             row =>
                 row.reference ===
                 "C5,C7,C8,C10,C16,C28,C31,C36,C41,C42,C68,C70,C72,C126"
         );
-        expect(c5?.custom).toEqual({});
+        expect(c5?.partNumbers).not.toHaveProperty("lcsc");
     });
 });
 

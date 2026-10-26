@@ -35,7 +35,7 @@ export function StartPage({ dragging }: { dragging: boolean }) {
                 <h1>EEZ BOM checker</h1>
                 <p className="muted">
                     Check stock and prices of your bill of materials at DigiKey,
-                    Mouser and TME.
+                    Mouser, TME and LCSC.
                 </p>
                 <button
                     type="button"

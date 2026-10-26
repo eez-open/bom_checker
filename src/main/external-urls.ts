@@ -5,7 +5,8 @@ const TOP_LEVEL = String.raw`(com|[a-z]{2}|co\.[a-z]{2}|com\.[a-z]{2})`;
 const ALLOWED_HOSTS = [
     new RegExp(String.raw`^([a-z0-9-]+\.)*digikey\.${TOP_LEVEL}$`),
     new RegExp(String.raw`^([a-z0-9-]+\.)*mouser\.${TOP_LEVEL}$`),
-    /^([a-z0-9-]+\.)*tme\.eu$/
+    /^([a-z0-9-]+\.)*tme\.eu$/,
+    /^([a-z0-9-]+\.)*lcsc\.com$/
 ];
 
 export function isAllowedExternalUrl(url: string): boolean {

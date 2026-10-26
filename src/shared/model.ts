@@ -1,7 +1,7 @@
 // BOM data model shared by the main process and the UI. The project file
 // format (project-file.ts) stores exactly these types.
 
-export const SUPPLIER_IDS = ["digikey", "mouser", "tme"] as const;
+export const SUPPLIER_IDS = ["digikey", "mouser", "tme", "lcsc"] as const;
 export type SupplierId = (typeof SUPPLIER_IDS)[number];
 
 export type ColumnType = "text" | "number";

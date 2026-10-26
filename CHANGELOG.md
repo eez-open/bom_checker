@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- LCSC as a fourth supplier, through LCSC's official API (free, after LCSC approves an application; calls must come from a registered IP address). The LCSC column takes LCSC numbers (C2040) or manufacturer part numbers; LCSC columns in CSV files and KiCad projects are now imported as LCSC part numbers instead of a custom column. The user guide explains how to get the key and secret.
+
 ## [0.2.0] - 2026-10-26
 
 ### Added

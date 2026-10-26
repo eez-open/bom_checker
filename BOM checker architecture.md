@@ -341,6 +341,13 @@ interface SupplierContext {
 - **Net vs gross:** `prices.type` says whether prices are NET or GROSS, which depends on the account's settings. The app warns if prices come back GROSS.
 - **Links:** product page links are built from the symbol. Datasheet links come from `/products/files` (document type `DTE`) and are opened in the browser, never downloaded by the app.
 
+**LCSC notes** (from LCSC's OpenAPI guide; not yet tried with a real key)
+- **API:** the "agent" API at `https://ips.lcsc.com` (sandbox: `https://sandbox-api.lcsc.com`). `GET /rest/api/agent/product/v1/productdetails` for LCSC numbers (`C2040`); `GET …/keywordsearch` for manufacturer part numbers, matched with the rules in 6.2. One part per call.
+- **Auth:** headers `key`, `nonce`, `timestamp` (seconds) and `signature` = SHA-256 of `key=…&nonce=…&secret=…&timestamp=…` followed by the sorted, `URLEncoder`-encoded query. Calls from an IP address not registered for the account get HTTP 401; key, timestamp and signature problems come back as HTTP 200 with business code 4001 or 4003.
+- **Access:** free, after LCSC approves an application (lcsc.com/agent/apply); new keys work only in the sandbox at first. Limits: about 60 searches per minute and 1,000 per day; 429 throttles and 430 is the daily limit.
+- **Currency:** `currency=EUR`. The guide says it applies only when asking for prices alone, so when a full answer has another currency the plugin asks again with `returnInformation=ProductPricing`.
+- **Data:** `standardPricing` breaks (no account prices), `quantityAvailable`, `minimumOrderQuantity` / `incrementQuantity`. Lifecycle is only `isOnSale` (Active / Not orderable); RoHS comes from `productParameters` when present.
+
 ---
 
 ## 7. Authentication and the credential vault
