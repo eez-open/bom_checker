@@ -53,6 +53,15 @@ test("collects supplier data and continues after a daily limit", async () => {
             Token: FAKE_CREDENTIALS.tme.token,
             "App secret": FAKE_CREDENTIALS.tme.appSecret
         });
+        // LCSC signs every request; the fake server checks the signature.
+        await saveSupplier(settings, "LCSC", {
+            Key: FAKE_CREDENTIALS.lcsc.apiKey,
+            Secret: FAKE_CREDENTIALS.lcsc.apiSecret
+        });
+        await settings.getByRole("button", { name: "Test connection" }).click();
+        await expect(settings.getByRole("status")).toContainText(
+            "Found C2040: Raspberry Pi RP2040"
+        );
         await settings.getByRole("button", { name: "Close" }).click();
 
         // Lock, so collecting asks for the password.
@@ -86,7 +95,10 @@ test("collects supplier data and continues after a daily limit", async () => {
         await expect(
             collect.getByRole("checkbox", { name: "TME" })
         ).toBeChecked();
-        await expect(collect.getByText("Not collected yet.")).toHaveCount(3);
+        await expect(
+            collect.getByRole("checkbox", { name: "LCSC" })
+        ).toBeChecked();
+        await expect(collect.getByText("Not collected yet.")).toHaveCount(4);
         await collect.getByRole("button", { name: "Start" }).click();
 
         const summary = (supplier: string) =>
@@ -96,6 +108,10 @@ test("collects supplier data and continues after a daily limit", async () => {
         );
         await expect(summary("TME")).toContainText(
             "Requested 1 · found 1 · not found 0"
+        );
+        // An LCSC number and a manufacturer part number.
+        await expect(summary("LCSC")).toContainText(
+            "Requested 2 · found 2 · not found 0"
         );
         await expect(summary("Mouser")).toContainText("stopped");
         await expect(summary("Mouser")).toContainText(
@@ -112,6 +128,14 @@ test("collects supplier data and continues after a daily limit", async () => {
             "Found"
         );
         await expect(badge(page, 0, "pn:mouser")).toHaveCount(0);
+        await expect(badge(page, 0, "pn:lcsc")).toHaveAttribute(
+            "aria-label",
+            "Found"
+        );
+        await expect(badge(page, 2, "pn:lcsc")).toHaveAttribute(
+            "aria-label",
+            "Found"
+        );
         await expect(
             page
                 .locator(".ag-header-group-cell", { hasText: "DigiKey" })
@@ -133,7 +157,10 @@ test("collects supplier data and continues after a daily limit", async () => {
         ).toBeChecked();
         await expect(
             collect.getByText(/^Last collected \d{4}-\d\d-\d\d \d\d:\d\d\.$/)
-        ).toHaveCount(3);
+        ).toHaveCount(4);
+        await expect(
+            collect.getByRole("checkbox", { name: "LCSC" })
+        ).not.toBeChecked();
         await collect.getByRole("button", { name: "Start" }).click();
         await expect(summary("Mouser")).toContainText(
             "Requested 3 · found 1 · not found 2"

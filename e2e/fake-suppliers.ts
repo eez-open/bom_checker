@@ -1,7 +1,8 @@
-// A local stand-in for the DigiKey, Mouser and TME APIs, so end-to-end tests
+// A local stand-in for the supplier APIs, so end-to-end tests
 // can collect without network access or real keys. The app is pointed at it
 // with EEZ_BOM_CHECKER_API_URLS. Responses follow the real APIs' shapes.
 
+import { createHash } from "node:crypto";
 import {
     createServer,
     type IncomingMessage,
@@ -12,7 +13,8 @@ import type { AddressInfo } from "node:net";
 export const FAKE_CREDENTIALS = {
     digikey: { clientId: "dk-client", clientSecret: "dk-secret" },
     mouser: { apiKey: "mouser-key" },
-    tme: { token: "tme-token", appSecret: "tme-secret" }
+    tme: { token: "tme-token", appSecret: "tme-secret" },
+    lcsc: { apiKey: "lcsc-key", apiSecret: "lcsc-secret" }
 };
 
 /** A Mouser part number that triggers the daily limit once. */
@@ -93,6 +95,50 @@ const DIGIKEY_PRODUCTS: Record<string, unknown> = {
     }
 };
 
+function lcscProduct(
+    lcscProductNumber: string,
+    manufacturer: string,
+    manufacturerProductNumber: string,
+    stock: number,
+    unitPrice: number
+) {
+    return {
+        lcscProductNumber,
+        manufacturer: { name: manufacturer },
+        manufacturerProductNumber,
+        description: `${manufacturer} ${manufacturerProductNumber}`,
+        minimumOrderQuantity: 1,
+        incrementQuantity: 1,
+        isOnSale: true,
+        productPrice: {
+            currency: "EUR",
+            quantityAvailable: stock,
+            standardPricing: [{ breakQuantity: 1, unitPrice }]
+        }
+    };
+}
+
+/** LCSC products by LCSC number. */
+const LCSC_PRODUCTS: Record<string, unknown> = {
+    C2040: lcscProduct("C2040", "Raspberry Pi", "RP2040", 67840, 1.01),
+    C81598: lcscProduct("C81598", "MDD", "1N4007", 500000, 0.009),
+    C9865: lcscProduct("C9865", "Texas Instruments", "TPS54331DDA", 3000, 0.95)
+};
+
+/** Checks the signature as LCSC describes it in its API guide. */
+function lcscSignatureOk(request: IncomingMessage, url: URL): boolean {
+    const header = (name: string) => String(request.headers[name] ?? "");
+    const { apiKey, apiSecret } = FAKE_CREDENTIALS.lcsc;
+    const signed =
+        `key=${header("key")}&nonce=${header("nonce")}&secret=${apiSecret}` +
+        `&timestamp=${header("timestamp")}&${url.search.slice(1)}`;
+    return (
+        header("key") === apiKey &&
+        header("signature") ===
+            createHash("sha256").update(signed).digest("hex")
+    );
+}
+
 function send(response: ServerResponse, status: number, body: unknown) {
     response.writeHead(status, { "Content-Type": "application/json" });
     response.end(JSON.stringify(body));
@@ -148,8 +194,14 @@ export async function startFakeSuppliers() {
                         ]
                     });
                 }
+                // Mouser's part-number search also finds manufacturer numbers.
                 const parts = requested.flatMap(pn =>
-                    MOUSER_PARTS[pn] ? [MOUSER_PARTS[pn]] : []
+                    Object.values(MOUSER_PARTS).filter(
+                        part =>
+                            MOUSER_PARTS[pn] === part ||
+                            (part as { ManufacturerPartNumber: string })
+                                .ManufacturerPartNumber === pn
+                    )
                 );
                 return send(response, 200, {
                     Errors: [],
@@ -246,6 +298,39 @@ export async function startFakeSuppliers() {
                     }
                 });
             }
+            if (supplier === "lcsc" && path.startsWith("/rest/api/agent/")) {
+                if (!lcscSignatureOk(request, url)) {
+                    return send(response, 200, {
+                        code: 4003,
+                        message: "Invalid signature",
+                        success: false,
+                        result: null
+                    });
+                }
+                const ok = (result: unknown) =>
+                    send(response, 200, {
+                        code: 200,
+                        message: "ok",
+                        success: true,
+                        result
+                    });
+                if (path.endsWith("/product/v1/productdetails")) {
+                    return ok(
+                        LCSC_PRODUCTS[
+                            url.searchParams.get("lcscProductNumber") ?? ""
+                        ] ?? null
+                    );
+                }
+                if (path.endsWith("/product/v1/keywordsearch")) {
+                    const keyword = url.searchParams.get("keyword");
+                    const products = Object.values(LCSC_PRODUCTS).filter(
+                        product =>
+                            (product as { manufacturerProductNumber: string })
+                                .manufacturerProductNumber === keyword
+                    );
+                    return ok({ productCount: products.length, products });
+                }
+            }
             send(response, 404, {
                 error: `No fake for ${request.method} ${url.pathname}`
             });
@@ -258,7 +343,8 @@ export async function startFakeSuppliers() {
         urls: {
             digikey: `${base}/digikey`,
             mouser: `${base}/mouser`,
-            tme: `${base}/tme`
+            tme: `${base}/tme`,
+            lcsc: `${base}/lcsc`
         },
         close: () => new Promise<void>(resolve => server.close(() => resolve()))
     };

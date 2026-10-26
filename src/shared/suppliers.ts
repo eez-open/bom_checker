@@ -12,7 +12,8 @@ export interface SupplierInfo {
 export const SUPPLIERS: Record<SupplierId, SupplierInfo> = {
     digikey: { id: "digikey", name: "DigiKey", headerPattern: /^digi-?key\b/i },
     mouser: { id: "mouser", name: "Mouser", headerPattern: /^mouser\b/i },
-    tme: { id: "tme", name: "TME", headerPattern: /^tme\b/i }
+    tme: { id: "tme", name: "TME", headerPattern: /^tme\b/i },
+    lcsc: { id: "lcsc", name: "LCSC", headerPattern: /^lcsc\b/i }
 };
 
 export const ALL_SUPPLIERS: readonly SupplierInfo[] = SUPPLIER_IDS.map(

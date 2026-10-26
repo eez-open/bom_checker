@@ -1,19 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
     formatDateTime,
     lastCollectedAt,
     partNumbersToCollect,
     summarizeRun,
     supplierWork,
+    valueMatches,
     type CollectMode,
-    type SupplierWork
+    type SupplierWork,
+    type ValueMatches
 } from "../../shared/collection";
 import type {
     CollectEvent,
     CollectJob,
     SupplierReadiness
 } from "../../shared/ipc";
-import type { CollectionRun, SupplierId } from "../../shared/model";
+import {
+    partNumberKey,
+    type CollectionRun,
+    type LookupResult,
+    type SupplierId
+} from "../../shared/model";
+import { setCell } from "../../shared/project-ops";
 import { SUPPLIERS } from "../../shared/suppliers";
 import { openSettings } from "../commands";
 import { errorMessage } from "../errors";
@@ -28,7 +36,30 @@ type Step =
     | { kind: "locked" }
     | { kind: "choose"; readiness: Readiness }
     | { kind: "running"; jobs: CollectJob[] }
-    | { kind: "done"; jobs: CollectJob[] };
+    | {
+          kind: "done";
+          jobs: CollectJob[];
+          /** What the Value lookups found, when that option was on. */
+          values?: Partial<Record<SupplierId, ValueMatches>>;
+      };
+
+const BY_VALUE_KEY = "collect-by-value";
+
+function loadByValue(): boolean {
+    try {
+        return localStorage.getItem(BY_VALUE_KEY) === "true";
+    } catch {
+        return false;
+    }
+}
+
+function saveByValue(byValue: boolean): void {
+    try {
+        localStorage.setItem(BY_VALUE_KEY, String(byValue));
+    } catch {
+        // Only a convenience.
+    }
+}
 
 interface Progress {
     done: number;
@@ -47,6 +78,57 @@ function countFor(work: SupplierWork, mode: CollectMode): number {
         : mode === "missing"
           ? work.missing
           : work.remaining;
+}
+
+/**
+ * Puts what the Value lookups of `jobs` found into the empty part-number
+ * cells, as one undo step, and returns the counts per supplier.
+ */
+function fillFromValues(
+    jobs: readonly CollectJob[]
+): Partial<Record<SupplierId, ValueMatches>> {
+    const { project, applyCollected, edit } = useDocument.getState();
+    const matches = Object.fromEntries(
+        jobs.map(job => [
+            job.supplier,
+            valueMatches(project, job.supplier, job.runId)
+        ])
+    ) as Partial<Record<SupplierId, ValueMatches>>;
+
+    // The result also under the supplier's part number put in the cell.
+    applyCollected(collected => {
+        const results = { ...collected.results };
+        for (const job of jobs) {
+            const copies: Record<string, LookupResult> = {};
+            for (const { partNumber, result } of matches[job.supplier]!.cells) {
+                if (result.status === "found") {
+                    copies[partNumberKey(partNumber)] = {
+                        ...result,
+                        matchedBy: "supplierPartNumber"
+                    };
+                }
+            }
+            results[job.supplier] = { ...results[job.supplier], ...copies };
+        }
+        return { ...collected, results };
+    });
+    edit(current =>
+        jobs.reduce(
+            (filled, job) =>
+                matches[job.supplier]!.cells.reduce(
+                    (next, cell) =>
+                        setCell(
+                            next,
+                            cell.rowId,
+                            { kind: "partNumber", supplier: job.supplier },
+                            cell.partNumber
+                        ),
+                    filled
+                ),
+            current
+        )
+    );
+    return matches;
 }
 
 function defaultChoice(
@@ -110,6 +192,8 @@ export function CollectDialog({ onClose }: { onClose: () => void }) {
     const [progress, setProgress] = useState<
         Partial<Record<SupplierId, Progress>>
     >({});
+    // The jobs being run, and whether Values are looked up, for "done".
+    const run = useRef<{ jobs: CollectJob[]; byValue: boolean } | null>(null);
 
     const prepare = async () => {
         try {
@@ -149,12 +233,14 @@ export function CollectDialog({ onClose }: { onClose: () => void }) {
                         ...current,
                         [event.supplier]: event
                     }));
-                } else if (event.type === "done") {
-                    setStep(current =>
-                        current.kind === "running"
-                            ? { kind: "done", jobs: current.jobs }
-                            : current
-                    );
+                } else if (event.type === "done" && run.current) {
+                    const { jobs, byValue } = run.current;
+                    run.current = null;
+                    setStep({
+                        kind: "done",
+                        jobs,
+                        values: byValue ? fillFromValues(jobs) : undefined
+                    });
                 }
             }),
         []
@@ -210,7 +296,7 @@ export function CollectDialog({ onClose }: { onClose: () => void }) {
             {step.kind === "choose" && (
                 <ChooseSuppliers
                     readiness={step.readiness}
-                    onStart={async jobs => {
+                    onStart={async (jobs, byValue) => {
                         const { applyCollected } = useDocument.getState();
                         const startedAt = new Date().toISOString();
                         // A run that is still "running" after a crash can be continued.
@@ -231,10 +317,12 @@ export function CollectDialog({ onClose }: { onClose: () => void }) {
                             }
                         }));
                         setProgress({});
+                        run.current = { jobs, byValue };
                         setStep({ kind: "running", jobs });
                         try {
                             await window.api.collect.start(jobs);
                         } catch (caught) {
+                            run.current = null;
                             setError(errorMessage(caught));
                             setStep({ kind: "done", jobs: [] });
                         }
@@ -249,6 +337,11 @@ export function CollectDialog({ onClose }: { onClose: () => void }) {
                         progress={progress[job.supplier]}
                         run={project.collected.runs[job.supplier]}
                         finished={step.kind === "done"}
+                        values={
+                            step.kind === "done"
+                                ? step.values?.[job.supplier]
+                                : undefined
+                        }
                     />
                 ))}
         </Modal>
@@ -316,18 +409,24 @@ function ChooseSuppliers({
     onStart
 }: {
     readiness: Readiness;
-    onStart: (jobs: CollectJob[]) => Promise<void>;
+    onStart: (jobs: CollectJob[], byValue: boolean) => Promise<void>;
 }) {
     const project = useDocument(state => state.project);
     const suppliers = project.suppliers;
+    const byValueId = useId();
+    const [byValue, setByValue] = useState(loadByValue);
+    const defaultChoices = (lookUpValues: boolean) =>
+        Object.fromEntries(
+            suppliers.map(id => [
+                id,
+                defaultChoice(
+                    supplierWork(project, id, lookUpValues),
+                    readiness[id]
+                )
+            ])
+        );
     const [choices, setChoices] = useState<Partial<Record<SupplierId, Choice>>>(
-        () =>
-            Object.fromEntries(
-                suppliers.map(id => [
-                    id,
-                    defaultChoice(supplierWork(project, id), readiness[id])
-                ])
-            )
+        () => defaultChoices(byValue)
     );
 
     if (suppliers.length === 0) {
@@ -347,7 +446,8 @@ function ChooseSuppliers({
         const partNumbers = partNumbersToCollect(
             project,
             supplier,
-            choice.mode
+            choice.mode,
+            byValue
         );
         const runId =
             choice.mode === "continue"
@@ -358,11 +458,33 @@ function ChooseSuppliers({
 
     return (
         <div className="collect-choose">
+            <div className="collect-by-value">
+                <label className="checkbox">
+                    <input
+                        type="checkbox"
+                        checked={byValue}
+                        aria-describedby={byValueId}
+                        onChange={event => {
+                            setByValue(event.target.checked);
+                            setChoices(defaultChoices(event.target.checked));
+                            saveByValue(event.target.checked);
+                        }}
+                    />
+                    Look up the Value where a part number is missing
+                </label>
+                <p id={byValueId} className="muted">
+                    For rows with an empty part-number cell, the Value is
+                    searched as a manufacturer part number, e.g. TPS54331DDA.
+                    Generic values such as 100n or 10k are skipped. One match
+                    fills in the supplier&apos;s part number; when several items
+                    match, the cell gets the Value and you choose the item.
+                </p>
+            </div>
             {suppliers.map(supplier => (
                 <SupplierChoice
                     key={supplier}
                     supplier={supplier}
-                    work={supplierWork(project, supplier)}
+                    work={supplierWork(project, supplier, byValue)}
                     readiness={readiness[supplier]}
                     lastRun={project.collected.runs[supplier]}
                     collectedAt={lastCollectedAt(project.collected, supplier)}
@@ -380,7 +502,7 @@ function ChooseSuppliers({
                     type="button"
                     className="primary"
                     disabled={jobs.length === 0}
-                    onClick={() => void onStart(jobs)}
+                    onClick={() => void onStart(jobs, byValue)}
                 >
                     Start
                 </button>
@@ -518,12 +640,14 @@ function JobStatus({
     job,
     progress,
     run,
-    finished
+    finished,
+    values
 }: {
     job: CollectJob;
     progress: Progress | undefined;
     run: CollectionRun | undefined;
     finished: boolean;
+    values: ValueMatches | undefined;
 }) {
     const project = useDocument(state => state.project);
     const name = SUPPLIERS[job.supplier].name;
@@ -571,6 +695,14 @@ function JobStatus({
                     </p>
                 </>
             )}
+            {values &&
+                values.found + values.ambiguous + values.notFound > 0 && (
+                    <p>
+                        From the Value: {values.found} filled in ·{" "}
+                        {values.ambiguous} to choose · {values.notFound} not
+                        found
+                    </p>
+                )}
             {ended.state === "interrupted" && (
                 <p className="warning">
                     Stopped: {ended.reason} Open Collect again to continue where

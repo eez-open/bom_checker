@@ -12,7 +12,7 @@ import {
 function sampleProject() {
     const { project, column } = addCustomColumn(
         addSupplier(createProject(), "mouser"),
-        "LCSC",
+        "Farnell",
         "text"
     );
     return addRow(
@@ -63,7 +63,7 @@ describe("project file", () => {
 
     it("rejects unknown suppliers", () => {
         expect(() =>
-            parseProjectFile(fileWith({ suppliers: ["lcsc"] }))
+            parseProjectFile(fileWith({ suppliers: ["farnell"] }))
         ).toThrow(/damaged/);
     });
 

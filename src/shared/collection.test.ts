@@ -4,7 +4,8 @@ import {
     lastCollectedAt,
     partNumbersToCollect,
     summarizeRun,
-    supplierWork
+    supplierWork,
+    valueMatches
 } from "./collection";
 import { digikeyLifecycle, mouserLifecycle, tmeLifecycle } from "./lifecycle";
 import type { LookupResult, Project, SupplierOffer } from "./model";
@@ -220,5 +221,76 @@ describe("collection time", () => {
         const local = new Date(2026, 9, 6, 7, 5, 30);
         expect(formatDateTime(local.toISOString())).toBe("2026-10-06 07:05");
         expect(formatDateTime("garbage")).toBe("garbage");
+    });
+});
+
+describe("looking up Values", () => {
+    const rows: [string, string | undefined][] = [
+        ["TPS54331DDA", undefined], // empty cell: looked up
+        ["LM358", "-"], // no such part at Mouser
+        ["100n", undefined], // generic value
+        ["NE555", "595-NE555P"], // has a part number
+        ["1N4007", undefined],
+        ["BAV99", undefined]
+    ];
+    const project = rows.reduce(
+        (bom, [value, mouser]) =>
+            addRow(
+                bom,
+                createRow({
+                    value,
+                    partNumbers: mouser === undefined ? {} : { mouser }
+                })
+            ),
+        { ...createProject(), suppliers: ["mouser"] } as Project
+    );
+
+    it("adds Values of rows without a part number when asked", () => {
+        expect(partNumbersToCollect(project, "mouser", "all")).toEqual([
+            "595-NE555P"
+        ]);
+        expect(partNumbersToCollect(project, "mouser", "all", true)).toEqual([
+            "595-NE555P",
+            "TPS54331DDA",
+            "1N4007",
+            "BAV99"
+        ]);
+        expect(supplierWork(project, "mouser", true)).toMatchObject({
+            total: 4,
+            missing: 4
+        });
+    });
+
+    it("fills the supplier's part number, or the Value to choose from", () => {
+        const found = (supplierPartNumber: string): LookupResult => ({
+            status: "found",
+            offer: { ...offer(10), supplierPartNumber },
+            matchedBy: "mpn",
+            runId: "r1",
+            fetchedAt: AT
+        });
+        const collected = withResults(project, {
+            TPS54331DDA: found("595-TPS54331DDA"),
+            "1N4007": {
+                status: "ambiguous",
+                candidates: [offer(1), offer(2)],
+                runId: "r1",
+                fetchedAt: AT
+            },
+            BAV99: { status: "notFound", runId: "r1", fetchedAt: AT }
+        });
+        const matches = valueMatches(collected, "mouser", "r1");
+        expect(
+            matches.cells.map(cell => [
+                collected.rows.find(row => row.id === cell.rowId)?.value,
+                cell.partNumber
+            ])
+        ).toEqual([
+            ["TPS54331DDA", "595-TPS54331DDA"],
+            ["1N4007", "1N4007"]
+        ]);
+        expect(matches).toMatchObject({ found: 1, ambiguous: 1, notFound: 1 });
+        // Only results of that run count.
+        expect(valueMatches(collected, "mouser", "r2").cells).toEqual([]);
     });
 });

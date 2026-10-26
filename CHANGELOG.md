@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-26
+
+### Added
+
+- Look up the Value where a part number is missing (option in Collect…): for rows with an empty part-number cell, the Value is searched as a manufacturer part number. One match fills in the supplier's part number; several leave the Value to choose the item from. Generic values such as 100n or 10k are skipped.
+- LCSC as a fourth supplier, through LCSC's official API (free, after LCSC approves an application; calls must come from a registered IP address). The LCSC column takes LCSC numbers (C2040) or manufacturer part numbers; LCSC columns in CSV files and KiCad projects are now imported as LCSC part numbers instead of a custom column. The user guide explains how to get the key and secret.
+
 ## [0.2.0] - 2026-10-26
 
 ### Added

@@ -1,6 +1,6 @@
 # EEZ BOM checker – user guide
 
-EEZ BOM checker takes a bill of materials (BOM) and checks every part at DigiKey, Mouser and TME: is it in stock, what does it cost for the quantity you need, is it still active, and which supplier is cheapest for the whole order quantity. You can then export the result to Excel, LibreOffice or CSV.
+EEZ BOM checker takes a bill of materials (BOM) and checks every part at DigiKey, Mouser, TME and LCSC: is it in stock, what does it cost for the quantity you need, is it still active, and which supplier is cheapest for the whole order quantity. You can then export the result to Excel, LibreOffice or CSV.
 
 ## Contents
 
@@ -53,6 +53,17 @@ TME's key links two sites: your shop account at tme.eu and a separate developer 
 
 The private key returns your own prices. **Country** (default HR), **Language** and **Currency** (default EUR) can be changed. One request checks up to 50 parts. TME doesn't provide RoHS information.
 
+### LCSC
+
+LCSC's API is free, but LCSC reviews each application, and it answers only calls from the internet addresses you register.
+
+1. Log in to your account at [lcsc.com](https://www.lcsc.com/) (or register one).
+2. Apply at [lcsc.com/agent/apply](https://www.lcsc.com/agent/apply). Describe the use as checking BOMs for your own purchasing with EEZ BOM checker, and accept the API Cooperation Agreement. The review usually takes 5–7 business days, and LCSC may ask for details about your company.
+3. Register the **public IP address** of the network you'll use the app from (search the web for "what is my IP"). LCSC refuses calls from other addresses. If your internet provider changes your address from time to time, update it at lcsc.com/agent when Test connection reports *HTTP 401*.
+4. LCSC sends a **Key** and a **Secret**. Enter them, set **API environment** to *Sandbox*, and click **Test connection**. New keys work only in the sandbox until LCSC activates them for production; switch to *Production* once they have.
+
+The LCSC column takes LCSC part numbers (C2040) or manufacturer part numbers. Prices are LCSC's standard prices in EUR or USD. LCSC allows about 60 requests per minute and 1,000 per day, one part per request. LCSC only says whether a part is on sale: *Active* or *Not orderable*.
+
 **Request limits** for each supplier are preset to the supplier's published limits. The app spaces out requests and counts them per day, also across projects and restarts. Lower the limits if you share an API key with other tools.
 
 ## Creating a BOM
@@ -61,7 +72,7 @@ The app starts on a start page: **Open BOM…**, or drop a file on the window (a
 
 ### By hand
 
-**New**, then **Add row**: the Reference cell starts editing. Type, then press Tab to move to the next cell and Enter to finish. **Columns…** adds part-number columns for DigiKey, Mouser and TME, and your own text or number columns. Select rows with their checkboxes to delete them.
+**New**, then **Add row**: the Reference cell starts editing. Type, then press Tab to move to the next cell and Enter to finish. **Columns…** adds part-number columns for DigiKey, Mouser, TME and LCSC, and your own text or number columns. Select rows with their checkboxes to delete them.
 
 Every change can be undone with **Ctrl+Z** and redone with **Ctrl+Y**.
 
@@ -93,6 +104,16 @@ Click **Collect…**. The first time in a session, enter your password. Then, fo
 
 The summary shows how long it took, how many part numbers were found, not found or matched several items, and how many have enough stock for the order quantity.
 
+### Finding part numbers from the Value
+
+Tick **Look up the Value where a part number is missing** to search for rows whose part-number cell is empty. The Value is searched as a manufacturer part number at each selected supplier (e.g. *TPS54331DDA* or *1N4007*), so the supplier needs a part-number column (add one with **Columns…**).
+
+- One matching item fills in the supplier's part number.
+- When several items match, typically different packagings, the cell gets the Value with a **?** badge: click it to choose the item.
+- When nothing matches, the cell stays empty.
+
+Generic values such as *100n*, *4u7* or *10k*, names like *LED* or *Conn_01x04*, and cells with "-" are skipped: a value alone can't pick one capacitor out of thousands. The summary says how many part numbers were filled in, are left to choose, or weren't found. Filling in is one step that **Ctrl+Z** undoes. The option is remembered for next time.
+
 ## Building several units
 
 To check prices and stock for a production batch, enter the number of units in **Build qty** on the toolbar and press Enter. Every row's Qty is multiplied by it: a part used 10 times per board needs 250 for 25 boards. Order quantities, price breaks, availability and the best price follow at once, without collecting again, since the collected data has every price break. A *Total Qty* column shows the multiplied quantity, and the status bar shows the parts per unit and in total. The build quantity is saved with the BOM, Ctrl+Z undoes a change, and exports include it.
@@ -101,7 +122,7 @@ To check prices and stock for a production batch, enter the number of units in *
 
 Each supplier has a group of columns. Click the arrow in the group header to show only the part number, *Total price* and *Availability*. The group header also shows when that supplier's data was last collected. The date is saved with the BOM, and also appears in **Collect…** and on the Info sheet of exports.
 
-To hide all columns of a supplier, or the Best price columns, uncheck them in the **View** menu (Ctrl+1 to Ctrl+4). Hiding only changes the view: the data stays, still counts for the best price, and can still be exported. The status bar lists hidden groups, with **Show all** to bring them back. The app remembers hidden groups for next time.
+To hide all columns of a supplier, or the Best price columns, uncheck them in the **View** menu (Ctrl+1 to Ctrl+5). Hiding only changes the view: the data stays, still counts for the best price, and can still be exported. The status bar lists hidden groups, with **Show all** to bring them back. The app remembers hidden groups for next time.
 
 | Column | Meaning |
 |---|---|

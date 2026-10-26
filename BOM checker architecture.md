@@ -341,6 +341,13 @@ interface SupplierContext {
 - **Net vs gross:** `prices.type` says whether prices are NET or GROSS, which depends on the account's settings. The app warns if prices come back GROSS.
 - **Links:** product page links are built from the symbol. Datasheet links come from `/products/files` (document type `DTE`) and are opened in the browser, never downloaded by the app.
 
+**LCSC notes** (from LCSC's OpenAPI guide; not yet tried with a real key)
+- **API:** the "agent" API at `https://ips.lcsc.com` (sandbox: `https://sandbox-api.lcsc.com`). `GET /rest/api/agent/product/v1/productdetails` for LCSC numbers (`C2040`); `GET …/keywordsearch` for manufacturer part numbers, matched with the rules in 6.2. One part per call.
+- **Auth:** headers `key`, `nonce`, `timestamp` (seconds) and `signature` = SHA-256 of `key=…&nonce=…&secret=…&timestamp=…` followed by the sorted, `URLEncoder`-encoded query. Calls from an IP address not registered for the account get HTTP 401; key, timestamp and signature problems come back as HTTP 200 with business code 4001 or 4003.
+- **Access:** free, after LCSC approves an application (lcsc.com/agent/apply); new keys work only in the sandbox at first. Limits: about 60 searches per minute and 1,000 per day; 429 throttles and 430 is the daily limit.
+- **Currency:** `currency=EUR`. The guide says it applies only when asking for prices alone, so when a full answer has another currency the plugin asks again with `returnInformation=ProductPricing`.
+- **Data:** `standardPricing` breaks (no account prices), `quantityAvailable`, `minimumOrderQuantity` / `incrementQuantity`. Lifecycle is only `isOnSale` (Active / Not orderable); RoHS comes from `productParameters` when present.
+
 ---
 
 ## 7. Authentication and the credential vault
@@ -420,6 +427,11 @@ Files in the app-data folder (`%APPDATA%\EEZ BOM checker\` on Windows, `~/.confi
 - requested / found / not found / ambiguous / errors;
 - available (In stock) / not available;
 - API calls used and remaining today.
+
+**Looking up Values** (optional, GitHub #10)
+- **Work list:** with the option on, rows whose cell for the supplier is empty (not "-") add their Value to the work list when it looks like a manufacturer part number (`valueAsPartNumber`: letters and digits, no spaces). Generic passive values (100n, 4u7, 10k, 0R010) are skipped; SI prefixes are case-sensitive, so 1N4148 isn't read as "1n". The plugins already resolve manufacturer part numbers (6.2), so nothing supplier-specific is added.
+- **Filling in:** when the run ends, one match puts the supplier's part number in the cell (its result is copied under that number); several matches put the Value in the cell, so the user chooses the item; no match leaves the cell empty. This is one undo step.
+- **Not done:** turning a generic value plus footprint into one part. The APIs can only return candidates for that, and choosing one needs defaults for dielectric, voltage, tolerance and packaging.
 
 ---
 
@@ -564,6 +576,10 @@ These points couldn't be settled from documentation and should be the first thin
 
 ## 15. Status
 
+### Version 0.3.0
+
+LCSC as a fourth supplier (#9), built from LCSC's API guide, and an optional lookup of the Value as a manufacturer part number for rows without one (#10, section 8). Unit tests: 172; end-to-end tests: 12.
+
 ### Version 0.2.0
 
 Built from GitHub issues #1–#8: a Total row, Show and Copy for saved credentials, resizable dialogs and a remembered window position, hiding a supplier's columns from the View menu, collection dates per supplier, a build quantity (file format 3), and a start page with recent documents, file drop and File → Close. Unit tests: 159; end-to-end tests: 11.
@@ -605,4 +621,4 @@ All eight milestones are done. Everything below is covered by unit tests (148) a
 1. **Live verification with real API keys** (section 13). DigiKey and Mouser work with real keys; TME is still to be confirmed. Settings → Test connection answers most points; the log option records the responses.
 2. **Code signing** for the Windows installer, to avoid the SmartScreen warning.
 3. **Not built yet:** automatic updates, opening `.eezbom` files by double-click, dark mode.
-4. **Under investigation:** LCSC as a fourth supplier (#9), and finding parts by Value when a row has no supplier part number (#10).
+4. **LCSC** (#9) is built from LCSC's API guide and still needs a test with a real key.

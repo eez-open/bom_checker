@@ -224,6 +224,55 @@ export const SUPPLIER_SETTINGS: Record<SupplierId, SupplierSettingsInfo> = {
             },
             ...rateLimitFields({ minIntervalMs: 500, perMinute: 0, perDay: 0 })
         ]
+    },
+    lcsc: {
+        docsUrl: "https://www.lcsc.com/agent",
+        fields: [
+            {
+                key: "apiKey",
+                label: "Key",
+                kind: "secret",
+                group: "credentials",
+                help:
+                    "Sent by LCSC when your API application is approved (lcsc.com/agent/apply). " +
+                    "LCSC only accepts calls from the public IP addresses registered for your account."
+            },
+            {
+                key: "apiSecret",
+                label: "Secret",
+                kind: "secret",
+                group: "credentials",
+                help: "Issued together with the key."
+            },
+            {
+                key: "currency",
+                label: "Currency",
+                kind: "select",
+                group: "options",
+                default: "EUR",
+                options: [
+                    { value: "EUR", label: "EUR" },
+                    { value: "USD", label: "USD" }
+                ]
+            },
+            {
+                key: "environment",
+                label: "API environment",
+                kind: "select",
+                group: "options",
+                default: "production",
+                options: [
+                    { value: "production", label: "Production" },
+                    { value: "sandbox", label: "Sandbox (test data only)" }
+                ],
+                help: "New keys work only in the sandbox until LCSC activates them for production."
+            },
+            ...rateLimitFields({
+                minIntervalMs: 1000,
+                perMinute: 60,
+                perDay: 1000
+            })
+        ]
     }
 };
 

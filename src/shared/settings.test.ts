@@ -12,7 +12,8 @@ describe("settings", () => {
         expect(settings.general.supplierOrder).toEqual([
             "digikey",
             "mouser",
-            "tme"
+            "tme",
+            "lcsc"
         ]);
         expect(settings.suppliers.digikey).toMatchObject({
             site: "SI",
@@ -24,11 +25,17 @@ describe("settings", () => {
             country: "HR",
             currency: "EUR"
         });
+        expect(settings.suppliers.lcsc).toMatchObject({
+            currency: "EUR",
+            environment: "production",
+            perMinute: 60,
+            perDay: 1000
+        });
     });
 
     it("keeps valid values and replaces invalid ones", () => {
         const settings = normalizeSettings({
-            general: { supplierOrder: ["tme", "lcsc", "tme"] },
+            general: { supplierOrder: ["tme", "farnell", "tme"] },
             suppliers: {
                 digikey: { site: "DE", perDay: -5, clientSecret: "leak" },
                 mouser: "nonsense"
@@ -37,7 +44,8 @@ describe("settings", () => {
         expect(settings.general.supplierOrder).toEqual([
             "tme",
             "digikey",
-            "mouser"
+            "mouser",
+            "lcsc"
         ]);
         expect(settings.suppliers.digikey.site).toBe("DE");
         expect(settings.suppliers.digikey.perDay).toBe(1000);
@@ -49,7 +57,12 @@ describe("settings", () => {
 
     it("survives a file that isn't an object", () => {
         expect(normalizeSettings(null)).toEqual(defaultSettings());
-        expect(normalizeOrder("tme")).toEqual(["digikey", "mouser", "tme"]);
+        expect(normalizeOrder("tme")).toEqual([
+            "digikey",
+            "mouser",
+            "tme",
+            "lcsc"
+        ]);
     });
 });
 

@@ -22,7 +22,8 @@ test("protects supplier credentials with a password", async () => {
         await expect(dialog.locator(".supplier-order li span")).toHaveText([
             "DigiKey",
             "TME",
-            "Mouser"
+            "Mouser",
+            "LCSC"
         ]);
         await dialog.getByRole("button", { name: "Close" }).click();
 
@@ -68,7 +69,9 @@ test("protects supplier credentials with a password", async () => {
         );
         expect(settingsText).not.toContain(MOUSER_KEY);
         expect(JSON.parse(settingsText)).toMatchObject({
-            general: { supplierOrder: ["digikey", "tme", "mouser"] },
+            general: {
+                supplierOrder: ["digikey", "tme", "mouser", "lcsc"]
+            },
             suppliers: { mouser: { perDay: 500 } }
         });
 

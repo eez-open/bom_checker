@@ -1,0 +1,5 @@
+Reference,Value,Qty,DigiKey,Mouser
+U1,TPS54331DDA,1,,
+R1,RMCF0805FT100K,10,,
+C1,100n,1,FAKE-PLENTY-ND,
+D1,1N4148,2,,-

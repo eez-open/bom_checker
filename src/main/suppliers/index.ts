@@ -1,5 +1,6 @@
 import type { SupplierId } from "../../shared/model";
 import { digikey } from "./digikey";
+import { lcsc } from "./lcsc";
 import { mouser } from "./mouser";
 import { tme } from "./tme";
 import type { SupplierPlugin } from "./types";
@@ -9,5 +10,6 @@ import type { SupplierPlugin } from "./types";
 export const PLUGINS: Record<SupplierId, SupplierPlugin> = {
     digikey,
     mouser,
-    tme
+    tme,
+    lcsc
 };

@@ -42,7 +42,7 @@ test("imports a design variant of a KiCad 10 project", async () => {
             "pn:digikey"
         );
         await expect(dialog.getByLabel('Import "LCSC" as')).toHaveValue(
-            "custom:text"
+            "pn:lcsc"
         );
         await expect(dialog.getByLabel('Import "Description" as')).toHaveValue(
             "ignore"

@@ -1,6 +1,6 @@
 # EEZ BOM checker
 
-A desktop app for Windows and Linux that checks a bill of materials against DigiKey, Mouser and TME. It reports stock, prices, minimum order quantities, lifecycle status and RoHS status, and picks the best-priced supplier for each part.
+A desktop app for Windows and Linux that checks a bill of materials against DigiKey, Mouser, TME and LCSC. It reports stock, prices, minimum order quantities, lifecycle status and RoHS status, and picks the best-priced supplier for each part.
 
 - How to use it: [docs/user-guide.md](docs/user-guide.md)
 - What the app must do: [BOM checker project scope.md](BOM%20checker%20project%20scope.md)

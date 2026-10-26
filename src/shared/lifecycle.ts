@@ -76,6 +76,16 @@ export function mouserLifecycle(
     return MOUSER[status.trim().toLowerCase()] ?? null;
 }
 
+/** LCSC only says whether a product is on sale. */
+export function lcscLifecycle(
+    isOnSale: boolean | null | undefined
+): Lifecycle | null {
+    if (isOnSale === true) {
+        return "active";
+    }
+    return isOnSale === false ? "not-orderable" : null;
+}
+
 /** TME reports a set of flags; the most severe one counts. */
 export function tmeLifecycle(flags: readonly string[]): Lifecycle {
     return mostSevere(
