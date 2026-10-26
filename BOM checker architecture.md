@@ -493,6 +493,15 @@ A BOM doesn't have to come from a file. This is also the quickest way to test su
 
 The `kicad-cli sch export bom --variant` alternative was rejected. It requires KiCad 10.0.6+ installed, variant export had bugs until recently, and its output would still need parsing.
 
+### 9.3 Writing back to the KiCad project (GitHub #11)
+
+- **Matching:** the project is read again (`readKicadDesign`) and grouped for the BOM's variant, exactly as on import. A BOM row is used only when its references, ignoring order and spaces, are exactly those of one KiCad row. Everything else is reported with a reason (not in the project, DNP/excluded in the variant, grouped differently now, or a reference in two rows).
+- **Fields:** a supplier column goes to the field named like the supplier (or the single field its header pattern matches); it's added as a hidden copy of the symbol's Footprint field when missing. A custom column goes to the field of the same name, only if it exists. Values are compared trimmed, so KiCad's text isn't touched where only spaces differ.
+- **Targets:** every unit of every reference in the row. In a non-default variant, an existing `(variant … (field …))` override is changed; otherwise the symbol's property. Overrides are never added. A symbol on a sheet used several times can belong to two rows; if they want different values, it's left unchanged and reported.
+- **Editing** (`kicad/edit.ts`): a second, position-keeping S-expression parser finds the value tokens; only those are replaced, so the rest of the file stays byte for byte as KiCad wrote it. Each changed file is parsed again and every written value checked before anything is saved.
+- **Backup:** the `.kicad_pro` and all schematics are copied to `bom-checker-backups/<YYYY-MM-DD_HHMMSS>/` in the project folder, with `backup.json` listing the originals. Files are written atomically; if one fails, those already written are put back. The dialog can restore a backup made in the same session.
+- **Open in KiCad:** KiCad's lock files (`~<file>.lck`) trigger a warning, since saving in KiCad would overwrite the update.
+
 ---
 
 ## 10. Table UI
@@ -575,6 +584,10 @@ These points couldn't be settled from documentation and should be the first thin
 ---
 
 ## 15. Status
+
+### Next version
+
+Writing part numbers back into the KiCad project (#11, section 9.3).
 
 ### Version 0.3.0
 

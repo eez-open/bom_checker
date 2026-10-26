@@ -11,8 +11,9 @@ EEZ BOM checker takes a bill of materials (BOM) and checks every part at DigiKey
 5. [Building several units](#building-several-units)
 6. [Reading the table](#reading-the-table)
 7. [Exporting](#exporting)
-8. [Files and security](#files-and-security)
-9. [Troubleshooting](#troubleshooting)
+8. [Updating the KiCad project](#updating-the-kicad-project)
+9. [Files and security](#files-and-security)
+10. [Troubleshooting](#troubleshooting)
 
 ## Installing
 
@@ -157,6 +158,24 @@ Changing Qty updates all calculations at once, without collecting again.
 To keep a combination, type a name and click **Save as preset**.
 
 Column names follow the pattern `Supplier_Column`, e.g. `Mouser_Stock Qty`, `Mouser_Total price`, `Best_Supplier`.
+
+## Updating the KiCad project
+
+For a BOM imported from a KiCad 10 project, **Update KiCad…** on the toolbar (or **File → Update KiCad Project…**) writes the part numbers back into the project's schematics, e.g. after choosing items, fixing part numbers or finding them from the Value.
+
+1. **Close the schematic in KiCad** (Schematic Editor). If KiCad still has it open, the dialog warns: saving it in KiCad would overwrite the update.
+2. The dialog reads the project again and shows each change: references, field, the value in KiCad now and the new value. Untick a column to leave it out.
+3. **Update KiCad project** writes the changes.
+
+What's written:
+
+- **Only rows that match exactly.** A row is used only when its references are exactly those of a row of KiCad's BOM for the same design variant, e.g. *C1,C2,C3* in both. Rows whose references differ, because a part was added, removed or regrouped in KiCad, or a reference was edited in the table, are listed as *left out*, with the reason. Import the project again to bring the BOM up to date.
+- **Supplier part numbers** go to the KiCad field of the same name (*DigiKey*, *Mouser*, *TME*, *LCSC*). A field that doesn't exist yet is added as a hidden field. Custom columns go to the KiCad field of the same name, if there is one.
+- **Every symbol of a row** gets the value, including all units of multi-unit parts.
+- **Design variants:** for a BOM imported from a variant other than Default, values the variant overrides in KiCad are changed in that variant. Other values are changed in the symbols themselves, so the other variants get them too; the dialog warns about that.
+- **Only the values change.** The rest of the schematic files stays exactly as KiCad wrote it.
+
+**Backup and undo:** before writing, the project file and all its schematics are copied to `bom-checker-backups/<date_time>` in the project folder. **Restore the backup** in the dialog puts them back right away. Later, copy the files from that folder back into the project folder by hand.
 
 ## Files and security
 

@@ -1,23 +1,12 @@
-import { mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { gunzipSync } from "node:zlib";
 import { expect, test } from "@playwright/test";
-import { answerOpenDialog, closeApp, launchApp } from "./helpers";
-
-const FIXTURE = join(__dirname, "../test-fixtures/kicad/dib-dcp405plus");
-
-/** Unpacks the gzipped example project into a temporary folder. */
-async function unpackExample(): Promise<string> {
-    const folder = await mkdtemp(join(tmpdir(), "eez-kicad-"));
-    for (const name of await readdir(FIXTURE)) {
-        if (name.endsWith(".gz")) {
-            const data = gunzipSync(await readFile(join(FIXTURE, name)));
-            await writeFile(join(folder, name.slice(0, -3)), data);
-        }
-    }
-    return join(folder, "EEZ DIB DCP405plus.kicad_pro");
-}
+import {
+    answerOpenDialog,
+    closeApp,
+    launchApp,
+    unpackExample
+} from "./helpers";
 
 test("imports a design variant of a KiCad 10 project", async () => {
     const projectPath = await unpackExample();

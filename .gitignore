@@ -8,3 +8,4 @@ playwright-report/
 .DS_Store
 Thumbs.db
 *.tsbuildinfo
+.claude/settings.local.json

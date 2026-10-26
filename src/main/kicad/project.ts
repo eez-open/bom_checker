@@ -47,7 +47,7 @@ interface SheetFlags {
     variants: Record<string, VariantOverride>;
 }
 
-interface PlacedUnit {
+export interface PlacedUnit {
     symbol: PlacedSymbol;
     file: string;
     /** Path of the sheet the symbol is placed in. */
@@ -69,10 +69,50 @@ interface ProjectFile {
     };
 }
 
+/** Everything read from a project, before building a variant's BOM. */
+export interface KicadDesign {
+    name: string;
+    path: string;
+    /** Schematic files by path, each read once. */
+    files: Map<string, Schematic>;
+    /** Every placed symbol unit, with the sheet it's placed in. */
+    units: PlacedUnit[];
+    variantNames: string[];
+    groupFields: string[];
+    fieldOrder: string[];
+    bomFields: string[] | null;
+    warnings: string[];
+}
+
 export async function loadKicadProject(
     projectPath: string,
     readText: (path: string) => Promise<string>
 ): Promise<KicadProject> {
+    const design = await readKicadDesign(projectPath, readText);
+    return {
+        name: design.name,
+        path: design.path,
+        warnings: design.warnings,
+        bomFields: design.bomFields,
+        variants: design.variantNames.map(variant => {
+            const { warnings, groups, partCount } = variantParts(
+                design,
+                variant
+            );
+            return {
+                name: variant,
+                table: toTable(groups, design.fieldOrder),
+                partCount,
+                warnings
+            };
+        })
+    };
+}
+
+export async function readKicadDesign(
+    projectPath: string,
+    readText: (path: string) => Promise<string>
+): Promise<KicadDesign> {
     let project: ProjectFile;
     try {
         project = JSON.parse(await readText(projectPath)) as ProjectFile;
@@ -184,43 +224,53 @@ export async function loadKicadProject(
     return {
         name,
         path: projectPath,
-        warnings,
+        files: parsed,
+        units,
+        variantNames: [...new Set(variantNames)],
+        groupFields:
+            groupFields.length > 0 ? groupFields : ["Value", "Footprint"],
+        fieldOrder,
         bomFields: shown
             ? shown.flatMap(f =>
                   f.show && f.name && !f.name.startsWith("${") ? [f.name] : []
               )
             : null,
-        variants: [...new Set(variantNames)].map(variant =>
-            buildBom(
-                variant,
-                units,
-                groupFields.length > 0 ? groupFields : ["Value", "Footprint"],
-                fieldOrder
-            )
-        )
+        warnings
     };
 }
 
-interface Part {
+export interface Part {
     reference: string;
     included: boolean;
+    /** Field values in the variant (its overrides applied). */
     fields: Record<string, string>;
     /** Units disagree about DNP or exclude from BOM. */
     mixed: boolean;
+    /** All units placed with this reference. */
+    units: PlacedUnit[];
 }
 
-function buildBom(
-    variant: string,
-    units: readonly PlacedUnit[],
-    groupFields: readonly string[],
-    fieldOrder: readonly string[]
-): KicadVariantBom {
+export interface VariantParts {
+    /** Parts in the variant's BOM, grouped like KiCad's Symbol Fields
+     *  Table; references in natural order. */
+    groups: Part[][];
+    partCount: number;
+    warnings: string[];
+}
+
+/** The parts of one design variant, and how they group into BOM rows. */
+export function variantParts(
+    design: KicadDesign,
+    variant: string
+): VariantParts {
+    const { units, groupFields } = design;
     const warnings: string[] = [];
     const parts = new Map<string, Part>();
     const seenUnits = new Set<string>();
     let missingInstances = 0;
 
-    for (const { symbol, sheetPath, parents } of units) {
+    for (const unit of units) {
+        const { symbol, sheetPath, parents } = unit;
         const instance = symbol.instances.find(i => i.path === sheetPath);
         const reference =
             instance?.reference ?? symbol.properties.Reference ?? "";
@@ -259,10 +309,17 @@ function buildBom(
         if (part) {
             part.mixed ||= part.included !== included;
             part.included ||= included;
+            part.units.push(unit);
         } else {
             const fields = { ...symbol.properties, ...override?.fields };
             delete fields.Reference;
-            parts.set(reference, { reference, included, fields, mixed: false });
+            parts.set(reference, {
+                reference,
+                included,
+                fields,
+                mixed: false,
+                units: [unit]
+            });
         }
     }
 
@@ -287,8 +344,7 @@ function buildBom(
 
     const included = [...parts.values()].filter(part => part.included);
     return {
-        name: variant,
-        table: groupParts(included, groupFields, fieldOrder),
+        groups: groupParts(included, groupFields),
         partCount: included.length,
         warnings: [...new Set(warnings)]
     };
@@ -300,6 +356,16 @@ function fieldValue(part: Part, name: string): string {
     return value === "~" ? "" : value;
 }
 
+function usedFields(parts: readonly Part[]): Set<string> {
+    return new Set(
+        parts.flatMap(part =>
+            Object.keys(part.fields).filter(
+                name => fieldValue(part, name) !== ""
+            )
+        )
+    );
+}
+
 /**
  * Groups parts like KiCad's Symbol Fields Table: by the project's group-by
  * fields (Value and Footprint by default). Parts with different supplier
@@ -307,17 +373,9 @@ function fieldValue(part: Part, name: string): string {
  */
 function groupParts(
     parts: readonly Part[],
-    groupFields: readonly string[],
-    fieldOrder: readonly string[]
-): CsvTable {
-    const allFields = new Set(
-        parts.flatMap(part =>
-            Object.keys(part.fields).filter(
-                name => fieldValue(part, name) !== ""
-            )
-        )
-    );
-    const supplierFields = [...allFields].filter(name =>
+    groupFields: readonly string[]
+): Part[][] {
+    const supplierFields = [...usedFields(parts)].filter(name =>
         ALL_SUPPLIERS.some(s => s.headerPattern.test(name))
     );
     const keyFields = [...new Set([...groupFields, ...supplierFields])];
@@ -331,7 +389,16 @@ function groupParts(
         );
         groups.set(key, [...(groups.get(key) ?? []), part]);
     }
+    return [...groups.values()];
+}
 
+/** The BOM table: one row per group, with the fields in the project's
+ *  order. */
+function toTable(
+    groups: readonly Part[][],
+    fieldOrder: readonly string[]
+): CsvTable {
+    const allFields = usedFields(groups.flat());
     const ordered = [
         ...fieldOrder.filter(name => allFields.has(name)),
         ...[...allFields].filter(name => !fieldOrder.includes(name)).sort()
@@ -340,7 +407,7 @@ function groupParts(
         name => name !== "Value" && name !== "Footprint"
     );
     const headers = ["Reference", "Value", "Qty", "Footprint", ...extraFields];
-    const rows = [...groups.values()].map(group => {
+    const rows = groups.map(group => {
         const distinct = (name: string) =>
             [
                 ...new Set(
