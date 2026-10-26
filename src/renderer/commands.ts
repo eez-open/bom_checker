@@ -1,6 +1,7 @@
 // Actions shared by the menu, the toolbar and keyboard shortcuts.
 
 import type { MenuCommand } from "../shared/ipc";
+import type { Project, ProjectSource } from "../shared/model";
 import {
     addRow as addRowToProject,
     createProject,
@@ -16,7 +17,7 @@ export async function saveDocument(saveAs = false): Promise<boolean> {
     const savedPath = await window.api.project.save(project, {
         filePath,
         saveAs,
-        suggestedName: suggestedFileName(project.source.path)
+        suggestedName: suggestedFileName(project.source)
     });
     if (!savedPath) {
         return false;
@@ -25,12 +26,21 @@ export async function saveDocument(saveAs = false): Promise<boolean> {
     return true;
 }
 
-/** "BOM example.csv" → "BOM example.eezbom" for a BOM that was imported. */
-function suggestedFileName(sourcePath: string | undefined): string | undefined {
-    const name = sourcePath?.split(/[\\/]/).pop();
-    return name
-        ? `${name.replace(/\.[^.]*$/, "")}.${PROJECT_FILE_EXTENSION}`
-        : undefined;
+/** "BOM example.csv" → "BOM example.eezbom" for an imported BOM; a KiCad
+ *  design variant other than the default is added: "Board (Basic).eezbom". */
+function suggestedFileName(source: ProjectSource): string | undefined {
+    const name = source.path
+        ?.split(/[\\/]/)
+        .pop()
+        ?.replace(/\.[^.]*$/, "");
+    if (!name) {
+        return undefined;
+    }
+    const variant =
+        source.variant && source.variant !== "Default"
+            ? ` (${source.variant})`
+            : "";
+    return `${name}${variant}.${PROJECT_FILE_EXTENSION}`;
 }
 
 /** Offers to save unsaved changes. Returns false if the user cancelled. */
@@ -75,6 +85,35 @@ export async function importCsv(): Promise<void> {
     const file = await window.api.csv.open();
     if (file) {
         useUi.setState({ dialog: { kind: "csv-import", file } });
+    }
+}
+
+/**
+ * Loads an imported BOM. Supplier data already collected is kept: results
+ * are stored per part number, so part numbers that are still in the BOM
+ * don't need to be collected again.
+ */
+export function loadImported(project: Project): void {
+    const { project: current, load } = useDocument.getState();
+    load(
+        {
+            ...project,
+            collected: {
+                ...project.collected,
+                results: current.collected.results
+            }
+        },
+        { filePath: null, saved: false }
+    );
+}
+
+export async function importKicad(): Promise<void> {
+    if (!(await confirmDiscardChanges())) {
+        return;
+    }
+    const project = await window.api.kicad.open();
+    if (project) {
+        useUi.setState({ dialog: { kind: "kicad-import", project } });
     }
 }
 
@@ -155,6 +194,7 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     save: () => saveDocument(),
     "save-as": () => saveDocument(true),
     "import-csv": importCsv,
+    "import-kicad": importKicad,
     undo,
     redo,
     "add-row": addRow,

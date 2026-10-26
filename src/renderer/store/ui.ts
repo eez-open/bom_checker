@@ -1,10 +1,11 @@
 import { create } from "zustand";
-import type { OpenedFile } from "../../shared/ipc";
+import type { KicadProjectData, OpenedFile } from "../../shared/ipc";
 import type { SupplierId } from "../../shared/model";
 
 export type OpenDialog =
     | { kind: "columns" }
     | { kind: "csv-import"; file: OpenedFile }
+    | { kind: "kicad-import"; project: KicadProjectData }
     | { kind: "settings" }
     | { kind: "collect" }
     | { kind: "choose-item"; supplier: SupplierId; key: string }

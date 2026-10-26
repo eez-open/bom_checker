@@ -6,6 +6,9 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Import a BOM straight from a KiCad 10 project (Import KiCad…, Ctrl+K): choose the design variant; symbols that are DNP or excluded from the BOM in that variant are left out, including through their sheets; variant field overrides (e.g. other part numbers) are applied. Rows are grouped like KiCad's Symbol Fields Table, by the project's group-by fields, without merging different supplier part numbers. Fields the project's BOM hides start as "Don't import". KiCad 9 and older files are refused with an explanation.
+- Importing again (KiCad or CSV) keeps the supplier data already collected for part numbers that are still in the BOM.
+- Saving an imported BOM suggests the source's name, with the KiCad variant ("Board (Basic).eezbom").
 - Calculated columns per supplier: Manufacturer, Stock Qty, MOQ, Order Qty (raised to the MOQ and rounded up to the order multiple), Unit price (the price break for the order quantity), Total price, Availability (in stock, partial, out of stock, not orderable), Status and RoHS. Each supplier's columns form a group that can be collapsed.
 - Best price: the cheapest total among suppliers with the whole order quantity in stock; equal totals go to the preferred supplier (Settings → General). The status bar shows the best-price total of the BOM.
 - Lifecycle status colours: amber for new, NRND, last time buy and special order; red for obsolete and not orderable.

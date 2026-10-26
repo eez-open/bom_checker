@@ -473,7 +473,8 @@ A BOM doesn't have to come from a file. This is also the quickest way to test su
 - **Columns:** supplier fields are detected by name. Other non-empty fields go through the same mapping dialog as CSV import. Always-empty fields, such as `MF`, `MP` and `PN` in the example, are hidden.
 - **Golden test:** the DCP405plus project at commit `4d7d253` must give Default = 366 parts / 124 rows matching `BOM example.csv`, and Basic = 322 parts / 119 rows.
   - The CSV has one extra row, `M1`, which isn't in the current schematics, so the CSV was probably exported from a slightly different revision.
-- **Re-import:** **Reload from KiCad** keeps collected results for rows whose references and part numbers haven't changed.
+- **Re-import:** importing again (KiCad or CSV) keeps the supplier data already collected. Results are stored per part number, so only part numbers that are new need collecting ("Only part numbers without data").
+- **Warnings:** a newer file format, symbols without a reference for their sheet, unannotated or duplicate references, and multi-unit parts whose units disagree in a way that changes whether the part is included.
 
 The `kicad-cli sch export bom --variant` alternative was rejected. It requires KiCad 10.0.6+ installed, variant export had bugs until recently, and its output would still need parsing.
 

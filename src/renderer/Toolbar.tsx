@@ -3,6 +3,7 @@ import {
     deleteSelectedRows,
     editColumns,
     importCsv,
+    importKicad,
     newDocument,
     openCollect,
     openDocument,
@@ -44,6 +45,13 @@ export function Toolbar() {
                 onClick={() => void importCsv()}
             >
                 Import CSV…
+            </button>
+            <button
+                type="button"
+                title="Ctrl+K"
+                onClick={() => void importKicad()}
+            >
+                Import KiCad…
             </button>
             <span className="toolbar-separator" />
             <button type="button" onClick={addRow}>

@@ -72,6 +72,9 @@ const api: Api = {
     csv: {
         open: () => invoke(IpcChannel.CsvOpen)
     },
+    kicad: {
+        open: () => invoke(IpcChannel.KicadOpen)
+    },
     dialog: {
         askSaveChanges: documentName =>
             invoke(IpcChannel.DialogAskSaveChanges, documentName),

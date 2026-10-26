@@ -2,6 +2,7 @@ import { z } from "zod";
 import { IpcChannel } from "../../shared/ipc";
 import { validateProject } from "../../shared/project-file";
 import { openCsvFile } from "../project/csv-files";
+import { openKicadProject } from "../project/kicad-files";
 import { openProject, saveProject } from "../project/project-files";
 import { handle } from "./handle";
 
@@ -21,4 +22,5 @@ export function registerProjectHandlers(): void {
         )
     );
     handle(IpcChannel.CsvOpen, ({ window }) => openCsvFile(window));
+    handle(IpcChannel.KicadOpen, ({ window }) => openKicadProject(window));
 }

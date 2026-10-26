@@ -549,3 +549,23 @@ button.pn-badge {
     border-bottom: 1px solid #d4a72c;
     background: #fff8c5;
 }
+
+.variant-choice {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    margin: 0 0 12px;
+    padding: 8px 14px;
+    border: 1px solid var(--app-border);
+    border-radius: 8px;
+}
+
+.variant-choice legend {
+    font-weight: 600;
+}
+
+.variant-choice label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}

@@ -39,6 +39,7 @@ src/
   renderer/   React UI
   shared/     Types and pure logic used by both sides (data model, IPC contract)
 e2e/          Playwright end-to-end tests
+test-fixtures/ Test data, e.g. a real KiCad 10 project (gzipped)
 build/        App icon (icon.svg is the source; electron-builder uses icon.png)
 scripts/      Helper scripts
 docs/         Developer documentation

@@ -52,6 +52,9 @@ export function createMenu(): Menu {
                 command("&Import CSV…", "import-csv", {
                     accelerator: "CmdOrCtrl+I"
                 }),
+                command("Import &KiCad Project…", "import-kicad", {
+                    accelerator: "CmdOrCtrl+K"
+                }),
                 { type: "separator" },
                 { role: "quit", label: "E&xit" }
             ]

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
     decodeText,
     detectEncoding,
-    importCsv,
+    importTable,
     parseCsv,
     suggestMapping,
     validateMapping,
@@ -13,11 +13,15 @@ import {
 import { hasAlternatives } from "./part-number";
 
 const EXAMPLE = readFileSync(join(__dirname, "../../BOM example.csv"));
-const SOURCE = { path: "BOM example.csv", importedAt: "2026-10-26T10:00:00Z" };
+const SOURCE = {
+    kind: "csv",
+    path: "BOM example.csv",
+    importedAt: "2026-10-26T10:00:00Z"
+} as const;
 
 function importExample() {
     const table = parseCsv(decodeText(EXAMPLE, detectEncoding(EXAMPLE)));
-    return importCsv(table, suggestMapping(table.headers), SOURCE);
+    return importTable(table, suggestMapping(table.headers), SOURCE);
 }
 
 describe("BOM example.csv", () => {
@@ -72,7 +76,7 @@ describe("BOM example.csv", () => {
                 tme: "C0805C102J5GAC"
             }
         });
-        expect(project.source).toEqual({ kind: "csv", ...SOURCE });
+        expect(project.source).toEqual(SOURCE);
     });
 
     it("keeps '-' and flags alternatives", () => {
@@ -140,7 +144,7 @@ describe("mapping", () => {
     });
 });
 
-describe("importCsv", () => {
+describe("importTable", () => {
     const mapping: ColumnTarget[] = [
         { kind: "base", field: "reference" },
         { kind: "base", field: "qty" },
@@ -149,7 +153,7 @@ describe("importCsv", () => {
 
     it("counts references when Qty is missing or invalid", () => {
         const table = parseCsv("Ref,Qty,Price\nR1 R2 R3,,\nR4,x,\n");
-        const { project, warnings } = importCsv(table, mapping, SOURCE);
+        const { project, warnings } = importTable(table, mapping, SOURCE);
         expect(project.rows.map(row => row.qty)).toEqual([3, 1]);
         expect(warnings).toEqual([
             "2 rows had no valid Qty; the number of references was used instead."
@@ -158,7 +162,7 @@ describe("importCsv", () => {
 
     it("converts numbers, including a decimal comma", () => {
         const table = parseCsv('Ref,Qty,Price\nR1,1,"0,25"\nR2,1,n/a\n');
-        const { project, warnings } = importCsv(table, mapping, SOURCE);
+        const { project, warnings } = importTable(table, mapping, SOURCE);
         const id = project.customColumns[0]!.id;
         expect(project.rows.map(row => row.custom[id])).toEqual([
             0.25,
@@ -171,6 +175,8 @@ describe("importCsv", () => {
 
     it("skips rows where every mapped cell is empty", () => {
         const table = parseCsv("Ref,Qty,Price\n,,\nR1,1,\n");
-        expect(importCsv(table, mapping, SOURCE).project.rows).toHaveLength(1);
+        expect(importTable(table, mapping, SOURCE).project.rows).toHaveLength(
+            1
+        );
     });
 });

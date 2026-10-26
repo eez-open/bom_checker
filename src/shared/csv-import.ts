@@ -8,6 +8,7 @@ import type {
     ColumnType,
     CustomValue,
     Project,
+    ProjectSource,
     SupplierId
 } from "./model";
 import { normalizeCell } from "./part-number";
@@ -154,14 +155,15 @@ export interface CsvImport {
     warnings: string[];
 }
 
-export function importCsv(
+/** Builds a project from an imported table (a CSV file or a KiCad BOM). */
+export function importTable(
     table: CsvTable,
     mapping: readonly ColumnTarget[],
-    source: { path: string; importedAt: string }
+    source: ProjectSource
 ): CsvImport {
     let project: Project = {
         ...createProject(),
-        source: { kind: "csv", ...source }
+        source
     };
     const customIds = new Map<number, string>();
     for (const [index, target] of mapping.entries()) {

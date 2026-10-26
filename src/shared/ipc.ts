@@ -1,6 +1,7 @@
 // The contract between the renderer and the main process. The preload script
 // exposes `Api` as `window.api`, and main registers one handler per channel.
 
+import type { CsvTable } from "./csv-import";
 import type { CollectionRun, LookupResult, Project, SupplierId } from "./model";
 import type { AppSettings, GeneralSettings } from "./settings";
 import type { SupplierConfig } from "./supplier-config";
@@ -24,6 +25,7 @@ export type MenuCommand =
     | "save"
     | "save-as"
     | "import-csv"
+    | "import-kicad"
     | "undo"
     | "redo"
     | "add-row"
@@ -52,6 +54,24 @@ export interface SaveOptions {
     saveAs: boolean;
     /** File name offered in the Save dialog when there's no `filePath`. */
     suggestedName?: string;
+}
+
+export interface KicadVariantData {
+    name: string;
+    /** Rows grouped like KiCad's Symbol Fields Table. */
+    table: CsvTable;
+    partCount: number;
+    warnings: string[];
+}
+
+/** A KiCad project's BOM, for each design variant. */
+export interface KicadProjectData {
+    name: string;
+    path: string;
+    variants: KicadVariantData[];
+    warnings: string[];
+    /** Fields the project's own BOM settings show; null if it has none. */
+    bomFields: string[] | null;
 }
 
 export type SaveChangesChoice = "save" | "discard" | "cancel";
@@ -177,6 +197,11 @@ export interface Api {
     csv: {
         open(): Promise<OpenedFile | null>;
     };
+    kicad: {
+        /** Lets the user pick a .kicad_pro and reads its BOM. Null when
+         *  cancelled or the project can't be read (main shows why). */
+        open(): Promise<KicadProjectData | null>;
+    };
     dialog: {
         askSaveChanges(documentName: string): Promise<SaveChangesChoice>;
         confirm(options: ConfirmOptions): Promise<boolean>;
@@ -214,6 +239,7 @@ export const IpcChannel = {
     ProjectOpen: "project:open",
     ProjectSave: "project:save",
     CsvOpen: "csv:open",
+    KicadOpen: "kicad:open",
     DialogAskSaveChanges: "dialog:ask-save-changes",
     DialogConfirm: "dialog:confirm",
     WindowSetDocumentState: "window:set-document-state",
