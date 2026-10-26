@@ -1,3 +1,6 @@
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
     _electron as electron,
     type ElectronApplication,
@@ -16,18 +19,24 @@ function electronEnv(): Record<string, string> {
 }
 
 /** Starts the built app (`npm run build`), or the packaged executable when
- *  E2E_APP_PATH is set; CI does the latter after electron-builder has run. */
-export async function launchApp(): Promise<{
+ *  E2E_APP_PATH is set; CI does the latter after electron-builder has run.
+ *  Each launch gets an empty profile folder (settings, credentials, logs)
+ *  unless `userData` names one. */
+export async function launchApp(options: { userData?: string } = {}): Promise<{
     app: ElectronApplication;
     page: Page;
+    userData: string;
 }> {
+    const userData =
+        options.userData ??
+        (await mkdtemp(join(tmpdir(), "eez-bom-checker-profile-")));
     const executablePath = process.env.E2E_APP_PATH;
     const app = await electron.launch({
         ...(executablePath ? { executablePath } : { args: ["."] }),
-        env: electronEnv()
+        env: { ...electronEnv(), EEZ_BOM_CHECKER_USER_DATA: userData }
     });
     const page = await app.firstWindow();
-    return { app, page };
+    return { app, page, userData };
 }
 
 /** Closes the app, answering "Don't Save" if it asks about unsaved changes,

@@ -5,11 +5,18 @@ interface ModalProps {
     onClose: () => void;
     children: ReactNode;
     footer: ReactNode;
+    size?: "normal" | "large";
 }
 
 /** A modal dialog built on the native <dialog> element. It is open while
  *  mounted; Escape calls `onClose`. */
-export function Modal({ title, onClose, children, footer }: ModalProps) {
+export function Modal({
+    title,
+    onClose,
+    children,
+    footer,
+    size = "normal"
+}: ModalProps) {
     const ref = useRef<HTMLDialogElement>(null);
     const titleId = useId();
 
@@ -22,7 +29,7 @@ export function Modal({ title, onClose, children, footer }: ModalProps) {
     return (
         <dialog
             ref={ref}
-            className="modal"
+            className={size === "large" ? "modal modal-large" : "modal"}
             aria-labelledby={titleId}
             onCancel={event => {
                 event.preventDefault();

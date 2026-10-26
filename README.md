@@ -50,6 +50,12 @@ The renderer has no Node.js access. Everything it needs from the main process go
 
 Dependencies used only by the UI (React, AG Grid) are `devDependencies`, because Vite bundles them into `out/renderer`. Only libraries that the main process loads at run time belong in `dependencies`; electron-builder copies those into the package.
 
+### App data
+
+Settings (`settings.json`), the encrypted supplier credentials (`vault.json`) and logs are stored in the app's data folder: `%APPDATA%\EEZ BOM checker` on Windows, `~/.config/EEZ BOM checker` on Linux. Set `EEZ_BOM_CHECKER_USER_DATA` to another folder to start with an empty profile; the end-to-end tests do this, so they never touch your own settings.
+
+The credential vault design is described in [BOM checker architecture.md](BOM%20checker%20architecture.md), section 7.2.
+
 ### Troubleshooting
 
 If Electron prints `bad option: --remote-debugging-port` or starts as plain Node.js, the environment variable `ELECTRON_RUN_AS_NODE` is set. Processes started by VS Code extensions inherit it. Unset it, or run the command from a normal terminal.

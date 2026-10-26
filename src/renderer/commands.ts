@@ -102,6 +102,18 @@ export function editColumns(): void {
     useUi.setState({ dialog: { kind: "columns" } });
 }
 
+export function openSettings(): void {
+    useUi.setState({ dialog: { kind: "settings" } });
+}
+
+/** Forgets the unlocked credentials until the password is entered again. */
+export async function lockCredentials(): Promise<void> {
+    await window.api.vault.lock();
+    if (useUi.getState().dialog?.kind === "settings") {
+        closeDialog();
+    }
+}
+
 export function closeDialog(): void {
     useUi.setState({ dialog: null });
 }
@@ -144,6 +156,8 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     "add-row": addRow,
     "delete-rows": deleteSelectedRows,
     "edit-columns": editColumns,
+    settings: openSettings,
+    lock: lockCredentials,
     "save-and-close": saveAndClose
 };
 

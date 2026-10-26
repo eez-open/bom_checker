@@ -10,6 +10,7 @@ import {
 } from "./commands";
 import { ColumnsDialog } from "./dialogs/ColumnsDialog";
 import { CsvImportDialog } from "./dialogs/CsvImportDialog";
+import { SettingsDialog } from "./settings/SettingsDialog";
 import { documentName, isDirty, useDocument } from "./store/document";
 import { useUi } from "./store/ui";
 import { BomTable } from "./table/BomTable";
@@ -95,6 +96,9 @@ export function App() {
             )}
             {dialog?.kind === "csv-import" && (
                 <CsvImportDialog file={dialog.file} onClose={closeDialog} />
+            )}
+            {dialog?.kind === "settings" && (
+                <SettingsDialog onClose={closeDialog} />
             )}
         </div>
     );

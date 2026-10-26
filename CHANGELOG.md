@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Settings (Tools → Settings…, Ctrl+,). General: preferred supplier order. Suppliers: API credentials, site and currency options, and request limits for DigiKey, Mouser and TME.
+- Supplier credentials are stored encrypted (scrypt + AES-256-GCM) with a password, which is asked every time supplier settings are opened. The password can be changed; if it's forgotten, the stored credentials can be deleted to start over. Tools → Lock Credentials forgets the unlocked credentials until the password is entered again.
 - Create a BOM from scratch: add and delete rows, edit cells, add DigiKey, Mouser and TME part-number columns and custom text or number columns.
 - Undo and redo for every BOM edit.
 - Save and open BOMs as `.eezbom` project files. The app asks to save unsaved changes before closing, starting a new BOM or opening another one.

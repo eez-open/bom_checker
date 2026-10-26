@@ -10,7 +10,39 @@ function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
 
 const api: Api = {
     app: {
-        getInfo: () => invoke(IpcChannel.AppGetInfo)
+        getInfo: () => invoke(IpcChannel.AppGetInfo),
+        openExternal: url => invoke(IpcChannel.AppOpenExternal, url)
+    },
+    settings: {
+        get: () => invoke(IpcChannel.SettingsGet),
+        saveGeneral: general => invoke(IpcChannel.SettingsSaveGeneral, general),
+        saveSupplier: (token, supplier, config, secrets) =>
+            invoke(
+                IpcChannel.SettingsSaveSupplier,
+                token,
+                supplier,
+                config,
+                secrets
+            )
+    },
+    vault: {
+        getState: () => invoke(IpcChannel.VaultGetState),
+        create: password => invoke(IpcChannel.VaultCreate, password),
+        openSettings: password =>
+            invoke(IpcChannel.VaultOpenSettings, password),
+        closeSettings: token =>
+            ipcRenderer.send(IpcChannel.VaultCloseSettings, token),
+        getSecretStatus: token =>
+            invoke(IpcChannel.VaultGetSecretStatus, token),
+        changePassword: (token, currentPassword, newPassword) =>
+            invoke(
+                IpcChannel.VaultChangePassword,
+                token,
+                currentPassword,
+                newPassword
+            ),
+        reset: () => invoke(IpcChannel.VaultReset),
+        lock: () => invoke(IpcChannel.VaultLock)
     },
     project: {
         open: () => invoke(IpcChannel.ProjectOpen),

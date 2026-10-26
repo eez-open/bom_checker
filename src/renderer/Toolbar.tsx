@@ -5,6 +5,7 @@ import {
     importCsv,
     newDocument,
     openDocument,
+    openSettings,
     saveDocument
 } from "./commands";
 import { useUi } from "./store/ui";
@@ -58,6 +59,10 @@ export function Toolbar() {
             </button>
             <button type="button" onClick={editColumns}>
                 Columns…
+            </button>
+            <span className="toolbar-spacer" />
+            <button type="button" title="Ctrl+," onClick={openSettings}>
+                Settings…
             </button>
         </div>
     );

@@ -1,5 +1,4 @@
-import { randomUUID } from "node:crypto";
-import { readFile, rename, rm, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { basename, extname } from "node:path";
 import { dialog, type BrowserWindow } from "electron";
 import type { OpenedProject, SaveOptions } from "../../shared/ipc";
@@ -10,6 +9,7 @@ import {
     serializeProject
 } from "../../shared/project-file";
 import { showError } from "../dialogs";
+import { writeFileAtomic } from "../files";
 import { log } from "../logging";
 
 const FILTERS = [
@@ -79,18 +79,5 @@ export async function saveProject(
         log.warn("Can't save", target, error);
         await showError(window, `Can't save "${basename(target)}"`, error);
         return null;
-    }
-}
-
-/** Writes to a temporary file first, so a failed save never leaves a
- *  half-written project behind. */
-async function writeFileAtomic(path: string, content: string): Promise<void> {
-    const temporary = `${path}.${randomUUID()}.tmp`;
-    try {
-        await writeFile(temporary, content, "utf8");
-        await rename(temporary, path);
-    } catch (error) {
-        await rm(temporary, { force: true });
-        throw error;
     }
 }

@@ -2,7 +2,10 @@ import { create } from "zustand";
 import type { OpenedFile } from "../../shared/ipc";
 
 export type OpenDialog =
-    { kind: "columns" } | { kind: "csv-import"; file: OpenedFile } | null;
+    | { kind: "columns" }
+    | { kind: "csv-import"; file: OpenedFile }
+    | { kind: "settings" }
+    | null;
 
 /** UI state that isn't part of the BOM (not saved, not undoable). */
 interface UiStore {

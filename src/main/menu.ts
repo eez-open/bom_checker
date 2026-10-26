@@ -90,6 +90,15 @@ export function createMenu(): Menu {
             ]
         },
         {
+            label: "&Tools",
+            submenu: [
+                command("&Settings…", "settings", {
+                    accelerator: "CmdOrCtrl+,"
+                }),
+                command("&Lock Credentials", "lock")
+            ]
+        },
+        {
             label: "&Help",
             submenu: [
                 {

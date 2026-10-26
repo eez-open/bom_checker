@@ -1,5 +1,7 @@
-import { app } from "electron";
+import { app, shell } from "electron";
+import { z } from "zod";
 import { IpcChannel, type AppInfo } from "../../shared/ipc";
+import { isAllowedExternalUrl } from "../external-urls";
 import { log } from "../logging";
 import { handle } from "./handle";
 
@@ -15,4 +17,13 @@ export function registerAppHandlers(): void {
         platform: process.platform,
         logFile: log.transports.file.getFile().path
     }));
+
+    handle(IpcChannel.AppOpenExternal, async (_context, url) => {
+        const target = z.string().parse(url);
+        if (!isAllowedExternalUrl(target)) {
+            log.warn("Blocked opening", target);
+            throw new Error("This address can't be opened.");
+        }
+        await shell.openExternal(target);
+    });
 }
