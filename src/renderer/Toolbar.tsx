@@ -12,7 +12,8 @@ import {
     openExport,
     openDocument,
     openSettings,
-    saveDocument
+    saveDocument,
+    updateKicad
 } from "./commands";
 import { useDocument } from "./store/document";
 import { useUi } from "./store/ui";
@@ -62,6 +63,9 @@ export function Toolbar() {
     const selectedCount = useUi(state => state.selectedRowIds.length);
     const buildQuantity = useDocument(state => state.project.buildQuantity);
     const open = useDocument(state => state.open);
+    const fromKicad = useDocument(
+        state => state.project.source.kind === "kicad"
+    );
 
     return (
         <div className="toolbar" role="toolbar" aria-label="BOM">
@@ -145,6 +149,15 @@ export function Toolbar() {
                     <button type="button" title="Ctrl+E" onClick={openExport}>
                         Export…
                     </button>
+                    {fromKicad && (
+                        <button
+                            type="button"
+                            title="Write the part numbers back into the KiCad project"
+                            onClick={updateKicad}
+                        >
+                            Update KiCad…
+                        </button>
+                    )}
                 </>
             )}
             <span className="toolbar-spacer" />

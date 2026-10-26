@@ -760,3 +760,42 @@ button.recent-remove {
 button.recent-remove:focus-visible {
     opacity: 1;
 }
+
+/* Update KiCad project */
+
+.kicad-update p {
+    margin: 0 0 10px;
+}
+
+.kicad-columns {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0 0 12px;
+    padding: 8px 14px;
+    border: 1px solid var(--app-border);
+    border-radius: 8px;
+}
+
+.kicad-columns legend {
+    font-weight: 600;
+}
+
+.kicad-changes {
+    max-height: 320px;
+    margin-bottom: 12px;
+    overflow: auto;
+    border: 1px solid var(--app-border);
+    border-radius: 6px;
+}
+
+.kicad-changes thead th {
+    position: sticky;
+    top: 0;
+    background: var(--chrome-bg);
+}
+
+.kicad-skipped {
+    margin: 6px 0 10px;
+    padding-left: 20px;
+}

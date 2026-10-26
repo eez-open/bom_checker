@@ -176,6 +176,14 @@ export function deleteSelectedRows(): void {
     }
 }
 
+/** Writes part numbers back into the KiCad project the BOM came from. */
+export function updateKicad(): void {
+    const { source } = useDocument.getState().project;
+    if (source.kind === "kicad" && source.path) {
+        useUi.setState({ dialog: { kind: "kicad-update" } });
+    }
+}
+
 export function editColumns(): void {
     useUi.setState({ dialog: { kind: "columns" } });
 }
@@ -253,6 +261,7 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     "import-csv": importCsv,
     "import-kicad": importKicad,
     export: openExport,
+    "update-kicad": updateKicad,
     undo,
     redo,
     "add-row": addRow,

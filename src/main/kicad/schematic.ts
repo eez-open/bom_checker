@@ -20,6 +20,7 @@ export interface SymbolInstance {
 }
 
 export interface PlacedSymbol {
+    uuid: string;
     libId: string;
     dnp: boolean;
     inBom: boolean;
@@ -99,6 +100,7 @@ export function parseSchematic(text: string): Schematic {
         );
 
     const symbols = children(root, "symbol").map((symbol): PlacedSymbol => ({
+        uuid: atom(symbol, "uuid") ?? "",
         libId: atom(symbol, "lib_id") ?? "",
         dnp: flag(symbol, "dnp") ?? false,
         inBom: flag(symbol, "in_bom") ?? true,

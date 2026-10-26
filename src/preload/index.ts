@@ -89,7 +89,13 @@ const api: Api = {
         open: () => invoke(IpcChannel.CsvOpen)
     },
     kicad: {
-        open: () => invoke(IpcChannel.KicadOpen)
+        open: () => invoke(IpcChannel.KicadOpen),
+        planUpdate: request => invoke(IpcChannel.KicadPlanUpdate, request),
+        applyUpdate: (request, columns) =>
+            invoke(IpcChannel.KicadApplyUpdate, request, columns),
+        restoreBackup: folder => invoke(IpcChannel.KicadRestoreBackup, folder),
+        showBackup: folder =>
+            ipcRenderer.send(IpcChannel.KicadShowBackup, folder)
     },
     export: {
         save: request => invoke(IpcChannel.ExportSave, request),

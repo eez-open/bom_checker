@@ -1,6 +1,7 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { gunzipSync } from "node:zlib";
 import { expect } from "@playwright/test";
 import { FAKE_CREDENTIALS } from "./fake-suppliers";
 import {
@@ -182,4 +183,19 @@ export function menuItemChecked(
             Menu.getApplicationMenu()?.getMenuItemById(itemId)?.checked,
         id
     );
+}
+
+const KICAD_EXAMPLE = join(__dirname, "../test-fixtures/kicad/dib-dcp405plus");
+
+/** Unpacks the gzipped example KiCad project into a temporary folder;
+ *  returns the path of its .kicad_pro. */
+export async function unpackExample(): Promise<string> {
+    const folder = await mkdtemp(join(tmpdir(), "eez-kicad-"));
+    for (const name of await readdir(KICAD_EXAMPLE)) {
+        if (name.endsWith(".gz")) {
+            const data = gunzipSync(await readFile(join(KICAD_EXAMPLE, name)));
+            await writeFile(join(folder, name.slice(0, -3)), data);
+        }
+    }
+    return join(folder, "EEZ DIB DCP405plus.kicad_pro");
 }

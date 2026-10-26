@@ -6,3 +6,4 @@ playwright-report/
 package-lock.json
 *.md
 *.csv
+.claude/settings.local.json

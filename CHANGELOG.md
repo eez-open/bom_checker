@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- Update KiCad… writes the part numbers back into the KiCad project the BOM was imported from (#11). Only rows whose references match a row of KiCad's BOM exactly are written; a preview lists every change and the rows left out. The project's files are backed up to bom-checker-backups first, and the dialog can restore them.
+
 ## [0.3.0] - 2026-10-26
 
 ### Added

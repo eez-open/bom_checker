@@ -34,6 +34,8 @@ export const COLUMN_GROUPS: readonly ColumnGroup[] = [...SUPPLIER_IDS, "best"];
 export interface MenuState {
     /** False on the start page. */
     documentOpen: boolean;
+    /** The open BOM was imported from a KiCad project. */
+    fromKicad: boolean;
     /** Column groups the table has now. */
     availableColumns: ColumnGroup[];
     hiddenColumns: ColumnGroup[];
@@ -49,6 +51,7 @@ export type MenuCommand =
     | "import-csv"
     | "import-kicad"
     | "export"
+    | "update-kicad"
     | "undo"
     | "redo"
     | "add-row"
@@ -110,6 +113,65 @@ export interface KicadProjectData {
     warnings: string[];
     /** Fields the project's own BOM settings show; null if it has none. */
     bomFields: string[] | null;
+}
+
+/** A BOM column to write into the KiCad project it was imported from. */
+export interface KicadUpdateColumn {
+    /** "pn:<supplier>" or "custom:<column id>". */
+    key: string;
+    label: string;
+    /** For a part-number column: its supplier's field is found by name. */
+    supplier?: SupplierId;
+    /** For a custom column: the KiCad field of the same name. */
+    field?: string;
+}
+
+export interface KicadUpdateRequest {
+    /** The .kicad_pro the BOM was imported from. */
+    projectPath: string;
+    variant: string;
+    columns: KicadUpdateColumn[];
+    rows: {
+        reference: string;
+        /** By column key; "" for an empty cell. */
+        values: Record<string, string>;
+    }[];
+}
+
+/** What updating the KiCad project would change. */
+export interface KicadUpdatePlan {
+    projectName: string;
+    variant: string;
+    /** Columns that can be written, and the KiCad field each goes to. */
+    columns: {
+        key: string;
+        label: string;
+        field: string;
+        /** The field doesn't exist yet and is added to the symbols. */
+        newField: boolean;
+        changes: number;
+    }[];
+    /** One per BOM row and field. */
+    changes: {
+        key: string;
+        references: string;
+        field: string;
+        from: string;
+        to: string;
+    }[];
+    /** Rows whose references match a row of KiCad's BOM. */
+    matchedRows: number;
+    /** Rows left out, and why. */
+    skipped: { references: string; reason: string }[];
+    warnings: string[];
+}
+
+export interface KicadUpdateResult {
+    changes: number;
+    /** Changed files, relative to the project folder. */
+    files: string[];
+    /** Copies of the project's files from before the update. */
+    backupFolder: string;
 }
 
 export interface ExportRequest {
@@ -271,6 +333,17 @@ export interface Api {
         /** Lets the user pick a .kicad_pro and reads its BOM. Null when
          *  cancelled or the project can't be read (main shows why). */
         open(): Promise<KicadProjectData | null>;
+        /** Reads the project and works out what updating it would change. */
+        planUpdate(request: KicadUpdateRequest): Promise<KicadUpdatePlan>;
+        /** Backs up the project, then writes the chosen columns. */
+        applyUpdate(
+            request: KicadUpdateRequest,
+            columns: string[]
+        ): Promise<KicadUpdateResult>;
+        /** Asks for confirmation, then puts the backed-up files back; true
+         *  if it did. */
+        restoreBackup(backupFolder: string): Promise<boolean>;
+        showBackup(backupFolder: string): void;
     };
     dialog: {
         askSaveChanges(documentName: string): Promise<SaveChangesChoice>;
@@ -316,6 +389,10 @@ export const IpcChannel = {
     ProjectSave: "project:save",
     CsvOpen: "csv:open",
     KicadOpen: "kicad:open",
+    KicadPlanUpdate: "kicad:plan-update",
+    KicadApplyUpdate: "kicad:apply-update",
+    KicadRestoreBackup: "kicad:restore-backup",
+    KicadShowBackup: "kicad:show-backup",
     ExportSave: "export:save",
     ExportShowInFolder: "export:show-in-folder",
     DialogAskSaveChanges: "dialog:ask-save-changes",

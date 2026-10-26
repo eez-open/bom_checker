@@ -24,6 +24,7 @@ import { CollectDialog } from "./dialogs/CollectDialog";
 import { CsvImportDialog } from "./dialogs/CsvImportDialog";
 import { ExportDialog } from "./dialogs/ExportDialog";
 import { KicadImportDialog } from "./dialogs/KicadImportDialog";
+import { KicadUpdateDialog } from "./dialogs/KicadUpdateDialog";
 import { SettingsDialog } from "./settings/SettingsDialog";
 import { StartPage } from "./StartPage";
 import { documentName, isDirty, useDocument } from "./store/document";
@@ -75,6 +76,7 @@ export function App() {
     ];
     const hidden = hiddenColumns.filter(group => available.includes(group));
     const availableKey = available.join(",");
+    const fromKicad = project.source.kind === "kicad" && !!project.source.path;
 
     useEffect(() => {
         loadAppSettings();
@@ -112,13 +114,14 @@ export function App() {
     useEffect(() => {
         window.api.window.setMenuState({
             documentOpen: open,
+            fromKicad: open && fromKicad,
             availableColumns:
                 open && availableKey
                     ? (availableKey.split(",") as ColumnGroup[])
                     : [],
             hiddenColumns
         });
-    }, [open, availableKey, hiddenColumns]);
+    }, [open, fromKicad, availableKey, hiddenColumns]);
 
     useEffect(() => {
         document.title = open
@@ -266,6 +269,9 @@ export function App() {
             )}
             {dialog?.kind === "export" && (
                 <ExportDialog onClose={closeDialog} />
+            )}
+            {dialog?.kind === "kicad-update" && (
+                <KicadUpdateDialog onClose={closeDialog} />
             )}
             {dialog?.kind === "collect" && (
                 <CollectDialog onClose={closeDialog} />

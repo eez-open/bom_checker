@@ -46,6 +46,7 @@ function command(
 
 let state: MenuState = {
     documentOpen: false,
+    fromKicad: false,
     availableColumns: [],
     hiddenColumns: []
 };
@@ -105,6 +106,7 @@ function columnItems(): MenuItemConstructorOptions[] {
 
 const menuStateSchema = z.object({
     documentOpen: z.boolean(),
+    fromKicad: z.boolean(),
     availableColumns: z.array(z.enum(COLUMN_GROUPS)),
     hiddenColumns: z.array(z.enum(COLUMN_GROUPS))
 });
@@ -164,6 +166,10 @@ export function createMenu(): Menu {
                 { type: "separator" },
                 documentCommand("&Export…", "export", {
                     accelerator: "CmdOrCtrl+E"
+                }),
+                command("&Update KiCad Project…", "update-kicad", {
+                    id: "update-kicad",
+                    enabled: state.documentOpen && state.fromKicad
                 }),
                 { type: "separator" },
                 { role: "quit", label: "E&xit" }
