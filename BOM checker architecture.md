@@ -556,3 +556,43 @@ These points couldn't be settled from documentation and should be the first thin
 6. **KiCad import** with variants and the golden test.
 7. **Export** with filters and presets.
 8. **Finish:** installers, user guide.
+
+---
+
+## 15. Status of version 0.1.0
+
+All eight milestones are done. Everything below is covered by unit tests (148) and end-to-end tests (10). The end-to-end tests ran against the packaged Windows app and the packaged Linux app (in WSL), using a local fake supplier server.
+
+### Scope requirements
+
+| Scope | Where |
+|---|---|
+| Electron app for Windows and Linux (Ubuntu / Mint) | NSIS installer; AppImage and `.deb` (12) |
+| Table of components; manual entry; CSV import | 9.0, 9.1 |
+| Load from a KiCad 10 project, choose the design variant, skip DNP / excluded symbols | 9.2; golden test against KiCad's own export |
+| Mandatory columns Row, Reference, Value, Qty, Footprint; custom columns | 5.2 |
+| Supplier columns prefixed with the supplier name | 5.2 (table headers show the full name on hover; exports use it as the column name) |
+| CSV: choose the part-number columns, trim values | 9.1 |
+| API settings per supplier, editable parameters, requests per minute and per day | 6.3, 7.2, 8 |
+| Credentials encrypted; settings behind a password that can be changed | 7.2 |
+| Supplier integrations as plugins | 6.1 (compiled in) |
+| Collect for one, several or all suppliers; progress with the current part; only defined part numbers (empty or `-` skipped) | 8 |
+| Summary: duration, requested vs found, available vs not | 8 |
+| Continue an interrupted collection | 8 |
+| Manufacturer, Stock Qty, Unit price, MOQ, Order Qty, Total price, Availability, Status (coloured unless active, blank if unknown), RoHS | 5.2–5.4 |
+| Best price and supplier, skipping suppliers without enough stock | 5.3 |
+| Export to ods, xlsx, csv with filters | 11 |
+
+### Changes from this proposal
+
+- **Collected data is stored per part number** (`project.collected`), not per row. A part number used in several rows is looked up once; undo never loses collected data; importing again keeps data for unchanged part numbers. This replaced the planned "Reload from KiCad" command.
+- **No exchange rates.** All three suppliers return EUR when asked (5.5); prices in other currencies are flagged and left out of totals.
+- **TME uses API v2** (OAuth). TME stopped issuing keys for v1 in May 2026.
+- **DigiKey browser sign-in (7.1) isn't built.** It's only needed if the live test shows that the account number doesn't return the account's own prices.
+- **Tooling:** Dependabot instead of Renovate; TypeScript 6.0 until typescript-eslint supports 7.
+
+### Open
+
+1. **Live verification with real API keys** (section 13). Settings → Test connection answers most points; the log option records the responses.
+2. **Code signing** for the Windows installer, to avoid the SmartScreen warning.
+3. **Not in v1:** automatic updates, opening `.eezbom` files by double-click, a recent-files list, dark mode.

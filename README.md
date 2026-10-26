@@ -2,6 +2,7 @@
 
 A desktop app for Windows and Linux that checks a bill of materials against DigiKey, Mouser and TME. It reports stock, prices, minimum order quantities, lifecycle status and RoHS status, and picks the best-priced supplier for each part.
 
+- How to use it: [docs/user-guide.md](docs/user-guide.md)
 - What the app must do: [BOM checker project scope.md](BOM%20checker%20project%20scope.md)
 - How it is built: [BOM checker architecture.md](BOM%20checker%20architecture.md)
 
@@ -23,7 +24,7 @@ npm run dev     # start the app with hot reload
 | `npm test`             | Unit tests (Vitest)                                         |
 | `npm run test:e2e`     | Start the built app and run the smoke test (Playwright)     |
 | `npm run format`       | Format all files with Prettier                              |
-| `npm run icon`         | Render `build/icon.svg` to `build/icon.png` (app icon)      |
+| `npm run icon`         | Render `build/icon.svg` to the app icon PNGs in `build/`    |
 | `npm run pack`         | Build an unpacked app into `release/` for a quick try       |
 | `npm run dist:win`     | Build the Windows installer into `release/`                 |
 | `npm run dist:linux`   | Build the AppImage and `.deb` into `release/` (Linux only)  |
