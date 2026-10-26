@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { ConnectionTest, SecretChanges } from "../../shared/ipc";
 import type { SupplierId } from "../../shared/model";
 import type { AppSettings } from "../../shared/settings";
@@ -10,6 +10,7 @@ import {
 } from "../../shared/supplier-config";
 import { SUPPLIERS } from "../../shared/suppliers";
 import { errorMessage, isSettingsLocked } from "../errors";
+import { CheckIcon, CopyIcon, EyeIcon, EyeOffIcon } from "../icons";
 
 const GROUPS = [
     { id: "credentials", title: "API credentials" },
@@ -59,6 +60,8 @@ export function SupplierForm({
         )
     );
     const [secrets, setSecrets] = useState<Record<string, string>>({});
+    /** Saved values shown in the inputs; saved again only when edited. */
+    const [loaded, setLoaded] = useState<Record<string, string>>({});
     const [removed, setRemoved] = useState<ReadonlySet<string>>(new Set());
     const [message, setMessage] = useState<{
         text: string;
@@ -69,7 +72,7 @@ export function SupplierForm({
     const errors = validateSupplierConfig(supplier, values);
     const secretChanges: SecretChanges = {};
     for (const [key, value] of Object.entries(secrets)) {
-        if (value.trim() !== "") {
+        if (value.trim() !== "" && value !== loaded[key]) {
             secretChanges[key] = value;
         }
     }
@@ -89,7 +92,14 @@ export function SupplierForm({
                 secretChanges
             );
             await onSaved(settings);
-            setSecrets({});
+            // The inputs now hold the saved values.
+            const kept = Object.fromEntries(
+                Object.entries(secrets).filter(
+                    ([key, value]) => value.trim() !== "" && !removed.has(key)
+                )
+            );
+            setSecrets(kept);
+            setLoaded(kept);
             setRemoved(new Set());
             setMessage({ text: "Saved.", error: false });
         } catch (error) {
@@ -98,6 +108,48 @@ export function SupplierForm({
             } else {
                 setMessage({ text: errorMessage(error), error: true });
             }
+        }
+    };
+
+    const readSaved = async (key: string): Promise<string | null> => {
+        try {
+            return await window.api.vault.getSecret(token, supplier, key);
+        } catch (error) {
+            if (isSettingsLocked(error)) {
+                onLocked();
+            } else {
+                setMessage({ text: errorMessage(error), error: true });
+            }
+            return null;
+        }
+    };
+
+    /** Puts the saved value in an empty input. */
+    const reveal = async (key: string) => {
+        if (secrets[key] || !secretsSet[key]) {
+            return;
+        }
+        const value = await readSaved(key);
+        if (value !== null) {
+            setSecrets(current =>
+                current[key] ? current : { ...current, [key]: value }
+            );
+            setLoaded(current => ({ ...current, [key]: value }));
+        }
+    };
+
+    /** Copies what the input holds, or else the saved value. */
+    const copy = async (key: string): Promise<boolean> => {
+        const value = secrets[key] || (await readSaved(key));
+        if (!value) {
+            return false;
+        }
+        try {
+            await window.api.app.copyText(value);
+            return true;
+        } catch (error) {
+            setMessage({ text: errorMessage(error), error: true });
+            return false;
         }
     };
 
@@ -138,8 +190,8 @@ export function SupplierForm({
                         <legend>{group.title}</legend>
                         {group.id === "credentials" && (
                             <p className="muted">
-                                Stored encrypted. Saved values are never shown;
-                                type a new value to replace one.{" "}
+                                Stored encrypted. Type a new value to replace a
+                                saved one.{" "}
                                 <button
                                     type="button"
                                     className="link"
@@ -168,6 +220,8 @@ export function SupplierForm({
                                         }));
                                         setMessage(null);
                                     }}
+                                    onReveal={() => reveal(field.key)}
+                                    onCopy={() => copy(field.key)}
                                     onRemove={remove => {
                                         const next = new Set(removed);
                                         if (remove) {
@@ -238,6 +292,8 @@ function SecretInput({
     isSet,
     removed,
     onChange,
+    onReveal,
+    onCopy,
     onRemove
 }: {
     field: ConfigField;
@@ -245,9 +301,31 @@ function SecretInput({
     isSet: boolean;
     removed: boolean;
     onChange: (value: string) => void;
+    onReveal: () => Promise<void>;
+    onCopy: () => Promise<boolean>;
     onRemove: (remove: boolean) => void;
 }) {
     const id = useId();
+    const [shown, setShown] = useState(false);
+    const [copied, setCopied] = useState(false);
+    useEffect(() => {
+        if (!copied) {
+            return;
+        }
+        const timer = setTimeout(() => setCopied(false), 1500);
+        return () => clearTimeout(timer);
+    }, [copied]);
+
+    const show = async () => {
+        if (!shown) {
+            await onReveal();
+        }
+        setShown(!shown);
+    };
+    const copy = async () => setCopied(await onCopy());
+    const showLabel = `${shown ? "Hide" : "Show"} ${field.label}`;
+    const copyLabel = copied ? "Copied" : `Copy ${field.label}`;
+
     return (
         <div className="form-row">
             <label htmlFor={id}>{field.label}</label>
@@ -255,7 +333,7 @@ function SecretInput({
                 <div className="inline">
                     <input
                         id={id}
-                        type="password"
+                        type={shown ? "text" : "password"}
                         autoComplete="off"
                         spellCheck={false}
                         disabled={removed}
@@ -269,6 +347,26 @@ function SecretInput({
                         value={value}
                         onChange={event => onChange(event.target.value)}
                     />
+                    <button
+                        type="button"
+                        className="icon"
+                        title={showLabel}
+                        aria-label={showLabel}
+                        disabled={removed}
+                        onClick={() => void show()}
+                    >
+                        {shown ? <EyeOffIcon /> : <EyeIcon />}
+                    </button>
+                    <button
+                        type="button"
+                        className="icon"
+                        title={copyLabel}
+                        aria-label={copyLabel}
+                        disabled={removed || (!isSet && value === "")}
+                        onClick={() => void copy()}
+                    >
+                        {copied ? <CheckIcon /> : <CopyIcon />}
+                    </button>
                     {isSet && (
                         <button
                             type="button"

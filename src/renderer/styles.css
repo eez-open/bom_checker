@@ -349,7 +349,7 @@ input.number {
 }
 
 .settings-form {
-    max-width: 600px;
+    max-width: 640px;
 }
 
 .settings-form p {
@@ -588,4 +588,15 @@ button.pn-badge {
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
+}
+
+button.icon {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 6px;
+}
+
+svg.icon {
+    width: 16px;
+    height: 16px;
 }

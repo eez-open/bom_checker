@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- Show and copy buttons next to each API credential in Settings → Suppliers. The section is protected by the password, so saved values can be shown there.
+
 ### Changed
 
 - Clearer help for TME credentials, in Settings and in the user guide: where the Token (private key) and App secret are found on developers.tme.eu.

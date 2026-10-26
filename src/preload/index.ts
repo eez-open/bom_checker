@@ -16,7 +16,8 @@ function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
 const api: Api = {
     app: {
         getInfo: () => invoke(IpcChannel.AppGetInfo),
-        openExternal: url => invoke(IpcChannel.AppOpenExternal, url)
+        openExternal: url => invoke(IpcChannel.AppOpenExternal, url),
+        copyText: text => invoke(IpcChannel.AppCopyText, text)
     },
     settings: {
         get: () => invoke(IpcChannel.SettingsGet),
@@ -39,6 +40,8 @@ const api: Api = {
             ipcRenderer.send(IpcChannel.VaultCloseSettings, token),
         getSecretStatus: token =>
             invoke(IpcChannel.VaultGetSecretStatus, token),
+        getSecret: (token, supplier, key) =>
+            invoke(IpcChannel.VaultGetSecret, token, supplier, key),
         changePassword: (token, currentPassword, newPassword) =>
             invoke(
                 IpcChannel.VaultChangePassword,

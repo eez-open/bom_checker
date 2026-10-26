@@ -158,6 +158,23 @@ export function getSecretStatus(token: string): SecretStatus {
     ) as SecretStatus;
 }
 
+/** One stored secret, for Show and Copy in supplier settings; null if it
+ *  isn't set. */
+export function getSecret(
+    token: string,
+    supplier: SupplierId,
+    key: string
+): string | null {
+    checkSession(token);
+    if (!secrets) {
+        throw new SettingsLockedError();
+    }
+    if (!secretFields(supplier).some(field => field.key === key)) {
+        throw new Error(`Unknown setting: ${key}`);
+    }
+    return secrets[supplier]?.[key] ?? null;
+}
+
 /** Sets (string) or removes (null) secrets of one supplier. */
 export async function saveSecrets(
     token: string,

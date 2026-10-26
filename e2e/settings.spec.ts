@@ -47,7 +47,8 @@ test("protects supplier credentials with a password", async () => {
 
         // Enter a Mouser key and a limit.
         await dialog.getByRole("button", { name: "Mouser" }).click();
-        await dialog.getByLabel("Search API key").fill(MOUSER_KEY);
+        const mouserKey = dialog.getByLabel("Search API key", { exact: true });
+        await mouserKey.fill(MOUSER_KEY);
         await dialog.getByLabel("Requests per day").fill("abc");
         await expect(dialog.getByText("Enter a whole number.")).toBeVisible();
         await dialog.getByLabel("Requests per day").fill("500");
@@ -55,10 +56,7 @@ test("protects supplier credentials with a password", async () => {
             .getByRole("button", { name: "Save Mouser settings" })
             .click();
         await expect(dialog.getByText("Saved.")).toBeVisible();
-        await expect(dialog.getByLabel("Search API key")).toHaveAttribute(
-            "placeholder",
-            "Saved"
-        );
+        await expect(mouserKey).toHaveAttribute("placeholder", "Saved");
         await dialog.getByRole("button", { name: "Close" }).click();
 
         // The key is stored only encrypted.
@@ -84,11 +82,32 @@ test("protects supplier credentials with a password", async () => {
             .fill("correct horse");
         await dialog.getByRole("button", { name: "Unlock" }).click();
         await dialog.getByRole("button", { name: "Mouser" }).click();
-        await expect(dialog.getByLabel("Search API key")).toHaveAttribute(
-            "placeholder",
-            "Saved"
-        );
+        await expect(mouserKey).toHaveAttribute("placeholder", "Saved");
+        await expect(mouserKey).toHaveValue("");
         await expect(dialog.getByLabel("Requests per day")).toHaveValue("500");
+
+        // The saved key can be shown and copied; that isn't a change.
+        await dialog
+            .getByRole("button", { name: "Show Search API key" })
+            .click();
+        await expect(mouserKey).toHaveValue(MOUSER_KEY);
+        await expect(mouserKey).toHaveAttribute("type", "text");
+        await dialog
+            .getByRole("button", { name: "Copy Search API key" })
+            .click();
+        await expect(
+            dialog.getByRole("button", { name: "Copied" })
+        ).toBeVisible();
+        expect(
+            await app.evaluate(({ clipboard }) => clipboard.readText())
+        ).toBe(MOUSER_KEY);
+        await expect(
+            dialog.getByRole("button", { name: "Save Mouser settings" })
+        ).toBeDisabled();
+        await dialog
+            .getByRole("button", { name: "Hide Search API key" })
+            .click();
+        await expect(mouserKey).toHaveAttribute("type", "password");
 
         // Change the password.
         await dialog.getByRole("button", { name: "Password" }).click();

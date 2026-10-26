@@ -10,6 +10,7 @@ import {
     changePassword,
     closeSettings,
     createVaultWithPassword,
+    getSecret,
     getSecretStatus,
     getVaultState,
     lock,
@@ -83,6 +84,13 @@ export function registerSettingsHandlers(): void {
     );
     handle(IpcChannel.VaultGetSecretStatus, (_context, sessionToken) =>
         getSecretStatus(token.parse(sessionToken))
+    );
+    handle(IpcChannel.VaultGetSecret, (_context, sessionToken, supplier, key) =>
+        getSecret(
+            token.parse(sessionToken),
+            supplierId.parse(supplier),
+            z.string().parse(key)
+        )
     );
     handle(
         IpcChannel.VaultChangePassword,

@@ -148,6 +148,7 @@ export interface Api {
         getInfo(): Promise<AppInfo>;
         /** Opens a supplier web page in the default browser. */
         openExternal(url: string): Promise<void>;
+        copyText(text: string): Promise<void>;
     };
     settings: {
         get(): Promise<AppSettings>;
@@ -169,6 +170,12 @@ export interface Api {
         openSettings(password: string): Promise<string | null>;
         closeSettings(token: string): void;
         getSecretStatus(token: string): Promise<SecretStatus>;
+        /** A stored secret, for Show and Copy; null if it isn't set. */
+        getSecret(
+            token: string,
+            supplier: SupplierId,
+            key: string
+        ): Promise<string | null>;
         /** False if the current password is wrong. */
         changePassword(
             token: string,
@@ -233,6 +240,7 @@ export interface Api {
 export const IpcChannel = {
     AppGetInfo: "app:get-info",
     AppOpenExternal: "app:open-external",
+    AppCopyText: "app:copy-text",
     SettingsGet: "settings:get",
     SettingsSaveGeneral: "settings:save-general",
     SettingsSaveSupplier: "settings:save-supplier",
@@ -241,6 +249,7 @@ export const IpcChannel = {
     VaultOpenSettings: "vault:open-settings",
     VaultCloseSettings: "vault:close-settings",
     VaultGetSecretStatus: "vault:get-secret-status",
+    VaultGetSecret: "vault:get-secret",
     VaultChangePassword: "vault:change-password",
     VaultReset: "vault:reset",
     VaultLock: "vault:lock",

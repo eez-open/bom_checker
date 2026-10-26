@@ -1,4 +1,4 @@
-import { app, shell } from "electron";
+import { app, clipboard, shell } from "electron";
 import { z } from "zod";
 import { IpcChannel, type AppInfo } from "../../shared/ipc";
 import { isAllowedExternalUrl } from "../external-urls";
@@ -26,4 +26,9 @@ export function registerAppHandlers(): void {
         }
         await shell.openExternal(target);
     });
+
+    // The renderer's own clipboard access is denied with other permissions.
+    handle(IpcChannel.AppCopyText, (_context, text) =>
+        clipboard.writeText(z.string().max(100_000).parse(text))
+    );
 }

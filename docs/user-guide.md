@@ -28,6 +28,8 @@ The app reads supplier data through each supplier's API, with your own API crede
 2. The first time, choose a password (at least 8 characters). You need it to change supplier settings, and once per session to collect data. **It can't be recovered**: if you forget it, *Forgot the password?* deletes the stored credentials so you can start over.
 3. For each supplier you use, enter the credentials, click **Save**, then **Test connection**. The test looks up one known part and shows the stock, the currency and whether the prices are your account's own.
 
+Saved credentials appear as *Saved*. The eye button next to one shows it, and the copy button copies it to the clipboard.
+
 ### DigiKey
 
 - Sign in at [developer.digikey.com](https://developer.digikey.com/), create an organization and a **production** app, and subscribe it to **Product Information v4**. Copy the app's **Client ID** and **Client secret**.
