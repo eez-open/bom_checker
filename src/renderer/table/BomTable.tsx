@@ -2,10 +2,15 @@ import {
     AllCommunityModule,
     ModuleRegistry,
     themeQuartz,
-    type ColDef
+    type CellEditRequestEvent,
+    type GridApi,
+    type GridReadyEvent,
+    type SelectionChangedEvent
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
-import { BASE_COLUMNS, type BaseColumn, type BomRow } from "../../shared/model";
+import { useCallback, useMemo, useRef } from "react";
+import type { BomRow, ColumnKey, Project } from "../../shared/model";
+import { buildColumns } from "./columns";
 
 // AG Grid is used only inside this folder (see "BOM checker architecture.md").
 
@@ -17,23 +22,23 @@ const theme = themeQuartz.withParams({
     headerFontWeight: 600
 });
 
-function toColumnDef(column: BaseColumn): ColDef<BomRow> {
-    const numeric = column.type === "number";
-    const type = numeric ? "rightAligned" : undefined;
-    const width = numeric ? 90 : undefined;
-    if (column.field === "row") {
-        return {
-            colId: "row",
-            headerName: column.header,
-            type,
-            width,
-            valueGetter: params => (params.node?.rowIndex ?? 0) + 1
-        };
-    }
-    return { field: column.field, headerName: column.header, type, width };
-}
+const ROW_SELECTION = {
+    mode: "multiRow",
+    checkboxes: true,
+    headerCheckbox: true,
+    enableClickSelection: false
+} as const;
 
-const columnDefs = BASE_COLUMNS.map(toColumnDef);
+const DEFAULT_COLUMN = { editable: true, resizable: true, sortable: true };
+
+interface BomTableProps {
+    project: Project;
+    onCellEdit: (rowId: string, key: ColumnKey, value: unknown) => void;
+    onSelectionChange: (rowIds: string[]) => void;
+    /** A newly added row whose Reference cell should start editing. */
+    editRowId: string | null;
+    onEditStarted: () => void;
+}
 
 function EmptyTable() {
     return (
@@ -44,14 +49,61 @@ function EmptyTable() {
     );
 }
 
-export function BomTable({ rows }: { rows: BomRow[] }) {
+export function BomTable({
+    project,
+    onCellEdit,
+    onSelectionChange,
+    editRowId,
+    onEditStarted
+}: BomTableProps) {
+    const apiRef = useRef<GridApi<BomRow> | null>(null);
+    const { columnDefs, keys } = useMemo(
+        () => buildColumns(project),
+        // Columns change only when suppliers or custom columns do.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [project.suppliers, project.customColumns]
+    );
+
+    const startPendingEdit = useCallback(() => {
+        const api = apiRef.current;
+        const node = editRowId ? api?.getRowNode(editRowId) : undefined;
+        if (!api || node?.rowIndex == null) {
+            return;
+        }
+        api.ensureIndexVisible(node.rowIndex);
+        api.setFocusedCell(node.rowIndex, "reference");
+        api.startEditingCell({ rowIndex: node.rowIndex, colKey: "reference" });
+        onEditStarted();
+    }, [editRowId, onEditStarted]);
+
     return (
         <AgGridReact<BomRow>
             theme={theme}
-            rowData={rows}
+            rowData={project.rows}
             columnDefs={columnDefs}
+            defaultColDef={DEFAULT_COLUMN}
             getRowId={params => params.data.id}
+            rowSelection={ROW_SELECTION}
+            readOnlyEdit
+            singleClickEdit={false}
+            stopEditingWhenCellsLoseFocus
+            tooltipShowDelay={300}
             noRowsOverlayComponent={EmptyTable}
+            onGridReady={(event: GridReadyEvent<BomRow>) =>
+                (apiRef.current = event.api)
+            }
+            onRowDataUpdated={startPendingEdit}
+            onCellEditRequest={(event: CellEditRequestEvent<BomRow>) => {
+                const key = keys.get(event.column.getColId());
+                if (key && event.data) {
+                    onCellEdit(event.data.id, key, event.newValue);
+                }
+            }}
+            onSelectionChanged={(event: SelectionChangedEvent<BomRow>) =>
+                onSelectionChange(
+                    event.api.getSelectedRows().map(row => row.id)
+                )
+            }
         />
     );
 }

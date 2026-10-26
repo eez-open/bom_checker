@@ -1,6 +1,7 @@
-import { app } from "electron";
+import { app, Menu } from "electron";
 import { registerIpcHandlers } from "./ipc";
 import { initLogging, log } from "./logging";
+import { createMenu } from "./menu";
 import { denyPermissionRequests, hardenWebContents } from "./security";
 import { createMainWindow } from "./window";
 
@@ -16,6 +17,7 @@ app.whenReady()
     .then(() => {
         denyPermissionRequests();
         registerIpcHandlers();
+        Menu.setApplicationMenu(createMenu());
         createMainWindow();
     })
     .catch((error: unknown) => {

@@ -28,6 +28,10 @@ export default defineConfig([
         languageOptions: { globals: globals.node }
     },
     {
+        files: ["**/*.cjs"],
+        rules: { "@typescript-eslint/no-require-imports": "off" }
+    },
+    {
         files: ["src/main/**", "src/preload/**", "e2e/**", "*.config.{ts,mts}"],
         languageOptions: { globals: globals.node }
     },

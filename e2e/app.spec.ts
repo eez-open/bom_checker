@@ -1,29 +1,12 @@
-import { _electron as electron, expect, test } from "@playwright/test";
-
-// Processes started by VS Code extensions inherit ELECTRON_RUN_AS_NODE=1,
-// which would make Electron run as plain Node.js instead of starting the app.
-function electronEnv(): Record<string, string> {
-    return Object.fromEntries(
-        Object.entries(process.env).filter(
-            (entry): entry is [string, string] =>
-                entry[0] !== "ELECTRON_RUN_AS_NODE" && entry[1] !== undefined
-        )
-    );
-}
+import { expect, test } from "@playwright/test";
+import { closeApp, launchApp } from "./helpers";
 
 const BASE_HEADERS = ["Row", "Reference", "Value", "Qty", "Footprint"];
 
-// Starts the built app (`npm run build`), or the packaged executable when
-// E2E_APP_PATH is set; CI does the latter after electron-builder has run.
-test("starts and shows the empty BOM table", async () => {
-    const executablePath = process.env.E2E_APP_PATH;
-    const app = await electron.launch({
-        ...(executablePath ? { executablePath } : { args: ["."] }),
-        env: electronEnv()
-    });
+test("starts and shows an empty BOM", async () => {
+    const { app, page } = await launchApp();
     try {
-        const page = await app.firstWindow();
-        await expect(page).toHaveTitle("EEZ BOM checker");
+        await expect(page).toHaveTitle("Untitled - EEZ BOM checker");
 
         for (const header of BASE_HEADERS) {
             await expect(
@@ -31,6 +14,9 @@ test("starts and shows the empty BOM table", async () => {
             ).toBeVisible();
         }
         await expect(page.getByText("No components yet.")).toBeVisible();
+        await expect(page.getByTestId("bom-summary")).toHaveText(
+            "0 rows · 0 parts"
+        );
         await expect(page.getByTestId("app-version")).toHaveText(
             /^v\d+\.\d+\.\d+/
         );
@@ -50,6 +36,6 @@ test("starts and shows the empty BOM table", async () => {
             api: "object"
         });
     } finally {
-        await app.close();
+        await closeApp(app);
     }
 });

@@ -424,9 +424,9 @@ Files in the app-data folder (`%APPDATA%\EEZ BOM checker\` on Windows, `~/.confi
 A BOM doesn't have to come from a file. This is also the quickest way to test supplier lookups with a few parts.
 
 - **New** creates an empty table with the mandatory columns (`Row`, `Reference`, `Value`, `Qty`, `Footprint`).
-- **Add row** appends a row. Cells are typed in directly, and rows can be deleted.
-- **Add supplier column** adds a part-number column for DigiKey, Mouser or TME. The supplier's Collect option appears once the column has at least one part number.
-- **Custom columns** can be added the same way (5.2).
+- **Add row** appends a row and starts editing its Reference. Cells are typed in directly; Tab moves to the next cell. Selected rows can be deleted.
+- **Columns…** adds or removes part-number columns for DigiKey, Mouser and TME, and adds, renames or deletes custom text and number columns (5.2). A supplier's Collect option appears once its column has at least one part number.
+- Every edit can be undone (Ctrl+Z) and redone (Ctrl+Y).
 - The same rules apply as for imported data: values are trimmed, `-` or empty means "no part number", and `A or B` is flagged.
 
 ### 9.1 CSV

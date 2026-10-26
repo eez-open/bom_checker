@@ -23,6 +23,7 @@ npm run dev     # start the app with hot reload
 | `npm test`             | Unit tests (Vitest)                                         |
 | `npm run test:e2e`     | Start the built app and run the smoke test (Playwright)     |
 | `npm run format`       | Format all files with Prettier                              |
+| `npm run icon`         | Render `build/icon.svg` to `build/icon.png` (app icon)      |
 | `npm run pack`         | Build an unpacked app into `release/` for a quick try       |
 | `npm run dist:win`     | Build the Windows installer into `release/`                 |
 | `npm run dist:linux`   | Build the AppImage and `.deb` into `release/` (Linux only)  |
@@ -37,9 +38,13 @@ src/
   preload/    Exposes the typed API (window.api) to the UI
   renderer/   React UI
   shared/     Types and pure logic used by both sides (data model, IPC contract)
-e2e/          Playwright smoke test
+e2e/          Playwright end-to-end tests
+build/        App icon (icon.svg is the source; electron-builder uses icon.png)
+scripts/      Helper scripts
 docs/         Developer documentation
 ```
+
+BOM editing works on immutable `Project` objects: every operation in `src/shared/project-ops.ts` returns a new project. The UI store (`src/renderer/store/document.ts`) keeps the previous versions for undo, and compares with the last saved version to know whether there are unsaved changes.
 
 The renderer has no Node.js access. Everything it needs from the main process goes through `window.api`, which is defined in `src/shared/ipc.ts`.
 
