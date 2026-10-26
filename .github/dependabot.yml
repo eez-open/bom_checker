@@ -1,0 +1,39 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      electron:
+        patterns: ["electron", "electron-builder", "electron-vite"]
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+      ag-grid:
+        patterns: ["ag-grid-*"]
+      build:
+        patterns: ["vite", "@vitejs/*", "typescript", "@types/node"]
+      lint-and-format:
+        patterns:
+          [
+            "eslint",
+            "@eslint/*",
+            "typescript-eslint",
+            "eslint-plugin-*",
+            "globals",
+            "prettier"
+          ]
+      test:
+        patterns: ["vitest", "@playwright/test"]
+    ignore:
+      # Held back on purpose; see docs/upgrade-checklist.md.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

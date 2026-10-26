@@ -52,7 +52,7 @@ Any third-party library that might need replacing is used from **one module only
 | Concern | Choice | Why it suits long-term maintenance |
 |---|---|---|
 | Shell | Electron | Required. A new major version ships about every 8 weeks and only the latest 3 get security fixes, so plan an Electron upgrade about every 6 months (3.2) |
-| Language | TypeScript (strict) everywhere | When a supplier API model or the project format changes, the compiler points to every place affected. Main and UI share the same types |
+| Language | TypeScript (strict) everywhere | When a supplier API model or the project format changes, the compiler points to every place affected. Main and UI share the same types. Held at 6.0 until typescript-eslint supports TypeScript 7 |
 | UI | React (current major) + Zustand | React is the most widely known UI library, so it's the easiest to find maintainers for. Zustand is tiny with a stable API |
 | Build | Vite, via electron-vite | Vite is mainstream. electron-vite is only a thin configuration layer over it; if it were ever abandoned, replacing it means rewriting config, not code |
 | Table | AG Grid Community (MIT) | Editing, column groups, pinning, sorting/filtering and cell styling are built in, so there's far less of our own table code to maintain than with a headless library. It releases about one major version a year, with migration guides. Used only in `renderer/table/` |
@@ -77,7 +77,7 @@ Any third-party library that might need replacing is used from **one module only
 
 ### 3.2 Maintenance practices (set up in milestone 1)
 
-- **Updates:** the lockfile is committed. Renovate (or Dependabot) opens dependency-update PRs.
+- **Updates:** the lockfile is committed. Dependabot opens dependency-update PRs.
 - **CI:** every PR runs lint, type checks, tests and both platform builds.
 - **Documentation** in `docs/`: developer setup, this architecture document, "Adding a supplier", the upgrade checklist (Electron, SheetJS) and a CHANGELOG.
 - **New dependencies** need a stated reason in the PR. Node, Electron and browser APIs come first.
@@ -417,7 +417,17 @@ Files in the app-data folder (`%APPDATA%\EEZ BOM checker\` on Windows, `~/.confi
 
 ---
 
-## 9. Import
+## 9. Creating and importing a BOM
+
+### 9.0 From scratch
+
+A BOM doesn't have to come from a file. This is also the quickest way to test supplier lookups with a few parts.
+
+- **New** creates an empty table with the mandatory columns (`Row`, `Reference`, `Value`, `Qty`, `Footprint`).
+- **Add row** appends a row. Cells are typed in directly, and rows can be deleted.
+- **Add supplier column** adds a part-number column for DigiKey, Mouser or TME. The supplier's Collect option appears once the column has at least one part number.
+- **Custom columns** can be added the same way (5.2).
+- The same rules apply as for imported data: values are trimmed, `-` or empty means "no part number", and `A or B` is flagged.
 
 ### 9.1 CSV
 
@@ -534,8 +544,8 @@ These points couldn't be settled from documentation and should be the first thin
 
 ## 14. Suggested milestones
 
-1. **Skeleton:** Electron app, typed IPC, empty table, logging. Lint, tests, Renovate and CI builds for Windows and Linux. Developer README.
-2. **BOM basics:** data model, table, manual entry, CSV import with mapping, save/load `.eezbom`.
+1. **Skeleton:** Electron app, typed IPC, empty table, logging. Lint, tests, Dependabot and CI builds for Windows and Linux. Developer README.
+2. **BOM basics:** data model, table, creating a BOM from scratch (9.0), save/load `.eezbom`, then CSV import with mapping.
 3. **Security:** vault, password flows, Settings (General + Suppliers).
 4. **Collection:** engine with rate limiting, resume and summary; the Mouser plugin first (simplest), then TME, then DigiKey; live verification (section 13).
 5. **Calculations:** pricing, currency, best price, status colours, ambiguity picker.

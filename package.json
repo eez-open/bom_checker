@@ -1,0 +1,71 @@
+{
+    "name": "eez-bom-checker",
+    "productName": "EEZ BOM checker",
+    "version": "0.1.0",
+    "description": "Checks KiCad BOMs against DigiKey, Mouser and TME: stock, prices, lifecycle and RoHS",
+    "author": "Envox <eez@envox.hr>",
+    "license": "MIT",
+    "homepage": "https://github.com/eez-open/bom_checker",
+    "repository": "https://github.com/eez-open/bom_checker",
+    "private": true,
+    "main": "./out/main/index.js",
+    "engines": {
+        "node": ">=24"
+    },
+    "scripts": {
+        "dev": "electron-vite dev",
+        "build": "electron-vite build",
+        "preview": "electron-vite preview",
+        "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+        "lint": "eslint .",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:e2e": "playwright test",
+        "check": "npm run typecheck && npm run lint && npm run format:check && npm run test",
+        "pack": "npm run build && electron-builder --dir",
+        "dist:win": "npm run build && electron-builder --win",
+        "dist:linux": "npm run build && electron-builder --linux"
+    },
+    "prettier": {
+        "printWidth": 80,
+        "tabWidth": 4,
+        "trailingComma": "none",
+        "arrowParens": "avoid",
+        "overrides": [
+            {
+                "files": "*.{yml,yaml}",
+                "options": {
+                    "tabWidth": 2
+                }
+            }
+        ]
+    },
+    "dependencies": {
+        "electron-log": "^5.4.4"
+    },
+    "devDependencies": {
+        "@eslint/js": "^10.0.1",
+        "@playwright/test": "^1.64.1",
+        "@types/node": "^24.0.0",
+        "@types/react": "^19.3.0",
+        "@types/react-dom": "^19.3.0",
+        "@vitejs/plugin-react": "^6.1.2",
+        "ag-grid-community": "^36.2.0",
+        "ag-grid-react": "^36.2.0",
+        "electron": "^45.0.0",
+        "electron-builder": "^26.18.0",
+        "electron-vite": "^6.0.0",
+        "eslint": "^10.13.0",
+        "eslint-plugin-react-hooks": "^7.1.1",
+        "globals": "^17.13.0",
+        "prettier": "^3.9.10",
+        "react": "^19.3.1",
+        "react-dom": "^19.3.1",
+        "typescript": "~6.0.3",
+        "typescript-eslint": "^8.72.0",
+        "vite": "^8.3.5",
+        "vitest": "^5.0.5"
+    }
+}

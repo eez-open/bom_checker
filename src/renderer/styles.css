@@ -1,0 +1,48 @@
+:root {
+    --app-font:
+        system-ui, "Segoe UI", Ubuntu, Cantarell, "Noto Sans", sans-serif;
+    --app-bg: #ffffff;
+    --app-fg: #1f2328;
+    --app-muted: #59636e;
+    --app-border: #d1d9e0;
+    --status-bar-bg: #f6f8fa;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    font-family: var(--app-font);
+    font-size: 13px;
+    color: var(--app-fg);
+    background: var(--app-bg);
+}
+
+.app {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.app-table {
+    flex: 1;
+    min-height: 0;
+}
+
+.status-bar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 4px 12px;
+    border-top: 1px solid var(--app-border);
+    background: var(--status-bar-bg);
+    color: var(--app-muted);
+    font-size: 12px;
+}
+
+.empty-table {
+    color: var(--app-muted);
+}

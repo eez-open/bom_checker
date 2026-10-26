@@ -1,0 +1,8 @@
+out/
+release/
+coverage/
+test-results/
+playwright-report/
+package-lock.json
+*.md
+*.csv
