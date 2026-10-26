@@ -41,8 +41,14 @@ The app reads supplier data through each supplier's API, with your own API crede
 
 ### TME
 
-- In your tme.eu account, create an application to get a temporary token, then generate the private key at [developers.tme.eu](https://developers.tme.eu/): you get a **Token** and an **App secret**. The private key returns your own prices.
-- **Country** (default HR), **Language** and **Currency** (default EUR). One request checks up to 50 parts. TME doesn't provide RoHS information.
+TME's key links two sites: your shop account at tme.eu and a separate developer account at [developers.tme.eu](https://developers.tme.eu/).
+
+1. On **developers.tme.eu**, open **API Token keys**, enter an application name (e.g. *BOM checker*) and click **Create application**. Its **Application secret** (click the eye icon) is the **App secret**.
+2. On **tme.eu**, open **User panel → Applications → Register new app** and copy the **temporary token**. It can be used only once. The applications listed on that page show only the start of a token; that isn't the key.
+3. Back on developers.tme.eu, paste it into your application's **Temporary token** field, choose the key purpose and click **Generate new private key**.
+4. Click **Show private keys** and copy the private key: that's the **Token** (about 50 characters; the App secret is about 20).
+
+The private key returns your own prices. **Country** (default HR), **Language** and **Currency** (default EUR) can be changed. One request checks up to 50 parts. TME doesn't provide RoHS information.
 
 **Request limits** for each supplier are preset to the supplier's published limits. The app spaces out requests and counts them per day, also across projects and restarts. Lower the limits if you share an API key with other tools.
 

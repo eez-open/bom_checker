@@ -182,13 +182,16 @@ export const SUPPLIER_SETTINGS: Record<SupplierId, SupplierSettingsInfo> = {
                 label: "Token",
                 kind: "secret",
                 group: "credentials",
-                help: "From your private key, so that your own prices are used."
+                help:
+                    "The private key from developers.tme.eu (your application → Show private keys), " +
+                    "not the shortened token shown on tme.eu. It returns your own prices."
             },
             {
                 key: "appSecret",
                 label: "App secret",
                 kind: "secret",
-                group: "credentials"
+                group: "credentials",
+                help: "Your application's Application secret on developers.tme.eu (eye icon)."
             },
             {
                 key: "country",

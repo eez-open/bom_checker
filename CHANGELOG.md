@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+
+- Clearer help for TME credentials, in Settings and in the user guide: where the Token (private key) and App secret are found on developers.tme.eu.
+
 ## [0.1.0] - 2026-10-26
 
 First release.
