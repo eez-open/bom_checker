@@ -1,21 +1,32 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AppInfo } from "../shared/ipc";
+import type { SupplierId } from "../shared/model";
+import { BASE_CURRENCY, bomTotals, foreignCurrencies } from "../shared/pricing";
 import { setCell, totalQuantity } from "../shared/project-ops";
+import { SUPPLIERS } from "../shared/suppliers";
 import {
     closeDialog,
     isTextEditing,
+    openSettings,
     redo,
     runMenuCommand,
     undo
 } from "./commands";
+import { ChooseItemDialog } from "./dialogs/ChooseItemDialog";
 import { ColumnsDialog } from "./dialogs/ColumnsDialog";
 import { CollectDialog } from "./dialogs/CollectDialog";
 import { CsvImportDialog } from "./dialogs/CsvImportDialog";
 import { SettingsDialog } from "./settings/SettingsDialog";
 import { documentName, isDirty, useDocument } from "./store/document";
+import { loadAppSettings, useAppSettings } from "./store/settings";
 import { useUi } from "./store/ui";
 import { BomTable } from "./table/BomTable";
 import { Toolbar } from "./Toolbar";
+
+const MONEY = new Intl.NumberFormat("en", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+});
 
 function count(n: number, noun: string): string {
     return `${n} ${noun}${n === 1 ? "" : "s"}`;
@@ -25,11 +36,24 @@ export function App() {
     const project = useDocument(state => state.project);
     const name = useDocument(state => documentName(state.filePath));
     const dirty = useDocument(isDirty);
+    const preference = useAppSettings(
+        state => state.settings.general.supplierOrder
+    );
     const editRowId = useUi(state => state.editRowId);
     const dialog = useUi(state => state.dialog);
     const [info, setInfo] = useState<AppInfo>();
 
+    const totals = useMemo(
+        () => bomTotals(project, preference),
+        [project, preference]
+    );
+    const foreign = useMemo(() => foreignCurrencies(project), [project]);
+    const hasData = project.suppliers.some(
+        s => Object.keys(project.collected.results[s] ?? {}).length > 0
+    );
+
     useEffect(() => {
+        loadAppSettings();
         window.api.app
             .getInfo()
             .then(setInfo)
@@ -68,9 +92,27 @@ export function App() {
     return (
         <div className="app">
             <Toolbar />
+            {Object.entries(foreign).map(([supplier, currencies]) => (
+                <div key={supplier} className="banner" role="alert">
+                    {SUPPLIERS[supplier as SupplierId].name} prices are in{" "}
+                    {currencies.join(", ")}. Totals and the best price are only
+                    calculated in {BASE_CURRENCY}, so these prices are left out.
+                    If {SUPPLIERS[supplier as SupplierId].name} can return{" "}
+                    {BASE_CURRENCY}, set it in{" "}
+                    <button
+                        type="button"
+                        className="link"
+                        onClick={openSettings}
+                    >
+                        Settings
+                    </button>{" "}
+                    and collect again.
+                </div>
+            ))}
             <main className="app-table">
                 <BomTable
                     project={project}
+                    preference={preference}
                     editRowId={editRowId}
                     onEditStarted={() => useUi.setState({ editRowId: null })}
                     onCellEdit={(rowId, key, value) =>
@@ -88,6 +130,14 @@ export function App() {
                     {count(project.rows.length, "row")} ·{" "}
                     {count(totalQuantity(project), "part")}
                 </span>
+                {hasData && (
+                    <span data-testid="bom-total">
+                        Best price total: {MONEY.format(totals.total)}{" "}
+                        {BASE_CURRENCY}
+                        {totals.uncovered > 0 &&
+                            ` · ${count(totals.uncovered, "row")} without a supplier that has enough stock`}
+                    </span>
+                )}
                 <span data-testid="app-version">
                     {info ? `v${info.version}` : ""}
                 </span>
@@ -100,6 +150,13 @@ export function App() {
             )}
             {dialog?.kind === "collect" && (
                 <CollectDialog onClose={closeDialog} />
+            )}
+            {dialog?.kind === "choose-item" && (
+                <ChooseItemDialog
+                    supplier={dialog.supplier}
+                    partNumberKey={dialog.key}
+                    onClose={closeDialog}
+                />
             )}
             {dialog?.kind === "settings" && (
                 <SettingsDialog onClose={closeDialog} />

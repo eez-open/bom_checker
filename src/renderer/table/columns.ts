@@ -1,17 +1,31 @@
-import type { ColDef } from "ag-grid-community";
+import type {
+    CellClassParams,
+    ColDef,
+    ColGroupDef,
+    ValueGetterParams
+} from "ag-grid-community";
+import { LIFECYCLE_LABELS } from "../../shared/lifecycle";
 import {
     BASE_COLUMNS,
     type BomRow,
     type ColumnKey,
-    type Project
+    type Lifecycle,
+    type Project,
+    type SupplierId
 } from "../../shared/model";
 import { hasAlternatives } from "../../shared/part-number";
+import {
+    BASE_CURRENCY,
+    bestSupplier,
+    supplierLine,
+    type SupplierLine
+} from "../../shared/pricing";
 import { SUPPLIERS } from "../../shared/suppliers";
-import { PartNumberCell, resultFor } from "./PartNumberCell";
+import { PartNumberCell, resultFor, type TableContext } from "./PartNumberCell";
 import { describeResult } from "./result-text";
 
 export interface TableColumns {
-    columnDefs: ColDef<BomRow>[];
+    columnDefs: (ColDef<BomRow> | ColGroupDef<BomRow>)[];
     /** Maps a grid column id to the BOM column it edits. */
     keys: Map<string, ColumnKey>;
 }
@@ -28,9 +42,347 @@ const WIDTHS: Record<string, number> = {
     footprint: 260
 };
 
-export function buildColumns(project: Project): TableColumns {
+const LIFECYCLE_CLASS: Record<Lifecycle, string | null> = {
+    active: null,
+    new: "lifecycle-warning",
+    nrnd: "lifecycle-warning",
+    eol: "lifecycle-warning",
+    "special-order": "lifecycle-warning",
+    obsolete: "lifecycle-danger",
+    "not-orderable": "lifecycle-danger"
+};
+
+const UNIT_PRICE = new Intl.NumberFormat("en", {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4
+});
+const TOTAL_PRICE = new Intl.NumberFormat("en", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+});
+const QUANTITY = new Intl.NumberFormat("en");
+
+function context(params: { context: unknown }): TableContext {
+    return params.context as TableContext;
+}
+
+function lineOf(
+    params: { data?: BomRow; context: unknown },
+    supplier: SupplierId
+): SupplierLine | null {
+    return params.data
+        ? supplierLine(params.data, supplier, context(params).getCollected())
+        : null;
+}
+
+function formatQuantity(value: unknown): string {
+    return typeof value === "number" ? QUANTITY.format(value) : "";
+}
+
+/** The text of the Availability column, including lookups without data. */
+function availabilityText(line: SupplierLine | null): string {
+    if (!line) {
+        return "";
+    }
+    switch (line.result.status) {
+        case "notFound":
+            return "Not found";
+        case "ambiguous":
+            return "Choose an item";
+        case "error":
+            return "Couldn't check";
+        case "found":
+            break;
+    }
+    const availability = line.availability!;
+    switch (availability.kind) {
+        case "in-stock":
+            return "In stock";
+        case "partial":
+            return `Partial: ${QUANTITY.format(availability.stock)}`;
+        case "out-of-stock":
+            return "Out of stock";
+        case "not-orderable":
+            return "Not orderable";
+    }
+}
+
+function availabilityClass(line: SupplierLine | null): string | undefined {
+    if (!line) {
+        return undefined;
+    }
+    if (line.result.status !== "found") {
+        return line.result.status === "ambiguous"
+            ? "avail-warning"
+            : "avail-danger";
+    }
+    switch (line.availability?.kind) {
+        case "in-stock":
+            return "avail-ok";
+        case "partial":
+            return "avail-warning";
+        default:
+            return "avail-danger";
+    }
+}
+
+function partNumberColumn(supplier: SupplierId): ColDef<BomRow, string> {
+    return {
+        colId: `pn:${supplier}`,
+        headerName: SUPPLIERS[supplier].name,
+        headerTooltip: `${SUPPLIERS[supplier].name} part number`,
+        cellDataType: "text",
+        width: 190,
+        valueGetter: params => params.data?.partNumbers[supplier] ?? "",
+        cellRenderer: PartNumberCell,
+        cellRendererParams: { supplier },
+        cellClassRules: {
+            "cell-invalid": params => hasAlternatives(params.value),
+            "cell-none": params => params.value === "-"
+        },
+        tooltipValueGetter: params => {
+            if (hasAlternatives(params.value)) {
+                return ALTERNATIVES_TOOLTIP;
+            }
+            const result = resultFor(params.context, supplier, params.value);
+            return result
+                ? describeResult(SUPPLIERS[supplier].name, result)
+                : undefined;
+        }
+    };
+}
+
+/** Read-only columns calculated from the collected data. The prefixed
+ *  names ("Mouser_Stock Qty") are used in tooltips and exports. */
+function dataColumns(supplier: SupplierId): ColDef<BomRow>[] {
+    const name = SUPPLIERS[supplier].name;
+    const column = (
+        field: string,
+        header: string,
+        valueGetter: (line: SupplierLine | null) => unknown,
+        options: ColDef<BomRow> = {}
+    ): ColDef<BomRow> => ({
+        colId: `data:${supplier}:${field}`,
+        headerName: header,
+        headerTooltip: `${name}_${header}`,
+        editable: false,
+        valueGetter: (params: ValueGetterParams<BomRow>) =>
+            valueGetter(lineOf(params, supplier)) ?? null,
+        ...options
+    });
+    const numeric: ColDef<BomRow> = {
+        type: "rightAligned",
+        width: 110,
+        valueFormatter: params => formatQuantity(params.value)
+    };
+
+    return [
+        column(
+            "manufacturer",
+            "Manufacturer",
+            line => line?.offer?.manufacturer,
+            {
+                columnGroupShow: "open",
+                width: 170
+            }
+        ),
+        column("stockQty", "Stock Qty", line => line?.offer?.stockQty, {
+            ...numeric,
+            columnGroupShow: "open"
+        }),
+        column("moq", "MOQ", line => line?.offer?.moq, {
+            ...numeric,
+            width: 90,
+            columnGroupShow: "open",
+            tooltipValueGetter: params => {
+                const multiple =
+                    lineOf(params, supplier)?.offer?.orderMultiple ?? 1;
+                return multiple > 1
+                    ? `Sold in multiples of ${multiple}.`
+                    : undefined;
+            }
+        }),
+        column("orderQty", "Order Qty", line => line?.orderQty, {
+            ...numeric,
+            columnGroupShow: "open",
+            tooltipValueGetter: () =>
+                "Qty raised to the MOQ and rounded up to the order multiple."
+        }),
+        column("unitPrice", "Unit price", line => line?.unitPrice, {
+            type: "rightAligned",
+            width: 110,
+            columnGroupShow: "open",
+            valueFormatter: params => {
+                const line = lineOf(params, supplier);
+                if (typeof params.value !== "number" || !line?.offer) {
+                    return "";
+                }
+                const currency = line.inBaseCurrency
+                    ? ""
+                    : ` ${line.offer.currency}`;
+                return UNIT_PRICE.format(params.value) + currency;
+            },
+            cellClassRules: {
+                "cell-warning": params =>
+                    lineOf(params, supplier)?.belowFirstBreak === true
+            },
+            tooltipValueGetter: params => {
+                const line = lineOf(params, supplier);
+                if (!line?.offer || line.unitPrice === null) {
+                    return undefined;
+                }
+                const kind = {
+                    account: "Your account's price",
+                    list: "List price",
+                    unknown:
+                        "The supplier doesn't say whether this is your account's price"
+                }[line.offer.priceKind];
+                const below = line.belowFirstBreak
+                    ? ` The order quantity is below the first price break (${line.offer.priceBreaks[0]?.qty}).`
+                    : "";
+                return `${kind}, for ${QUANTITY.format(line.orderQty ?? 0)} pcs.${below}`;
+            }
+        }),
+        column("totalPrice", "Total price", line => line?.total, {
+            type: "rightAligned",
+            width: 110,
+            valueFormatter: params =>
+                typeof params.value === "number"
+                    ? TOTAL_PRICE.format(params.value)
+                    : "",
+            headerTooltip: `${name}_Total price (${BASE_CURRENCY})`,
+            tooltipValueGetter: params => {
+                const line = lineOf(params, supplier);
+                return line?.offer && !line.inBaseCurrency
+                    ? `Prices are in ${line.offer.currency}; totals are only calculated in ${BASE_CURRENCY}.`
+                    : undefined;
+            }
+        }),
+        column("availability", "Availability", availabilityText, {
+            width: 140,
+            cellClass: (params: CellClassParams<BomRow>) =>
+                availabilityClass(lineOf(params, supplier))
+        }),
+        column(
+            "status",
+            "Status",
+            line =>
+                line?.offer
+                    ? line.offer.lifecycle
+                        ? LIFECYCLE_LABELS[line.offer.lifecycle]
+                        : line.offer.lifecycleRaw
+                    : null,
+            {
+                width: 140,
+                columnGroupShow: "open",
+                cellClass: (params: CellClassParams<BomRow>) => {
+                    const lifecycle = lineOf(params, supplier)?.offer
+                        ?.lifecycle;
+                    return lifecycle
+                        ? (LIFECYCLE_CLASS[lifecycle] ?? undefined)
+                        : undefined;
+                },
+                tooltipValueGetter: params =>
+                    lineOf(params, supplier)?.offer?.lifecycleRaw ?? undefined
+            }
+        ),
+        column("rohs", "RoHS", line => line?.offer?.rohs, {
+            width: 150,
+            columnGroupShow: "open"
+        })
+    ];
+}
+
+function bestColumns(project: Project): ColGroupDef<BomRow> {
+    const best = (params: { data?: BomRow; context: unknown }) =>
+        params.data
+            ? bestSupplier(
+                  params.data,
+                  context(params).getCollected(),
+                  project.suppliers,
+                  context(params).getPreference()
+              )
+            : null;
+    const column = (
+        field: string,
+        header: string,
+        options: ColDef<BomRow>
+    ): ColDef<BomRow> => ({
+        colId: `best:${field}`,
+        headerName: header,
+        headerTooltip: `Best_${header}`,
+        editable: false,
+        ...options
+    });
+    return {
+        groupId: "group:best",
+        headerName: "Best price",
+        children: [
+            column("supplier", "Supplier", {
+                width: 130,
+                valueGetter: params => {
+                    const choice = best(params);
+                    if (choice) {
+                        return SUPPLIERS[choice.supplier].name;
+                    }
+                    const hasData =
+                        params.data &&
+                        project.suppliers.some(s =>
+                            supplierLine(
+                                params.data!,
+                                s,
+                                context(params).getCollected()
+                            )
+                        );
+                    return hasData ? "None in stock" : "";
+                },
+                cellClassRules: {
+                    "avail-danger": params => params.value === "None in stock"
+                },
+                tooltipValueGetter: params =>
+                    params.value === "None in stock"
+                        ? "No supplier has the whole order quantity in stock at a price in EUR."
+                        : undefined
+            }),
+            column("orderQty", "Order Qty", {
+                type: "rightAligned",
+                width: 110,
+                valueGetter: params => best(params)?.line.orderQty ?? null,
+                valueFormatter: params => formatQuantity(params.value)
+            }),
+            column("unitPrice", "Unit price", {
+                type: "rightAligned",
+                width: 110,
+                valueGetter: params => best(params)?.line.unitPrice ?? null,
+                valueFormatter: params =>
+                    typeof params.value === "number"
+                        ? UNIT_PRICE.format(params.value)
+                        : ""
+            }),
+            column("totalPrice", "Total price", {
+                type: "rightAligned",
+                width: 110,
+                headerTooltip: `Best_Total price (${BASE_CURRENCY})`,
+                valueGetter: params => best(params)?.line.total ?? null,
+                valueFormatter: params =>
+                    typeof params.value === "number"
+                        ? TOTAL_PRICE.format(params.value)
+                        : ""
+            })
+        ]
+    };
+}
+
+/**
+ * @param withData suppliers that have collected data; only they get the
+ *   calculated columns.
+ */
+export function buildColumns(
+    project: Project,
+    withData: readonly SupplierId[]
+): TableColumns {
     const keys = new Map<string, ColumnKey>();
-    const columnDefs: ColDef<BomRow>[] = [];
+    const columnDefs: (ColDef<BomRow> | ColGroupDef<BomRow>)[] = [];
 
     for (const column of BASE_COLUMNS) {
         const numeric = column.type === "number";
@@ -40,6 +392,7 @@ export function buildColumns(project: Project): TableColumns {
                 headerName: column.header,
                 type: "rightAligned",
                 width: WIDTHS.row,
+                pinned: "left",
                 editable: false,
                 sortable: false,
                 valueGetter: params => (params.node?.rowIndex ?? 0) + 1
@@ -54,40 +407,30 @@ export function buildColumns(project: Project): TableColumns {
             type: numeric ? "rightAligned" : undefined,
             cellDataType: numeric ? "number" : "text",
             cellEditorParams: numeric ? { min: 0, precision: 0 } : undefined,
-            width: WIDTHS[column.field]
+            width: WIDTHS[column.field],
+            // Row and Reference stay in view while scrolling to supplier data.
+            pinned: column.field === "reference" ? "left" : undefined
         });
     }
 
     for (const supplier of project.suppliers) {
-        const colId = `pn:${supplier}`;
-        keys.set(colId, { kind: "partNumber", supplier });
-        const partNumberColumn: ColDef<BomRow, string> = {
-            colId,
+        keys.set(`pn:${supplier}`, { kind: "partNumber", supplier });
+        const children: ColDef<BomRow>[] = [
+            partNumberColumn(supplier) as ColDef<BomRow>
+        ];
+        if (withData.includes(supplier)) {
+            children.push(...dataColumns(supplier));
+        }
+        columnDefs.push({
+            groupId: `group:${supplier}`,
             headerName: SUPPLIERS[supplier].name,
-            cellDataType: "text",
-            width: 190,
-            valueGetter: params => params.data?.partNumbers[supplier] ?? "",
-            cellRenderer: PartNumberCell,
-            cellRendererParams: { supplier },
-            cellClassRules: {
-                "cell-invalid": params => hasAlternatives(params.value),
-                "cell-none": params => params.value === "-"
-            },
-            tooltipValueGetter: params => {
-                if (hasAlternatives(params.value)) {
-                    return ALTERNATIVES_TOOLTIP;
-                }
-                const result = resultFor(
-                    params.context,
-                    supplier,
-                    params.value
-                );
-                return result
-                    ? describeResult(SUPPLIERS[supplier].name, result)
-                    : undefined;
-            }
-        };
-        columnDefs.push(partNumberColumn);
+            openByDefault: true,
+            children
+        });
+    }
+
+    if (withData.length >= 2) {
+        columnDefs.push(bestColumns(project));
     }
 
     for (const column of project.customColumns) {

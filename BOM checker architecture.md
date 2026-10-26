@@ -483,14 +483,14 @@ The `kicad-cli sch export bom --variant` alternative was rejected. It requires K
 
 - **Toolbar:** New · Open · Save · Import CSV · Open KiCad project · **Collect** · **Continue** · Export · Settings · Lock.
 - **Columns:**
-  - Base columns are pinned on the left.
-  - Each supplier's columns form a collapsible group, followed by the Best group and then custom columns.
+  - Row and Reference are pinned on the left.
+  - Each supplier's columns form a collapsible group: collapsed, it shows the part number, Total price and Availability. The Best group and then custom columns follow.
   - Columns can be shown or hidden, and custom columns added, renamed or deleted.
 - **Editing:**
   - Base, part-number and custom cells are editable, and rows can be added or deleted.
   - Changing a part number clears that supplier's result for the row and marks it for collection.
   - Changing Qty recalculates the row instantly.
-- **Cell states:** invalid input (red outline), ambiguous (amber icon, click to choose the candidate), not found, error (message in a tooltip), and lifecycle colours (5.4).
+- **Cell states:** invalid input (red), a status badge on part numbers (found, not found, several matches, error); the several-matches badge opens a list to choose the item. Lifecycle colours (5.4), availability colours, and a highlight when the order quantity is below the first price break.
 - **Context menu:** open the product page or datasheet, and re-collect this row.
 
 ---

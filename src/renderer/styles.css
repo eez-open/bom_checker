@@ -515,3 +515,37 @@ input.number {
 .section-gap {
     margin-top: 20px !important;
 }
+
+/* Calculated columns */
+
+.avail-ok {
+    color: var(--app-success);
+}
+
+.avail-warning,
+.lifecycle-warning {
+    color: var(--app-warning);
+    font-weight: 600;
+}
+
+.avail-danger,
+.lifecycle-danger {
+    color: var(--app-error);
+    font-weight: 600;
+}
+
+.cell-warning {
+    background: #fff8c5;
+}
+
+button.pn-badge {
+    padding: 0;
+    border: none;
+    cursor: pointer;
+}
+
+.banner {
+    padding: 6px 12px;
+    border-bottom: 1px solid #d4a72c;
+    background: #fff8c5;
+}

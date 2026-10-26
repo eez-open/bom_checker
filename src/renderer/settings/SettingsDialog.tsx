@@ -5,6 +5,7 @@ import type { AppSettings } from "../../shared/settings";
 import { ALL_SUPPLIERS, SUPPLIERS } from "../../shared/suppliers";
 import { Modal } from "../dialogs/Modal";
 import { errorMessage, isSettingsLocked } from "../errors";
+import { setAppSettings } from "../store/settings";
 import {
     ChangePasswordForm,
     CreatePasswordForm,
@@ -16,7 +17,12 @@ type Tab = "general" | "suppliers";
 
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
     const [tab, setTab] = useState<Tab>("general");
-    const [settings, setSettings] = useState<AppSettings | null>(null);
+    const [settings, setLocalSettings] = useState<AppSettings | null>(null);
+    // The rest of the app uses the saved settings too (e.g. best price).
+    const setSettings = (saved: AppSettings) => {
+        setLocalSettings(saved);
+        setAppSettings(saved);
+    };
     const [error, setError] = useState<string | null>(null);
     // Supplier settings session; asked for again each time the dialog opens.
     const [token, setToken] = useState<string | null>(null);
@@ -25,7 +31,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     useEffect(() => {
         window.api.settings
             .get()
-            .then(setSettings)
+            .then(setLocalSettings)
             .catch((caught: unknown) => setError(errorMessage(caught)));
     }, []);
 

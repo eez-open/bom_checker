@@ -9,7 +9,12 @@ import {
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import type { BomRow, ColumnKey, Project } from "../../shared/model";
+import type {
+    BomRow,
+    ColumnKey,
+    Project,
+    SupplierId
+} from "../../shared/model";
 import { buildColumns } from "./columns";
 import type { TableContext } from "./PartNumberCell";
 
@@ -30,10 +35,14 @@ const ROW_SELECTION = {
     enableClickSelection: false
 } as const;
 
+const SELECTION_COLUMN = { pinned: "left" } as const;
+
 const DEFAULT_COLUMN = { editable: true, resizable: true, sortable: true };
 
 interface BomTableProps {
     project: Project;
+    /** Preferred supplier order, for best price ties. */
+    preference: readonly SupplierId[];
     onCellEdit: (rowId: string, key: ColumnKey, value: unknown) => void;
     onSelectionChange: (rowIds: string[]) => void;
     /** A newly added row whose Reference cell should start editing. */
@@ -52,30 +61,47 @@ function EmptyTable() {
 
 export function BomTable({
     project,
+    preference,
     onCellEdit,
     onSelectionChange,
     editRowId,
     onEditStarted
 }: BomTableProps) {
     const apiRef = useRef<GridApi<BomRow> | null>(null);
-    // Cells read collected data through the grid context, which stays the
-    // same object; changes are shown by refreshing the cells.
+    // Cells read collected data and the supplier preference through the
+    // grid context, which stays the same object; changes are shown by
+    // refreshing the cells.
     const collected = useRef(project.collected);
+    const preferenceRef = useRef(preference);
     const context = useMemo<TableContext>(
-        () => ({ getCollected: () => collected.current }),
+        () => ({
+            getCollected: () => collected.current,
+            getPreference: () => preferenceRef.current
+        }),
         []
     );
 
     useEffect(() => {
         collected.current = project.collected;
+        preferenceRef.current = preference;
         apiRef.current?.refreshCells({ force: true });
-    }, [project.collected]);
+    }, [project.collected, preference]);
+
+    // Suppliers with collected data get the calculated columns.
+    const withData = project.suppliers
+        .filter(s => Object.keys(project.collected.results[s] ?? {}).length > 0)
+        .join(",");
 
     const { columnDefs, keys } = useMemo(
-        () => buildColumns(project),
-        // Columns change only when suppliers or custom columns do.
+        () =>
+            buildColumns(
+                project,
+                withData ? (withData.split(",") as SupplierId[]) : []
+            ),
+        // Columns change only when suppliers, custom columns or the
+        // suppliers with data do.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [project.suppliers, project.customColumns]
+        [project.suppliers, project.customColumns, withData]
     );
 
     const startPendingEdit = useCallback(() => {
@@ -98,10 +124,12 @@ export function BomTable({
             defaultColDef={DEFAULT_COLUMN}
             getRowId={params => params.data.id}
             rowSelection={ROW_SELECTION}
+            selectionColumnDef={SELECTION_COLUMN}
             readOnlyEdit
             singleClickEdit={false}
             stopEditingWhenCellsLoseFocus
             tooltipShowDelay={300}
+            suppressColumnVirtualisation
             context={context}
             noRowsOverlayComponent={EmptyTable}
             onGridReady={(event: GridReadyEvent<BomRow>) =>

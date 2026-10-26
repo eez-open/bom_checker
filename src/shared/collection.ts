@@ -8,6 +8,7 @@ import {
     type SupplierId
 } from "./model";
 import { hasAlternatives, isPartNumberDefined } from "./part-number";
+import { orderQuantity } from "./pricing";
 
 export type CollectMode = "all" | "missing" | "continue";
 
@@ -101,7 +102,7 @@ export interface RunSummary {
     notFound: number;
     ambiguous: number;
     errors: number;
-    /** Found, with enough stock for the BOM quantity. */
+    /** Found, with enough stock for the order quantity. */
     inStock: number;
     /** Found, without enough stock. */
     notInStock: number;
@@ -139,7 +140,13 @@ export function summarizeRun(
         summary.requested++;
         if (result.status === "found") {
             summary.found++;
-            if (result.offer.stockQty >= (needed.get(key) ?? 0)) {
+            const { offer } = result;
+            const orderQty = orderQuantity(
+                needed.get(key) ?? 0,
+                offer.moq,
+                offer.orderMultiple
+            );
+            if (offer.stockQty >= orderQty) {
                 summary.inStock++;
             } else {
                 summary.notInStock++;

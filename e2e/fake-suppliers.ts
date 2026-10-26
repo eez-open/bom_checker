@@ -31,6 +31,65 @@ const MOUSER_PARTS: Record<string, unknown> = {
         ROHSStatus: "RoHS Compliant",
         PriceBreaks: [{ Quantity: 1, Price: "2,10 €", Currency: "EUR" }],
         ProductDetailUrl: "https://hr.mouser.com/ProductDetail/x"
+    },
+    "FAKE-LOWSTOCK": {
+        MouserPartNumber: "FAKE-LOWSTOCK",
+        Manufacturer: "Yageo",
+        ManufacturerPartNumber: "CC0603KRX7R9BB104",
+        Description: "MLCC 100nF",
+        AvailabilityInStock: "10",
+        Min: "1",
+        Mult: "1",
+        ROHSStatus: "RoHS Compliant",
+        PriceBreaks: [{ Quantity: 1, Price: "1,00 €", Currency: "EUR" }]
+    }
+};
+
+const RESISTOR = {
+    Manufacturer: { Name: "Stackpole Electronics Inc" },
+    ManufacturerProductNumber: "RMCF0805FT100K",
+    Description: { ProductDescription: "RES 100K OHM 1% 1/8W 0805" },
+    ProductStatus: { Status: "Active" },
+    Classifications: { RohsStatus: "ROHS3 Compliant" },
+    ProductVariations: [
+        {
+            DigiKeyProductNumber: "RMCF0805FT100KCT-ND",
+            PackageType: { Name: "Cut Tape (CT)" },
+            StandardPricing: [{ BreakQuantity: 1, UnitPrice: 0.1 }],
+            MyPricing: [{ BreakQuantity: 1, UnitPrice: 0.08 }],
+            MinimumOrderQuantity: 1,
+            QuantityAvailableforPackageType: 400000
+        },
+        {
+            DigiKeyProductNumber: "RMCF0805FT100KTR-ND",
+            PackageType: { Name: "Tape & Reel (TR)" },
+            StandardPricing: [{ BreakQuantity: 5000, UnitPrice: 0.004 }],
+            MinimumOrderQuantity: 5000,
+            QuantityAvailableforPackageType: 500000
+        }
+    ]
+};
+
+/** DigiKey products by part number; the manufacturer number matches both
+ *  packagings, so it is ambiguous. */
+const DIGIKEY_PRODUCTS: Record<string, unknown> = {
+    "RMCF0805FT100KCT-ND": RESISTOR,
+    RMCF0805FT100K: RESISTOR,
+    "FAKE-PLENTY-ND": {
+        Manufacturer: { Name: "Yageo" },
+        ManufacturerProductNumber: "CC0603KRX7R9BB104",
+        Description: { ProductDescription: "CAP CER 0.1UF 50V X7R 0603" },
+        ProductStatus: { Status: "Not For New Designs" },
+        Classifications: { RohsStatus: "ROHS3 Compliant" },
+        ProductVariations: [
+            {
+                DigiKeyProductNumber: "FAKE-PLENTY-ND",
+                PackageType: { Name: "Cut Tape (CT)" },
+                StandardPricing: [{ BreakQuantity: 1, UnitPrice: 1.2 }],
+                MinimumOrderQuantity: 1,
+                QuantityAvailableforPackageType: 1000
+            }
+        ]
     }
 };
 
@@ -141,7 +200,7 @@ export async function startFakeSuppliers() {
                                   elements: [
                                       {
                                           amount: 50,
-                                          price: 0.0123,
+                                          price: 0.0124,
                                           special: false
                                       }
                                   ],
@@ -169,8 +228,9 @@ export async function startFakeSuppliers() {
             const detail =
                 /^\/products\/v4\/search\/(.+)\/productdetails$/.exec(path);
             if (supplier === "digikey" && detail) {
-                const partNumber = decodeURIComponent(detail[1]!);
-                if (partNumber !== "RMCF0805FT100KCT-ND") {
+                const product =
+                    DIGIKEY_PRODUCTS[decodeURIComponent(detail[1]!)];
+                if (!product) {
                     return send(response, 404, {
                         title: "Not Found",
                         status: 404
@@ -178,29 +238,7 @@ export async function startFakeSuppliers() {
                 }
                 response.setHeader("X-RateLimit-Remaining", "999");
                 return send(response, 200, {
-                    Product: {
-                        Manufacturer: { Name: "Stackpole Electronics Inc" },
-                        ManufacturerProductNumber: "RMCF0805FT100K",
-                        Description: {
-                            ProductDescription: "RES 100K OHM 1% 1/8W 0805"
-                        },
-                        ProductStatus: { Status: "Active" },
-                        Classifications: { RohsStatus: "ROHS3 Compliant" },
-                        ProductVariations: [
-                            {
-                                DigiKeyProductNumber: "RMCF0805FT100KCT-ND",
-                                PackageType: { Name: "Cut Tape (CT)" },
-                                StandardPricing: [
-                                    { BreakQuantity: 1, UnitPrice: 0.1 }
-                                ],
-                                MyPricing: [
-                                    { BreakQuantity: 1, UnitPrice: 0.08 }
-                                ],
-                                MinimumOrderQuantity: 1,
-                                QuantityAvailableforPackageType: 400000
-                            }
-                        ]
-                    },
+                    Product: product,
                     SearchLocaleUsed: {
                         Site: "SI",
                         Language: "en",

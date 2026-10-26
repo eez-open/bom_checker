@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Calculated columns per supplier: Manufacturer, Stock Qty, MOQ, Order Qty (raised to the MOQ and rounded up to the order multiple), Unit price (the price break for the order quantity), Total price, Availability (in stock, partial, out of stock, not orderable), Status and RoHS. Each supplier's columns form a group that can be collapsed.
+- Best price: the cheapest total among suppliers with the whole order quantity in stock; equal totals go to the preferred supplier (Settings → General). The status bar shows the best-price total of the BOM.
+- Lifecycle status colours: amber for new, NRND, last time buy and special order; red for obsolete and not orderable.
+- Choose the item when a part number matches several supplier items (e.g. packagings); the cell gets that item's part number.
+- Prices are compared in EUR only. A banner explains when a supplier returned another currency.
 - Collect supplier data (Collect… in the toolbar, Tools → Collect Supplier Data…) from DigiKey (Product Information API v4), Mouser (Search API) and TME (API v2), all suppliers in parallel. Requests are spaced out to stay within each supplier's per-minute and per-day limits; daily counts are kept across projects and restarts. Shows progress and can be cancelled. A run stopped by a daily limit, rejected credentials or Cancel can be continued where it stopped.
 - Summary after collecting: duration, found / not found / several matches / errors, and how many parts have enough stock for the BOM quantity.
 - Part-number cells show whether the part was found; the tooltip has the collected details (manufacturer, stock, MOQ, price breaks, status, RoHS). A manufacturer part number in a supplier column is recognised.

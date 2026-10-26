@@ -7,10 +7,14 @@ import {
     type SupplierId
 } from "../../shared/model";
 import { hasAlternatives, isPartNumberDefined } from "../../shared/part-number";
+import { useUi } from "../store/ui";
 
-/** Passed to the grid as `context`, so cells can read collected data. */
+/** Passed to the grid as `context`, so cells can read data that isn't in
+ *  the rows. */
 export interface TableContext {
     getCollected: () => CollectedData;
+    /** Preferred supplier order, for best price ties. */
+    getPreference: () => readonly SupplierId[];
 }
 
 const BADGES: Record<
@@ -42,14 +46,36 @@ export function PartNumberCell(
     const badge = result ? BADGES[result.status] : null;
     return (
         <span className="pn-cell">
-            {badge && (
-                <span
-                    className={`pn-badge pn-${result!.status}`}
-                    role="img"
-                    aria-label={badge.label}
+            {badge && result?.status === "ambiguous" ? (
+                // Several supplier items match: let the user choose one.
+                <button
+                    type="button"
+                    className="pn-badge pn-ambiguous"
+                    aria-label="Choose the item"
+                    title="Choose the item"
+                    onClick={event => {
+                        event.stopPropagation();
+                        useUi.setState({
+                            dialog: {
+                                kind: "choose-item",
+                                supplier: props.supplier,
+                                key: partNumberKey(props.value!)
+                            }
+                        });
+                    }}
                 >
                     {badge.symbol}
-                </span>
+                </button>
+            ) : (
+                badge && (
+                    <span
+                        className={`pn-badge pn-${result!.status}`}
+                        role="img"
+                        aria-label={badge.label}
+                    >
+                        {badge.symbol}
+                    </span>
+                )
             )}
             <span>{props.value}</span>
         </span>

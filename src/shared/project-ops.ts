@@ -5,6 +5,7 @@
 import {
     BASE_COLUMNS,
     PROJECT_SCHEMA_VERSION,
+    partNumberKey,
     type BomRow,
     type ColumnKey,
     type ColumnType,
@@ -173,6 +174,34 @@ export function addSupplier(project: Project, supplier: SupplierId): Project {
               ...project,
               suppliers: sortSuppliers([...project.suppliers, supplier])
           };
+}
+
+/** Replaces a part number (compared by `partNumberKey`) in every row that
+ *  uses it, e.g. after choosing one of several matching supplier items. */
+export function replacePartNumber(
+    project: Project,
+    supplier: SupplierId,
+    key: string,
+    partNumber: string
+): Project {
+    const value = partNumber.trim();
+    let changed = false;
+    const rows = project.rows.map(row => {
+        const current = row.partNumbers[supplier];
+        if (
+            current === undefined ||
+            partNumberKey(current) !== key ||
+            current === value
+        ) {
+            return row;
+        }
+        changed = true;
+        return {
+            ...row,
+            partNumbers: { ...row.partNumbers, [supplier]: value }
+        };
+    });
+    return changed ? { ...project, rows } : project;
 }
 
 export function removeSupplier(

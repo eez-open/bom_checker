@@ -11,6 +11,7 @@ import {
     deleteCustomColumn,
     deleteRows,
     removeSupplier,
+    replacePartNumber,
     renameCustomColumn,
     setCell,
     supplierHasValues,
@@ -188,5 +189,36 @@ describe("helpers", () => {
         let project = addRow(createProject(), createRow({ qty: 6 }));
         project = addRow(project, createRow({ qty: 14 }));
         expect(totalQuantity(project)).toBe(20);
+    });
+});
+
+describe("replacePartNumber", () => {
+    it("replaces a part number in every row that uses it", () => {
+        let project = addRow(
+            createProject(),
+            createRow({ partNumbers: { digikey: "rmcf0805ft100k " } })
+        );
+        project = addRow(
+            project,
+            createRow({ partNumbers: { digikey: "RMCF0805FT100K" } })
+        );
+        project = addRow(
+            project,
+            createRow({ partNumbers: { digikey: "OTHER" } })
+        );
+        const replaced = replacePartNumber(
+            project,
+            "digikey",
+            "RMCF0805FT100K",
+            "RMCF0805FT100KCT-ND"
+        );
+        expect(replaced.rows.map(row => row.partNumbers.digikey)).toEqual([
+            "RMCF0805FT100KCT-ND",
+            "RMCF0805FT100KCT-ND",
+            "OTHER"
+        ]);
+        expect(replacePartNumber(replaced, "digikey", "NOPE", "X")).toBe(
+            replaced
+        );
     });
 });
