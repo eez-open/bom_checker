@@ -61,10 +61,9 @@ const api: Api = {
             invoke(IpcChannel.VaultGetSecretStatus, token),
         getSecret: (token, supplier, key) =>
             invoke(IpcChannel.VaultGetSecret, token, supplier, key),
-        changePassword: (token, currentPassword, newPassword) =>
+        changePassword: (currentPassword, newPassword) =>
             invoke(
                 IpcChannel.VaultChangePassword,
-                token,
                 currentPassword,
                 newPassword
             ),

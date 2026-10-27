@@ -112,8 +112,8 @@ test("protects supplier credentials with a password", async () => {
             .click();
         await expect(mouserKey).toHaveAttribute("type", "password");
 
-        // Change the password.
-        await dialog.getByRole("button", { name: "Password" }).click();
+        // Change the password: in General, with the current password.
+        await dialog.getByRole("tab", { name: "General" }).click();
         await dialog.getByLabel("Current password").fill("correct horse");
         await dialog
             .getByLabel("New password", { exact: true })

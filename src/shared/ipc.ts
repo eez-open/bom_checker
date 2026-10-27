@@ -54,6 +54,7 @@ export type MenuCommand =
     | "update-kicad"
     | "sync-kicad"
     | "find"
+    | "cost-chart"
     | "undo"
     | "redo"
     | "add-row"
@@ -291,7 +292,6 @@ export interface Api {
         ): Promise<string | null>;
         /** False if the current password is wrong. */
         changePassword(
-            token: string,
             currentPassword: string,
             newPassword: string
         ): Promise<boolean>;

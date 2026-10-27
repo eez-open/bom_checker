@@ -12,6 +12,7 @@ import { SUPPLIERS } from "../shared/suppliers";
 import {
     closeDialog,
     isTextEditing,
+    openCostChart,
     openPath,
     openSettings,
     redo,
@@ -23,13 +24,14 @@ import { ChooseItemDialog } from "./dialogs/ChooseItemDialog";
 import { ColumnsDialog } from "./dialogs/ColumnsDialog";
 import { CollectDialog } from "./dialogs/CollectDialog";
 import { CsvImportDialog } from "./dialogs/CsvImportDialog";
+import { CostChartDialog } from "./dialogs/CostChartDialog";
 import { ExportDialog } from "./dialogs/ExportDialog";
 import { KicadImportDialog } from "./dialogs/KicadImportDialog";
 import { KicadSyncDialog } from "./dialogs/KicadSyncDialog";
 import { KicadUpdateDialog } from "./dialogs/KicadUpdateDialog";
 import { SettingsDialog } from "./settings/SettingsDialog";
 import { StartPage } from "./StartPage";
-import { FilterBar, rowViews } from "./FilterBar";
+import { FilterBar, rowViews, tableGroups } from "./FilterBar";
 import { documentName, isDirty, useDocument } from "./store/document";
 import { loadAppSettings, useAppSettings } from "./store/settings";
 import { useUi } from "./store/ui";
@@ -85,13 +87,13 @@ export function App() {
     const withData = suppliersWithData(project);
     const priced = withData.length + manualSuppliersWithPrices(project).length;
     const hasData = priced > 0;
-    // The table shows Best price once two suppliers have prices.
-    const available: ColumnGroup[] = [
-        ...project.suppliers,
-        ...(priced >= 2 ? (["best"] as const) : [])
-    ];
-    const hidden = hiddenColumns.filter(group => available.includes(group));
-    const availableKey = available.join(",");
+    const groups = tableGroups(project);
+    const hidden = groups.filter(group => hiddenColumns.includes(group.id));
+    // The View menu has the groups of suppliers with an API and Best price.
+    const availableKey = groups
+        .map(group => group.id)
+        .filter(id => !id.startsWith("manual:"))
+        .join(",");
     const fromKicad = project.source.kind === "kicad" && !!project.source.path;
 
     useEffect(() => {
@@ -135,7 +137,9 @@ export function App() {
                 open && availableKey
                     ? (availableKey.split(",") as ColumnGroup[])
                     : [],
-            hiddenColumns
+            hiddenColumns: hiddenColumns.filter(
+                (group): group is ColumnGroup => !group.startsWith("manual:")
+            )
         });
     }, [open, fromKicad, availableKey, hiddenColumns]);
 
@@ -246,13 +250,7 @@ export function App() {
                         <span data-testid="hidden-columns">
                             {" "}
                             · Hidden:{" "}
-                            {hidden
-                                .map(group =>
-                                    group === "best"
-                                        ? "Best price"
-                                        : SUPPLIERS[group].name
-                                )
-                                .join(", ")}{" "}
+                            {hidden.map(group => group.name).join(", ")}{" "}
                             <button
                                 type="button"
                                 className="link"
@@ -264,13 +262,23 @@ export function App() {
                     )}
                 </span>
                 {open && hasData && (
-                    <span data-testid="bom-total">
-                        Best price total: {MONEY.format(totals.total)}{" "}
-                        {BASE_CURRENCY}
-                        {project.buildQuantity > 1 &&
-                            ` (${MONEY.format(totals.total / project.buildQuantity)} ${BASE_CURRENCY} per unit)`}
-                        {totals.uncovered > 0 &&
-                            ` · ${count(totals.uncovered, "row")} without a supplier that has enough stock`}
+                    <span>
+                        <span data-testid="bom-total">
+                            Best price total: {MONEY.format(totals.total)}{" "}
+                            {BASE_CURRENCY}
+                            {project.buildQuantity > 1 &&
+                                ` (${MONEY.format(totals.total / project.buildQuantity)} ${BASE_CURRENCY} per unit)`}
+                            {totals.uncovered > 0 &&
+                                ` · ${count(totals.uncovered, "row")} without a supplier that has enough stock`}
+                        </span>{" "}
+                        ·{" "}
+                        <button
+                            type="button"
+                            className="link"
+                            onClick={openCostChart}
+                        >
+                            Most expensive parts
+                        </button>
                     </span>
                 )}
                 <span data-testid="app-version">
@@ -291,6 +299,9 @@ export function App() {
             )}
             {dialog?.kind === "export" && (
                 <ExportDialog onClose={closeDialog} />
+            )}
+            {dialog?.kind === "cost-chart" && (
+                <CostChartDialog onClose={closeDialog} />
             )}
             {dialog?.kind === "kicad-update" && (
                 <KicadUpdateDialog onClose={closeDialog} />

@@ -76,7 +76,7 @@ The app starts on a start page: **Open BOM…**, or drop a file on the window (a
 
 **New**, then **Add row**: the Reference cell starts editing. Type, then press Tab to move to the next cell and Enter to finish. **Columns…** adds part-number columns for DigiKey, Mouser, TME and LCSC, and your own text or number columns. Select rows with their checkboxes to delete them.
 
-Every change can be undone with **Ctrl+Z** and redone with **Ctrl+Y**.
+Every change can be undone with **Ctrl+Z** and redone with **Ctrl+Y**, or with the **Undo** and **Redo** buttons next to Save.
 
 ### From a CSV file
 
@@ -110,8 +110,10 @@ Order Qty, Total price and Availability are calculated as for the other supplier
 Click **Collect…**. The first time in a session, enter your password. Then, for each supplier:
 
 - tick the suppliers to collect;
-- choose what to collect: **All part numbers**, **Only part numbers without data**, or **Continue where it stopped** after an interrupted run;
+- choose what to collect: **All part numbers**, **Only part numbers without data** (including ones that got an error last time), or **Continue where it stopped** after an interrupted run;
 - check the estimate: about how many requests it takes, and how many are left today.
+
+To update only some parts, select their rows in the table first (the checkboxes on the left). **Collect…** then offers **Only the selected rows**, chosen by default, or **All rows**. With the selected rows, every supplier that has part numbers in them is ticked, to look them up again.
 
 **Start** shows progress for each supplier and which part is being checked; **Cancel** stops. Collecting stops by itself when a daily limit is reached or credentials are rejected; open **Collect…** again later to continue where it stopped.
 
@@ -125,7 +127,7 @@ Tick **Look up the Value where a part number is missing** to search for rows who
 - When several items match, typically different packagings, the cell gets the Value, and the supplier's *Availability* column shows a list to choose the item from.
 - When nothing matches, the cell stays empty.
 
-Generic values such as *100n*, *4u7* or *10k*, names like *LED* or *Conn_01x04*, and cells with "-" are skipped: a value alone can't pick one capacitor out of thousands. The summary says how many part numbers were filled in, are left to choose, or weren't found. Filling in is one step that **Ctrl+Z** undoes. The option is remembered for next time.
+Generic values such as *100n*, *4u7* or *10k*, names like *LED* or *Conn_01x04*, and cells with "-" are skipped: a value alone can't pick one capacitor out of thousands. The summary says how many part numbers were filled in, are left to choose, or weren't found. A Value looked up in an earlier run fills in an empty cell too. Filling in is one step that **Ctrl+Z** undoes. The option is remembered for next time. While it's off, each supplier says how many rows it could look up by their Value.
 
 ## Building several units
 
@@ -139,7 +141,7 @@ Each supplier has a group of columns. Click the arrow in the group header to sho
 
 **Searching and filtering:** above the table, **Search** (Ctrl+F, or Edit → Find…) shows only the rows that contain the text in any column, e.g. a reference, a value or a part number; Escape clears it. Once supplier data has been collected, **Rows** shows only the rows where one supplier has the best price, or *Best price: None in stock* for the parts no supplier can deliver. While a filter is on, the Total row adds up the shown rows, and **Show all** turns the filters off. The Row column keeps each row's number in the BOM.
 
-To hide all columns of a supplier, or the Best price columns, uncheck them in the **View** menu (Ctrl+1 to Ctrl+5). Hiding only changes the view: the data stays, still counts for the best price, and can still be exported. The status bar lists hidden groups, with **Show all** to bring them back. The app remembers hidden groups for next time.
+To hide all columns of a supplier, or the Best price columns, uncheck them under **Columns** at the right of the bar above the table. Suppliers with an API and Best price are also in the **View** menu (Ctrl+1 to Ctrl+5). Hiding only changes the view: the data stays, still counts for the best price, and can still be exported. The status bar lists hidden groups, with **Show all** to bring them back. The app remembers hidden groups for next time.
 
 | Column | Meaning |
 |---|---|
@@ -148,13 +150,15 @@ To hide all columns of a supplier, or the Best price columns, uncheck them in th
 | Order Qty | What you need to buy: Qty (× build quantity), raised to the MOQ and rounded up to the order multiple. Example: Qty 3 with MOQ 10 → 10. |
 | Unit price | The price break that applies to the Order Qty; highlighted if the quantity is below the first break. Hover to see whether it's your account's price. |
 | Total price | Unit price × Order Qty, in EUR. |
-| Availability | In stock, Partial (with the quantity in stock), Out of stock, or Not orderable. |
+| Availability | In stock, Partial (with the quantity in stock), Out of stock, or Not orderable. DigiKey keeps stock per packaging: when another packaging of the same product has stock, e.g. a box when cut tape is out of stock, hovering shows its part number, stock and MOQ. |
 | Status | Active; **amber** for new, NRND, last time buy and special order; **red** for obsolete and not orderable. |
 | RoHS | As reported (TME doesn't report it). |
 
 **Best price** (shown when two or more suppliers have data): the supplier with the lowest total price that has the whole order quantity in stock. Equal totals go to your preferred supplier (*Settings → General*). *None in stock* means no supplier can deliver the full quantity. The status bar shows the best-price total of the BOM.
 
 The **Total** row at the top adds up the Qty column and each *Total price* column, for every supplier and for Best price. Its tooltip says how many rows have a price.
+
+**Most expensive parts** (in the status bar, or **View → Most Expensive Parts…**) shows where the money goes: a ring chart of the 10 rows with the highest best-price totals, the rest of the BOM as one gray *Other* slice, and a table with each row's supplier, total and share of the best-price total. Point at a slice or a table row to find its match. Totals are for the build quantity; rows without a supplier that has enough stock aren't included.
 
 **Several items match:** for example, a DigiKey part comes as cut tape and as a reel. Pick one in the list that the supplier's *Availability* column shows instead of a status; each entry has the item's part number, packaging, stock, MOQ and first price. For a side-by-side comparison, choose *Compare the items…* or click the **?** badge. The chosen item's part number replaces the old one in every row that used it, its data is shown at once, and Ctrl+Z undoes the choice.
 
@@ -211,6 +215,7 @@ What's written:
 - **Save** (Ctrl+S) stores the BOM with all collected data in an `.eezbom` file. The app asks before closing, or before opening another BOM, if there are unsaved changes. Dropping a file on the window opens it too.
 - **Settings and credentials** are kept in the app's data folder: `%APPDATA%\EEZ BOM checker` on Windows, `~/.config/EEZ BOM checker` on Linux. Credentials are encrypted with your password (scrypt and AES-256-GCM); the password itself isn't stored.
 - **Supplier settings** always ask for the password, even while the credentials are unlocked for collecting. **Tools → Lock Credentials** locks them until you enter the password again.
+- **Change the password** in **Settings → General**, with the current one.
 
 ## Troubleshooting
 

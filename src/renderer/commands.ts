@@ -22,7 +22,7 @@ import {
 import { importedKicadValues } from "../shared/kicad-sync";
 import { PROJECT_FILE_EXTENSION } from "../shared/project-file";
 import { documentName, isDirty, useDocument } from "./store/document";
-import { setHiddenColumns, useUi } from "./store/ui";
+import { setHiddenColumns, useUi, type TableGroup } from "./store/ui";
 
 export async function saveDocument(saveAs = false): Promise<boolean> {
     const { project, filePath, markSaved } = useDocument.getState();
@@ -75,7 +75,7 @@ export async function newDocument(): Promise<void> {
         useDocument
             .getState()
             .load(createProject(), { filePath: null, saved: true });
-        clearFilters();
+        resetView();
     }
 }
 
@@ -88,7 +88,7 @@ export async function openDocument(): Promise<void> {
         useDocument
             .getState()
             .load(opened.project, { filePath: opened.filePath, saved: true });
-        clearFilters();
+        resetView();
     }
 }
 
@@ -96,7 +96,7 @@ export async function openDocument(): Promise<void> {
 export async function closeDocument(): Promise<void> {
     if (await confirmDiscardChanges()) {
         useDocument.getState().close();
-        clearFilters();
+        resetView();
     }
 }
 
@@ -113,7 +113,7 @@ export async function openPath(path: string): Promise<void> {
                 filePath: opened.opened.filePath,
                 saved: true
             });
-            clearFilters();
+            resetView();
             break;
         case "csv":
             useUi.setState({
@@ -145,7 +145,7 @@ export async function importCsv(): Promise<void> {
  */
 export function loadImported(project: Project): void {
     const { project: current, load } = useDocument.getState();
-    clearFilters();
+    resetView();
     load(
         {
             ...project,
@@ -221,6 +221,12 @@ export function clearFilters(): void {
     useUi.setState({ search: "", rowView: "all" });
 }
 
+/** Another BOM starts unfiltered and with no rows selected. */
+function resetView(): void {
+    clearFilters();
+    useUi.setState({ selectedRowIds: [], shownRows: null });
+}
+
 /** Writes part numbers back into the KiCad project the BOM came from. */
 export function updateKicad(): void {
     const { source } = useDocument.getState().project;
@@ -269,7 +275,7 @@ export function editColumns(): void {
     useUi.setState({ dialog: { kind: "columns" } });
 }
 
-export function toggleColumns(group: ColumnGroup): void {
+export function toggleColumns(group: TableGroup): void {
     const hidden = useUi.getState().hiddenColumns;
     setHiddenColumns(
         hidden.includes(group)
@@ -284,6 +290,10 @@ export function showAllColumns(): void {
 
 export function openExport(): void {
     useUi.setState({ dialog: { kind: "export" } });
+}
+
+export function openCostChart(): void {
+    useUi.setState({ dialog: { kind: "cost-chart" } });
 }
 
 export function openCollect(): void {
@@ -344,6 +354,7 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     export: openExport,
     "update-kicad": updateKicad,
     find,
+    "cost-chart": openCostChart,
     "sync-kicad": syncKicad,
     undo,
     redo,

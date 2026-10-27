@@ -7,6 +7,7 @@ import {
     supplierWork,
     valueMatches,
     type CollectMode,
+    type CollectScope,
     type SupplierWork,
     type ValueMatches
 } from "../../shared/collection";
@@ -26,6 +27,7 @@ import { SUPPLIERS } from "../../shared/suppliers";
 import { openSettings } from "../commands";
 import { errorMessage } from "../errors";
 import { useDocument } from "../store/document";
+import { useUi } from "../store/ui";
 import { Modal } from "./Modal";
 
 type Readiness = Record<SupplierId, SupplierReadiness>;
@@ -82,16 +84,18 @@ function countFor(work: SupplierWork, mode: CollectMode): number {
 
 /**
  * Puts what the Value lookups of `jobs` found into the empty part-number
- * cells, as one undo step, and returns the counts per supplier.
+ * cells of the rows in `rowIds` (all if not given), as one undo step, and
+ * returns the counts per supplier.
  */
 function fillFromValues(
-    jobs: readonly CollectJob[]
+    jobs: readonly CollectJob[],
+    rowIds: ReadonlySet<string> | undefined
 ): Partial<Record<SupplierId, ValueMatches>> {
     const { project, applyCollected, edit } = useDocument.getState();
     const matches = Object.fromEntries(
         jobs.map(job => [
             job.supplier,
-            valueMatches(project, job.supplier, job.runId)
+            valueMatches(project, job.supplier, rowIds)
         ])
     ) as Partial<Record<SupplierId, ValueMatches>>;
 
@@ -133,8 +137,16 @@ function fillFromValues(
 
 function defaultChoice(
     work: SupplierWork,
-    readiness: SupplierReadiness
+    readiness: SupplierReadiness,
+    selectedRows: boolean
 ): Choice {
+    if (selectedRows) {
+        // Rows are selected to look them up again.
+        return {
+            selected: readiness.problem === null && work.total > 0,
+            mode: "all"
+        };
+    }
     const mode: CollectMode =
         work.remaining > 0
             ? "continue"
@@ -192,8 +204,10 @@ export function CollectDialog({ onClose }: { onClose: () => void }) {
     const [progress, setProgress] = useState<
         Partial<Record<SupplierId, Progress>>
     >({});
-    // The jobs being run, and whether Values are looked up, for "done".
-    const run = useRef<{ jobs: CollectJob[]; byValue: boolean } | null>(null);
+    // The jobs being run, and what they cover, for "done".
+    const run = useRef<{ jobs: CollectJob[]; scope: CollectScope } | null>(
+        null
+    );
 
     const prepare = async () => {
         try {
@@ -234,12 +248,14 @@ export function CollectDialog({ onClose }: { onClose: () => void }) {
                         [event.supplier]: event
                     }));
                 } else if (event.type === "done" && run.current) {
-                    const { jobs, byValue } = run.current;
+                    const { jobs, scope } = run.current;
                     run.current = null;
                     setStep({
                         kind: "done",
                         jobs,
-                        values: byValue ? fillFromValues(jobs) : undefined
+                        values: scope.byValue
+                            ? fillFromValues(jobs, scope.rowIds)
+                            : undefined
                     });
                 }
             }),
@@ -296,7 +312,7 @@ export function CollectDialog({ onClose }: { onClose: () => void }) {
             {step.kind === "choose" && (
                 <ChooseSuppliers
                     readiness={step.readiness}
-                    onStart={async (jobs, byValue) => {
+                    onStart={async (jobs, scope) => {
                         const { applyCollected } = useDocument.getState();
                         const startedAt = new Date().toISOString();
                         // A run that is still "running" after a crash can be continued.
@@ -317,7 +333,7 @@ export function CollectDialog({ onClose }: { onClose: () => void }) {
                             }
                         }));
                         setProgress({});
-                        run.current = { jobs, byValue };
+                        run.current = { jobs, scope };
                         setStep({ kind: "running", jobs });
                         try {
                             await window.api.collect.start(jobs);
@@ -409,25 +425,42 @@ function ChooseSuppliers({
     onStart
 }: {
     readiness: Readiness;
-    onStart: (jobs: CollectJob[], byValue: boolean) => Promise<void>;
+    onStart: (jobs: CollectJob[], scope: CollectScope) => Promise<void>;
 }) {
     const project = useDocument(state => state.project);
     const suppliers = project.suppliers;
     const byValueId = useId();
     const [byValue, setByValue] = useState(loadByValue);
-    const defaultChoices = (lookUpValues: boolean) =>
+    // The rows selected in the table, if any (#17).
+    const [selection] = useState(() => {
+        const ids = new Set(useUi.getState().selectedRowIds);
+        return new Set(
+            project.rows.filter(row => ids.has(row.id)).map(row => row.id)
+        );
+    });
+    const [onlySelected, setOnlySelected] = useState(selection.size > 0);
+    const scopeOf = (lookUpValues: boolean, selected: boolean) => ({
+        byValue: lookUpValues,
+        rowIds: selected ? selection : undefined
+    });
+    const scope = scopeOf(byValue, onlySelected);
+    const defaultChoices = (next: CollectScope) =>
         Object.fromEntries(
             suppliers.map(id => [
                 id,
                 defaultChoice(
-                    supplierWork(project, id, lookUpValues),
-                    readiness[id]
+                    supplierWork(project, id, next),
+                    readiness[id],
+                    Boolean(next.rowIds)
                 )
             ])
         );
     const [choices, setChoices] = useState<Partial<Record<SupplierId, Choice>>>(
-        () => defaultChoices(byValue)
+        () => defaultChoices(scope)
     );
+    const changeScope = (next: CollectScope) => {
+        setChoices(defaultChoices(next));
+    };
 
     if (suppliers.length === 0) {
         return (
@@ -447,7 +480,7 @@ function ChooseSuppliers({
             project,
             supplier,
             choice.mode,
-            byValue
+            scope
         );
         const runId =
             choice.mode === "continue"
@@ -458,6 +491,30 @@ function ChooseSuppliers({
 
     return (
         <div className="collect-choose">
+            {selection.size > 0 && (
+                <div
+                    className="collect-modes collect-rows"
+                    role="radiogroup"
+                    aria-label="Rows"
+                >
+                    {[true, false].map(selected => (
+                        <label key={String(selected)}>
+                            <input
+                                type="radio"
+                                name="collect-rows"
+                                checked={onlySelected === selected}
+                                onChange={() => {
+                                    setOnlySelected(selected);
+                                    changeScope(scopeOf(byValue, selected));
+                                }}
+                            />
+                            {selected
+                                ? `Only the selected rows (${selection.size})`
+                                : `All rows (${project.rows.length})`}
+                        </label>
+                    ))}
+                </div>
+            )}
             <div className="collect-by-value">
                 <label className="checkbox">
                     <input
@@ -466,7 +523,9 @@ function ChooseSuppliers({
                         aria-describedby={byValueId}
                         onChange={event => {
                             setByValue(event.target.checked);
-                            setChoices(defaultChoices(event.target.checked));
+                            changeScope(
+                                scopeOf(event.target.checked, onlySelected)
+                            );
                             saveByValue(event.target.checked);
                         }}
                     />
@@ -484,7 +543,8 @@ function ChooseSuppliers({
                 <SupplierChoice
                     key={supplier}
                     supplier={supplier}
-                    work={supplierWork(project, supplier, byValue)}
+                    work={supplierWork(project, supplier, scope)}
+                    scope={scope}
                     readiness={readiness[supplier]}
                     lastRun={project.collected.runs[supplier]}
                     collectedAt={lastCollectedAt(project.collected, supplier)}
@@ -502,7 +562,7 @@ function ChooseSuppliers({
                     type="button"
                     className="primary"
                     disabled={jobs.length === 0}
-                    onClick={() => void onStart(jobs, byValue)}
+                    onClick={() => void onStart(jobs, scope)}
                 >
                     Start
                 </button>
@@ -514,6 +574,7 @@ function ChooseSuppliers({
 function SupplierChoice({
     supplier,
     work,
+    scope,
     readiness,
     lastRun,
     collectedAt,
@@ -522,6 +583,7 @@ function SupplierChoice({
 }: {
     supplier: SupplierId;
     work: SupplierWork;
+    scope: CollectScope;
     readiness: SupplierReadiness;
     lastRun: CollectionRun | undefined;
     collectedAt: string | null;
@@ -531,11 +593,13 @@ function SupplierChoice({
     const name = SUPPLIERS[supplier].name;
     const count = countFor(work, choice.mode);
     const requests = estimateRequests(count, readiness);
+    const where = scope.rowIds ? "the selected rows" : "the BOM";
+    // A run continued for some rows would end as if it had reached all.
     const modes: { mode: CollectMode; label: string; show: boolean }[] = [
         {
             mode: "continue",
             label: `Continue where it stopped (${work.remaining})`,
-            show: work.remaining > 0
+            show: work.remaining > 0 && !scope.rowIds
         },
         {
             mode: "missing",
@@ -577,7 +641,9 @@ function SupplierChoice({
                     </button>
                 </p>
             ) : work.total === 0 ? (
-                <p className="muted">No {name} part numbers in the BOM.</p>
+                <p className="muted">
+                    No {name} part numbers in {where}.
+                </p>
             ) : (
                 <>
                     <p className="muted">
@@ -631,6 +697,16 @@ function SupplierChoice({
                             </p>
                         )}
                 </>
+            )}
+            {!readiness.problem && !scope.byValue && work.valueRows > 0 && (
+                <p className="muted">
+                    {work.valueRows === 1
+                        ? "1 row has"
+                        : `${work.valueRows} rows have`}{" "}
+                    no {name} part number but a Value that can be looked up:
+                    turn on &quot;Look up the Value where a part number is
+                    missing&quot;.
+                </p>
             )}
         </fieldset>
     );

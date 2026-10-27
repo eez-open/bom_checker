@@ -4,8 +4,29 @@ import {
     suppliersWithData
 } from "../shared/project-ops";
 import { SUPPLIERS } from "../shared/suppliers";
-import { clearFilters, SEARCH_INPUT_ID } from "./commands";
-import { useUi } from "./store/ui";
+import { clearFilters, SEARCH_INPUT_ID, toggleColumns } from "./commands";
+import { useUi, type TableGroup } from "./store/ui";
+
+/** The column groups of this BOM's table, in table order. */
+export function tableGroups(
+    project: Project
+): { id: TableGroup; name: string }[] {
+    const priced =
+        suppliersWithData(project).length +
+        manualSuppliersWithPrices(project).length;
+    return [
+        ...project.suppliers.map(supplier => ({
+            id: supplier,
+            name: SUPPLIERS[supplier].name
+        })),
+        ...project.manualSuppliers.map(supplier => ({
+            id: `manual:${supplier.id}` as const,
+            name: supplier.name
+        })),
+        // The table shows Best price once two suppliers have prices.
+        ...(priced >= 2 ? [{ id: "best" as const, name: "Best price" }] : [])
+    ];
+}
 
 /** The rows filters offered for this BOM, as value → label. */
 export function rowViews(project: Project): [string, string][] {
@@ -28,7 +49,8 @@ export function rowViews(project: Project): [string, string][] {
     ];
 }
 
-/** Search (Ctrl+F) and the rows filter, above the table. */
+/** Search (Ctrl+F), the rows filter and which column groups show (#5),
+ *  above the table. */
 export function FilterBar({
     project,
     rows
@@ -39,7 +61,9 @@ export function FilterBar({
 }) {
     const search = useUi(state => state.search);
     const rowView = useUi(state => state.rowView);
+    const hidden = useUi(state => state.hiddenColumns);
     const views = rowViews(project);
+    const groups = tableGroups(project);
 
     return (
         <div className="filter-bar" role="search">
@@ -86,6 +110,25 @@ export function FilterBar({
                     >
                         Show all
                     </button>
+                </span>
+            )}
+            {groups.length > 0 && (
+                <span
+                    className="filter-columns"
+                    role="group"
+                    aria-label="Shown columns"
+                >
+                    Columns
+                    {groups.map(group => (
+                        <label key={group.id}>
+                            <input
+                                type="checkbox"
+                                checked={!hidden.includes(group.id)}
+                                onChange={() => toggleColumns(group.id)}
+                            />
+                            {group.name}
+                        </label>
+                    ))}
                 </span>
             )}
         </div>

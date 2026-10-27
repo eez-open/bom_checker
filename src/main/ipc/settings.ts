@@ -94,9 +94,8 @@ export function registerSettingsHandlers(): void {
     );
     handle(
         IpcChannel.VaultChangePassword,
-        (_context, sessionToken, currentPassword, newPassword) =>
+        (_context, currentPassword, newPassword) =>
             changePassword(
-                token.parse(sessionToken),
                 password.parse(currentPassword),
                 password.parse(newPassword)
             )

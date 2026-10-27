@@ -39,6 +39,17 @@ test("looks up the Value where a part number is missing", async () => {
         await expect(
             collect.getByRole("radio", { name: "All part numbers (1)" })
         ).toBeVisible();
+        // With the option off, the dialog points to it (#18).
+        await expect(
+            collect.getByText(
+                "2 rows have no Mouser part number but a Value that can be looked up"
+            )
+        ).toBeVisible();
+        await expect(
+            collect.getByText(
+                "3 rows have no DigiKey part number but a Value that can be looked up"
+            )
+        ).toBeVisible();
 
         // DigiKey: TPS54331DDA, RMCF0805FT100K and 1N4148 by Value, plus
         // its part number. Mouser: the first two (100n is generic, and D1
@@ -104,6 +115,32 @@ test("looks up the Value where a part number is missing", async () => {
         );
         await page.keyboard.press("Control+Z");
         await expect(cell(page, U1, "pn:mouser")).toHaveText("");
+        await expect(cell(page, R1, "pn:digikey")).toHaveText("");
+
+        // Only the selected rows (#17): U1, looked up by its Value for
+        // both suppliers.
+        await page
+            .locator('.ag-row[row-index="0"] .ag-selection-checkbox input')
+            .first()
+            .check();
+        await page.getByRole("button", { name: "Collect…" }).click();
+        await expect(
+            collect.getByRole("radio", { name: "Only the selected rows (1)" })
+        ).toBeChecked();
+        await expect(byValue).toBeChecked();
+        await expect(
+            collect.getByRole("radio", { name: "All part numbers (1)" })
+        ).toHaveCount(2);
+        await collect.getByRole("button", { name: "Start" }).click();
+        await expect(summary("Mouser")).toContainText(
+            "From the Value: 1 filled in · 0 to choose · 0 not found"
+        );
+        await expect(summary("DigiKey")).toContainText(
+            "From the Value: 0 filled in · 0 to choose · 1 not found"
+        );
+        await collect.getByRole("button", { name: "Close" }).click();
+        await expect(cell(page, U1, "pn:mouser")).toHaveText(/595-TPS54331DDA/);
+        // R1 wasn't selected: its DigiKey cell stays empty.
         await expect(cell(page, R1, "pn:digikey")).toHaveText("");
     } finally {
         await closeApp(app);

@@ -66,6 +66,21 @@ test("suppliers without an API compete for the best price", async () => {
         ).toHaveText("Partial: 1");
         await expect(cell(page, 0, "best:supplier")).toHaveText("Enclosures");
         await expect(cell(page, 0, "best:totalPrice")).toHaveText("6.00");
+
+        // Hidden from the bar above the table (#5); still counts.
+        const unitPrices = page.locator(
+            '.ag-row[row-index="0"] .ag-cell[col-id^="manual:"][col-id$=":unitPrice"]'
+        );
+        const shown = page.getByRole("group", { name: "Shown columns" });
+        await shown.getByLabel("Enclosures").uncheck();
+        await expect(unitPrices).toHaveCount(1);
+        await expect(page.getByTestId("hidden-columns")).toContainText(
+            "Hidden: Enclosures"
+        );
+        await expect(cell(page, 0, "best:supplier")).toHaveText("Enclosures");
+        await shown.getByLabel("Enclosures").check();
+        await expect(unitPrices).toHaveCount(2);
+        await expect(page.getByTestId("hidden-columns")).toHaveCount(0);
     } finally {
         await closeApp(app);
     }

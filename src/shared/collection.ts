@@ -48,15 +48,33 @@ export function formatDateTime(iso: string): string {
     );
 }
 
+/** What a collection covers, besides the supplier. */
+export interface CollectScope {
+    /** Also the Values of rows without a part number ("Look up the Value"). */
+    byValue?: boolean;
+    /** Only these rows, e.g. the ones selected in the table (#17); all rows
+     *  when not given. */
+    rowIds?: ReadonlySet<string>;
+}
+
 export interface SupplierWork {
     /** Distinct part numbers in the BOM (flagged cells excluded). */
     total: number;
     /** Cells listing alternatives ("A or B"); never collected. */
     flagged: number;
-    /** Part numbers with no collected data yet. */
+    /** Part numbers with no collected data yet, or only an error. */
     missing: number;
     /** Part numbers an interrupted run didn't reach; 0 if it finished. */
     remaining: number;
+    /** Rows without a part number whose Value could be looked up. */
+    valueRows: number;
+}
+
+function rowsIn(project: Project, scope: CollectScope): readonly BomRow[] {
+    const { rowIds } = scope;
+    return rowIds
+        ? project.rows.filter(row => rowIds.has(row.id))
+        : project.rows;
 }
 
 /**
@@ -70,17 +88,18 @@ function valueQuery(row: BomRow, supplier: SupplierId): string | null {
         : null;
 }
 
-/** Distinct part numbers of a supplier, keyed by `partNumberKey`, with
- *  the text of the first cell that has it; with `byValue`, also the
- *  Values of rows without a part number. */
+/** Distinct part numbers of a supplier in the rows of `scope`, keyed by
+ *  `partNumberKey`, with the text of the first cell that has it; with
+ *  `byValue`, also the Values of rows without a part number. */
 function partNumbers(
     project: Project,
     supplier: SupplierId,
-    byValue: boolean
-): { byKey: Map<string, string>; flagged: number } {
+    scope: CollectScope
+): { byKey: Map<string, string>; flagged: number; valueRows: number } {
+    const rows = rowsIn(project, scope);
     const byKey = new Map<string, string>();
     let flagged = 0;
-    for (const row of project.rows) {
+    for (const row of rows) {
         const value = row.partNumbers[supplier];
         if (!isPartNumberDefined(value)) {
             continue;
@@ -94,15 +113,17 @@ function partNumbers(
             byKey.set(key, value!.trim());
         }
     }
-    if (byValue) {
-        for (const row of project.rows) {
-            const query = valueQuery(row, supplier);
-            if (query && !byKey.has(partNumberKey(query))) {
+    let valueRows = 0;
+    for (const row of rows) {
+        const query = valueQuery(row, supplier);
+        if (query) {
+            valueRows++;
+            if (scope.byValue && !byKey.has(partNumberKey(query))) {
                 byKey.set(partNumberKey(query), query);
             }
         }
     }
-    return { byKey, flagged };
+    return { byKey, flagged, valueRows };
 }
 
 function isPending(
@@ -114,7 +135,8 @@ function isPending(
         case "all":
             return true;
         case "missing":
-            return result === undefined;
+            // An error isn't data: try again.
+            return result === undefined || result.status === "error";
         case "continue":
             return result?.runId !== runId;
     }
@@ -123,9 +145,9 @@ function isPending(
 export function supplierWork(
     project: Project,
     supplier: SupplierId,
-    byValue = false
+    scope: CollectScope = {}
 ): SupplierWork {
-    const { byKey, flagged } = partNumbers(project, supplier, byValue);
+    const { byKey, flagged, valueRows } = partNumbers(project, supplier, scope);
     const results = project.collected.results[supplier] ?? {};
     const run = project.collected.runs[supplier];
     const unfinished = run && run.state !== "complete";
@@ -137,7 +159,7 @@ export function supplierWork(
             remaining += isPending(results[key], "continue", run.id) ? 1 : 0;
         }
     }
-    return { total: byKey.size, flagged, missing, remaining };
+    return { total: byKey.size, flagged, missing, remaining, valueRows };
 }
 
 /** The part numbers to look up, as typed in the BOM. */
@@ -145,9 +167,9 @@ export function partNumbersToCollect(
     project: Project,
     supplier: SupplierId,
     mode: CollectMode,
-    byValue = false
+    scope: CollectScope = {}
 ): string[] {
-    const { byKey } = partNumbers(project, supplier, byValue);
+    const { byKey } = partNumbers(project, supplier, scope);
     const results = project.collected.results[supplier] ?? {};
     const runId = project.collected.runs[supplier]?.id;
     return [...byKey]
@@ -233,11 +255,15 @@ export interface ValueMatches {
     notFound: number;
 }
 
-/** What run `runId` found for the rows it looked up by Value. */
+/**
+ * What was found for the Values of rows (in `rowIds`, if given) without a
+ * part number. Results of earlier runs count too: "Only part numbers
+ * without data" doesn't look them up again (#18).
+ */
 export function valueMatches(
     project: Project,
     supplier: SupplierId,
-    runId: string
+    rowIds?: ReadonlySet<string>
 ): ValueMatches {
     const matches: ValueMatches = {
         cells: [],
@@ -246,10 +272,10 @@ export function valueMatches(
         notFound: 0
     };
     const results = project.collected.results[supplier] ?? {};
-    for (const row of project.rows) {
+    for (const row of rowsIn(project, { rowIds })) {
         const query = valueQuery(row, supplier);
         const result = query ? results[partNumberKey(query)] : undefined;
-        if (!query || result?.runId !== runId) {
+        if (!query || !result) {
             continue;
         }
         if (result.status === "found") {

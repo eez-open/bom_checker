@@ -5,6 +5,7 @@
 
 import { z } from "zod";
 import { digikeyLifecycle } from "../../shared/lifecycle";
+import { otherPackagingNote } from "../../shared/line-text";
 import type { LookupOutcome, SupplierOffer } from "../../shared/model";
 import { partNumberKey } from "../../shared/model";
 import { retryAfterMs } from "../collection/http";
@@ -188,6 +189,19 @@ export function parseProductDetails(
     const offers = (details.Product.ProductVariations ?? []).map(variation =>
         toOffer(details, variation, currency)
     );
+    // Stock is per packaging: mention the others that have some, e.g. a
+    // box in stock when cut tape is out of stock.
+    for (const offer of offers) {
+        const others = offers.filter(
+            other => other !== offer && other.stockQty > 0
+        );
+        if (others.length > 0) {
+            offer.notes = [
+                ...(offer.notes ?? []),
+                ...others.map(otherPackagingNote)
+            ];
+        }
+    }
     // The product holds all packagings (cut tape, reel, Digi-Reel); the one
     // whose number was asked for is the match. If DigiKey found the product
     // some other way, the user picks the packaging.
