@@ -78,7 +78,30 @@ test("looks up the Value where a part number is missing", async () => {
             "2.10"
         );
 
-        // Filling in is one undo step.
+        // Choose the cut tape from the list in Availability (#15).
+        const choose = cell(page, R1, "data:digikey:availability").getByRole(
+            "combobox",
+            { name: "Choose the DigiKey item for RMCF0805FT100K" }
+        );
+        await expect(choose.locator("option")).toHaveText([
+            "Choose an item…",
+            /^RMCF0805FT100KCT-ND \(Cut Tape \(CT\)\) · stock 400,000 · from /,
+            /^RMCF0805FT100KTR-ND \(Tape & Reel \(TR\)\) · stock 500,000 · MOQ 5,000 · from /,
+            "Compare the items…"
+        ]);
+        await choose.selectOption({ index: 1 });
+        await expect(cell(page, R1, "pn:digikey")).toHaveText(
+            /RMCF0805FT100KCT-ND/
+        );
+        await expect(cell(page, R1, "data:digikey:availability")).toHaveText(
+            "In stock"
+        );
+
+        // Choosing and filling in are one undo step each.
+        await page.keyboard.press("Control+Z");
+        await expect(cell(page, R1, "pn:digikey")).toHaveText(
+            /^.?RMCF0805FT100K$/
+        );
         await page.keyboard.press("Control+Z");
         await expect(cell(page, U1, "pn:mouser")).toHaveText("");
         await expect(cell(page, R1, "pn:digikey")).toHaveText("");

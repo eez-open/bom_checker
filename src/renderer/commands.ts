@@ -5,12 +5,19 @@ import {
     type ColumnGroup,
     type MenuCommand
 } from "../shared/ipc";
-import type { Project, ProjectSource } from "../shared/model";
+import {
+    partNumberKey,
+    type Project,
+    type ProjectSource,
+    type SupplierId,
+    type SupplierOffer
+} from "../shared/model";
 import {
     addRow as addRowToProject,
     createProject,
     createRow,
-    deleteRows
+    deleteRows,
+    replacePartNumber
 } from "../shared/project-ops";
 import { PROJECT_FILE_EXTENSION } from "../shared/project-file";
 import { documentName, isDirty, useDocument } from "./store/document";
@@ -182,6 +189,42 @@ export function updateKicad(): void {
     if (source.kind === "kicad" && source.path) {
         useUi.setState({ dialog: { kind: "kicad-update" } });
     }
+}
+
+/**
+ * One of several items that matched part number `key` was chosen: its own
+ * part number replaces `key` in every row that has it. Its data is already
+ * known, so it needn't be looked up again.
+ */
+export function chooseItem(
+    supplier: SupplierId,
+    key: string,
+    offer: SupplierOffer
+): void {
+    const { project, applyCollected, edit } = useDocument.getState();
+    const result = project.collected.results[supplier]?.[key];
+    if (result?.status !== "ambiguous") {
+        return;
+    }
+    applyCollected(collected => ({
+        ...collected,
+        results: {
+            ...collected.results,
+            [supplier]: {
+                ...collected.results[supplier],
+                [partNumberKey(offer.supplierPartNumber)]: {
+                    status: "found",
+                    offer,
+                    matchedBy: "supplierPartNumber",
+                    runId: result.runId,
+                    fetchedAt: result.fetchedAt
+                }
+            }
+        }
+    }));
+    edit(current =>
+        replacePartNumber(current, supplier, key, offer.supplierPartNumber)
+    );
 }
 
 export function editColumns(): void {

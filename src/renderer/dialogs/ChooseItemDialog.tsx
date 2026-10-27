@@ -1,10 +1,6 @@
-import {
-    partNumberKey,
-    type SupplierId,
-    type SupplierOffer
-} from "../../shared/model";
-import { replacePartNumber } from "../../shared/project-ops";
+import type { SupplierId, SupplierOffer } from "../../shared/model";
 import { SUPPLIERS } from "../../shared/suppliers";
+import { chooseItem } from "../commands";
 import { useDocument } from "../store/document";
 import { Modal } from "./Modal";
 
@@ -30,30 +26,7 @@ export function ChooseItemDialog({
     const name = SUPPLIERS[supplier].name;
 
     const choose = (offer: SupplierOffer) => {
-        if (result?.status !== "ambiguous") {
-            return;
-        }
-        const { applyCollected, edit } = useDocument.getState();
-        // The chosen item's data is already known: no new lookup needed.
-        applyCollected(collected => ({
-            ...collected,
-            results: {
-                ...collected.results,
-                [supplier]: {
-                    ...collected.results[supplier],
-                    [partNumberKey(offer.supplierPartNumber)]: {
-                        status: "found",
-                        offer,
-                        matchedBy: "supplierPartNumber",
-                        runId: result.runId,
-                        fetchedAt: result.fetchedAt
-                    }
-                }
-            }
-        }));
-        edit(project =>
-            replacePartNumber(project, supplier, key, offer.supplierPartNumber)
-        );
+        chooseItem(supplier, key, offer);
         onClose();
     };
 

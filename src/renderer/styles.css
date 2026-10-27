@@ -799,3 +799,11 @@ button.recent-remove:focus-visible {
     margin: 6px 0 10px;
     padding-left: 20px;
 }
+
+select.choose-item {
+    width: 100%;
+    padding: 1px 4px;
+    border-color: var(--app-warning);
+    color: var(--app-warning);
+    font-weight: 600;
+}

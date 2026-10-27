@@ -66,7 +66,7 @@ export function describeResult(
                     c =>
                         `• ${c.supplierPartNumber}${c.packaging ? ` (${c.packaging})` : ""}, ${c.manufacturer}`
                 ),
-                "Enter the exact part number to choose one.",
+                "Choose one in the Availability column, or click ? to compare them.",
                 checked
             ].join("\n");
         case "error":

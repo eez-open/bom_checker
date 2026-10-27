@@ -69,9 +69,11 @@ test("calculates order quantities, prices and the best supplier", async () => {
         );
 
         // A manufacturer number that matches two DigiKey packagings.
-        await expect(cell(page, R1, "data:digikey:availability")).toHaveText(
-            "Choose an item"
-        );
+        await expect(
+            cell(page, R1, "data:digikey:availability").getByRole("combobox", {
+                name: "Choose the DigiKey item for RMCF0805FT100K"
+            })
+        ).toBeVisible();
         await expect(cell(page, R1, "best:supplier")).toHaveText(
             "None in stock"
         );

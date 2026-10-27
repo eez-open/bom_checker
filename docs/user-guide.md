@@ -110,7 +110,7 @@ The summary shows how long it took, how many part numbers were found, not found 
 Tick **Look up the Value where a part number is missing** to search for rows whose part-number cell is empty. The Value is searched as a manufacturer part number at each selected supplier (e.g. *TPS54331DDA* or *1N4007*), so the supplier needs a part-number column (add one with **Columns…**).
 
 - One matching item fills in the supplier's part number.
-- When several items match, typically different packagings, the cell gets the Value with a **?** badge: click it to choose the item.
+- When several items match, typically different packagings, the cell gets the Value, and the supplier's *Availability* column shows a list to choose the item from.
 - When nothing matches, the cell stays empty.
 
 Generic values such as *100n*, *4u7* or *10k*, names like *LED* or *Conn_01x04*, and cells with "-" are skipped: a value alone can't pick one capacitor out of thousands. The summary says how many part numbers were filled in, are left to choose, or weren't found. Filling in is one step that **Ctrl+Z** undoes. The option is remembered for next time.
@@ -140,7 +140,7 @@ To hide all columns of a supplier, or the Best price columns, uncheck them in th
 
 The **Total** row at the top adds up the Qty column and each *Total price* column, for every supplier and for Best price. Its tooltip says how many rows have a price.
 
-**Several items match:** for example, a DigiKey part comes as cut tape and as a reel. Click the **?** badge, compare stock, MOQ and price, and choose one; its part number replaces the old one in every row that used it.
+**Several items match:** for example, a DigiKey part comes as cut tape and as a reel. Pick one in the list that the supplier's *Availability* column shows instead of a status; each entry has the item's part number, packaging, stock, MOQ and first price. For a side-by-side comparison, choose *Compare the items…* or click the **?** badge. The chosen item's part number replaces the old one in every row that used it, its data is shown at once, and Ctrl+Z undoes the choice.
 
 Prices are compared in EUR. If a supplier returns another currency, a yellow bar says so; those prices aren't included in totals and the best price.
 

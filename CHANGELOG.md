@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- When several supplier items match a part number, the Availability cell is a list to choose the item from, with each item's packaging, stock, MOQ and price; the chosen item's part number goes into the cell (#15).
 - Export: the *Basic data only* preset and a *Part numbers only* option, for Row, Reference, Value, Qty, Footprint and the suppliers' part numbers without their data (#21).
 
 ### Changed
