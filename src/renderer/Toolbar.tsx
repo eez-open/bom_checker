@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { MAX_BUILD_QUANTITY } from "../shared/model";
 import { setBuildQuantity } from "../shared/project-ops";
 import {
@@ -61,7 +61,13 @@ function BuildQuantityInput({ value }: { value: number }) {
 }
 
 export function Toolbar() {
-    const selectedCount = useUi(state => state.selectedRowIds.length);
+    // Only rows of this BOM count (#23).
+    const selectedIds = useUi(state => state.selectedRowIds);
+    const rows = useDocument(state => state.project.rows);
+    const selectedCount = useMemo(() => {
+        const ids = new Set(rows.map(row => row.id));
+        return selectedIds.filter(id => ids.has(id)).length;
+    }, [rows, selectedIds]);
     const buildQuantity = useDocument(state => state.project.buildQuantity);
     const open = useDocument(state => state.open);
     const fromKicad = useDocument(

@@ -8,6 +8,10 @@ All notable changes to this project are documented in this file. The format is b
 
 - DigiKey keeps stock per packaging: when another packaging of the same product has stock (e.g. a box when cut tape is out of stock), the Availability and part-number tooltips show its part number, stock and MOQ.
 
+### Fixed
+
+- The Delete button counted rows selected in the BOM that was open before (#23).
+
 ## [0.6.0] - 2026-10-27
 
 ### Added

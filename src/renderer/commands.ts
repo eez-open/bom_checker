@@ -75,7 +75,7 @@ export async function newDocument(): Promise<void> {
         useDocument
             .getState()
             .load(createProject(), { filePath: null, saved: true });
-        clearFilters();
+        resetView();
     }
 }
 
@@ -88,7 +88,7 @@ export async function openDocument(): Promise<void> {
         useDocument
             .getState()
             .load(opened.project, { filePath: opened.filePath, saved: true });
-        clearFilters();
+        resetView();
     }
 }
 
@@ -96,7 +96,7 @@ export async function openDocument(): Promise<void> {
 export async function closeDocument(): Promise<void> {
     if (await confirmDiscardChanges()) {
         useDocument.getState().close();
-        clearFilters();
+        resetView();
     }
 }
 
@@ -113,7 +113,7 @@ export async function openPath(path: string): Promise<void> {
                 filePath: opened.opened.filePath,
                 saved: true
             });
-            clearFilters();
+            resetView();
             break;
         case "csv":
             useUi.setState({
@@ -145,7 +145,7 @@ export async function importCsv(): Promise<void> {
  */
 export function loadImported(project: Project): void {
     const { project: current, load } = useDocument.getState();
-    clearFilters();
+    resetView();
     load(
         {
             ...project,
@@ -219,6 +219,12 @@ export function find(): void {
 
 export function clearFilters(): void {
     useUi.setState({ search: "", rowView: "all" });
+}
+
+/** Another BOM starts unfiltered and with no rows selected. */
+function resetView(): void {
+    clearFilters();
+    useUi.setState({ selectedRowIds: [], shownRows: null });
 }
 
 /** Writes part numbers back into the KiCad project the BOM came from. */
