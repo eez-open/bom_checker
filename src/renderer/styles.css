@@ -850,3 +850,98 @@ select.choose-item {
     gap: 4px;
     color: var(--app-fg);
 }
+
+/* Most expensive parts (#28). Colors: slot 1 of the data-viz palette and
+   its de-emphasis gray; the table carries every value. */
+.cost-chart {
+    --chart-top: #2a78d6;
+    --chart-other: #c3c2b7;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 24px;
+    margin: 12px 0;
+}
+
+.cost-chart svg {
+    flex: none;
+}
+
+.cost-slice {
+    fill: var(--chart-top);
+    /* 2px gaps between slices. */
+    stroke: var(--app-bg);
+    stroke-width: 2px;
+    transition: opacity 0.12s;
+}
+
+circle.cost-slice {
+    fill: none;
+    stroke: var(--chart-top);
+}
+
+.cost-slice.other {
+    fill: var(--chart-other);
+}
+
+.cost-slice.dimmed {
+    opacity: 0.35;
+}
+
+.cost-slice-label {
+    fill: #ffffff;
+    font-size: 12px;
+    font-weight: 600;
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
+}
+
+.cost-center-value {
+    fill: var(--app-fg);
+    font-size: 22px;
+    font-weight: 600;
+    text-anchor: middle;
+}
+
+.cost-center-unit {
+    fill: var(--app-muted);
+    font-size: 12px;
+    text-anchor: middle;
+}
+
+.cost-table {
+    flex: 1;
+    min-width: 360px;
+    width: auto;
+    font-variant-numeric: tabular-nums;
+}
+
+.cost-table .number {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.cost-table .cost-text {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cost-table tr.active td {
+    background: #eef4fc;
+}
+
+.cost-swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 6px;
+    border-radius: 2px;
+    background: var(--chart-top);
+}
+
+.cost-swatch.other {
+    background: var(--chart-other);
+}

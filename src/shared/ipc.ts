@@ -54,6 +54,7 @@ export type MenuCommand =
     | "update-kicad"
     | "sync-kicad"
     | "find"
+    | "cost-chart"
     | "undo"
     | "redo"
     | "add-row"

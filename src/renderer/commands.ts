@@ -292,6 +292,10 @@ export function openExport(): void {
     useUi.setState({ dialog: { kind: "export" } });
 }
 
+export function openCostChart(): void {
+    useUi.setState({ dialog: { kind: "cost-chart" } });
+}
+
 export function openCollect(): void {
     useUi.setState({ dialog: { kind: "collect" } });
 }
@@ -350,6 +354,7 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     export: openExport,
     "update-kicad": updateKicad,
     find,
+    "cost-chart": openCostChart,
     "sync-kicad": syncKicad,
     undo,
     redo,

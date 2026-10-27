@@ -226,6 +226,31 @@ test("calculates order quantities, prices and the best supplier", async () => {
         await clickMenuItem(app, "columns:best");
         await expect(shown.getByLabel("Best price")).toBeChecked();
         await expect(cell(page, D1, "best:supplier")).toHaveCount(1);
+
+        // The most expensive parts (#28), from the status bar and the menu.
+        await page
+            .getByRole("button", { name: "Most expensive parts" })
+            .click();
+        const chart = page.getByRole("dialog", {
+            name: "Most expensive parts"
+        });
+        await expect(chart.getByTestId("cost-summary")).toHaveText(
+            "Best price total: 31.72 EUR, from 4 rows with a price."
+        );
+        await expect(chart.locator("tbody tr")).toHaveText([
+            /^1C1100nDigiKey24\.0075\.7%$/,
+            /^2U1TPS54331Mouser6\.3019\.9%$/,
+            /^3R1100kDigiKey0\.802\.5%$/,
+            /^4D11N4007TME0\.622\.0%$/
+        ]);
+        await expect(
+            chart.getByRole("img", { name: /most expensive rows/ })
+        ).toBeVisible();
+        await chart.getByRole("button", { name: "Close" }).click();
+        await clickMenuItem(app, "cost-chart");
+        await expect(chart).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(chart).toHaveCount(0);
     } finally {
         await closeApp(app);
         await fake.close();

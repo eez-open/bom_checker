@@ -12,6 +12,7 @@ import { SUPPLIERS } from "../shared/suppliers";
 import {
     closeDialog,
     isTextEditing,
+    openCostChart,
     openPath,
     openSettings,
     redo,
@@ -23,6 +24,7 @@ import { ChooseItemDialog } from "./dialogs/ChooseItemDialog";
 import { ColumnsDialog } from "./dialogs/ColumnsDialog";
 import { CollectDialog } from "./dialogs/CollectDialog";
 import { CsvImportDialog } from "./dialogs/CsvImportDialog";
+import { CostChartDialog } from "./dialogs/CostChartDialog";
 import { ExportDialog } from "./dialogs/ExportDialog";
 import { KicadImportDialog } from "./dialogs/KicadImportDialog";
 import { KicadSyncDialog } from "./dialogs/KicadSyncDialog";
@@ -260,13 +262,23 @@ export function App() {
                     )}
                 </span>
                 {open && hasData && (
-                    <span data-testid="bom-total">
-                        Best price total: {MONEY.format(totals.total)}{" "}
-                        {BASE_CURRENCY}
-                        {project.buildQuantity > 1 &&
-                            ` (${MONEY.format(totals.total / project.buildQuantity)} ${BASE_CURRENCY} per unit)`}
-                        {totals.uncovered > 0 &&
-                            ` · ${count(totals.uncovered, "row")} without a supplier that has enough stock`}
+                    <span>
+                        <span data-testid="bom-total">
+                            Best price total: {MONEY.format(totals.total)}{" "}
+                            {BASE_CURRENCY}
+                            {project.buildQuantity > 1 &&
+                                ` (${MONEY.format(totals.total / project.buildQuantity)} ${BASE_CURRENCY} per unit)`}
+                            {totals.uncovered > 0 &&
+                                ` · ${count(totals.uncovered, "row")} without a supplier that has enough stock`}
+                        </span>{" "}
+                        ·{" "}
+                        <button
+                            type="button"
+                            className="link"
+                            onClick={openCostChart}
+                        >
+                            Most expensive parts
+                        </button>
                     </span>
                 )}
                 <span data-testid="app-version">
@@ -287,6 +299,9 @@ export function App() {
             )}
             {dialog?.kind === "export" && (
                 <ExportDialog onClose={closeDialog} />
+            )}
+            {dialog?.kind === "cost-chart" && (
+                <CostChartDialog onClose={closeDialog} />
             )}
             {dialog?.kind === "kicad-update" && (
                 <KicadUpdateDialog onClose={closeDialog} />

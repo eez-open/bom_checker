@@ -213,6 +213,10 @@ export function createMenu(): Menu {
             submenu: [
                 ...columnItems(),
                 { type: "separator" },
+                documentCommand("Most &Expensive Parts…", "cost-chart", {
+                    id: "cost-chart"
+                }),
+                { type: "separator" },
                 { role: "zoomIn" },
                 { role: "zoomOut" },
                 { role: "resetZoom" },
