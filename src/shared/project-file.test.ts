@@ -38,6 +38,17 @@ describe("project file", () => {
         expect(parseProjectFile(serializeProject(project))).toEqual(project);
     });
 
+    it("keeps decimal quantities", () => {
+        const project = sampleProject();
+        const tape = {
+            ...project,
+            rows: project.rows.map(row => ({ ...row, qty: 0.004 }))
+        };
+        expect(parseProjectFile(serializeProject(tape)).rows[0]?.qty).toBe(
+            0.004
+        );
+    });
+
     it("keeps KiCad's values for syncing", () => {
         const project = {
             ...sampleProject(),

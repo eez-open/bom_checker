@@ -6,10 +6,11 @@ import {
     type EditableCallbackParams,
     type GridApi,
     type GridReadyEvent,
+    type IRowNode,
     type SelectionChangedEvent
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { lastCollectedAt } from "../../shared/collection";
 import type { ColumnGroup } from "../../shared/ipc";
 import type {
@@ -18,9 +19,15 @@ import type {
     Project,
     SupplierId
 } from "../../shared/model";
-import { bomTotals, supplierTotal } from "../../shared/pricing";
+import {
+    bomTotals,
+    manualTotal,
+    matchesRowView,
+    supplierTotal
+} from "../../shared/pricing";
 import {
     createRow,
+    manualSuppliersWithPrices,
     suppliersWithData,
     totalQuantity
 } from "../../shared/project-ops";
@@ -64,6 +71,12 @@ interface BomTableProps {
     /** A newly added row whose Reference cell should start editing. */
     editRowId: string | null;
     onEditStarted: () => void;
+    /** Text to search the rows for. */
+    search: string;
+    /** Rows filter (see `matchesRowView`). */
+    rowView: string;
+    /** Rows shown with the filters on; null when nothing is filtered. */
+    onShownRows: (rows: number | null) => void;
 }
 
 function EmptyTable() {
@@ -82,7 +95,10 @@ export function BomTable({
     onCellEdit,
     onSelectionChange,
     editRowId,
-    onEditStarted
+    onEditStarted,
+    search,
+    rowView,
+    onShownRows
 }: BomTableProps) {
     const apiRef = useRef<GridApi<BomRow> | null>(null);
     // Cells read collected data and the supplier preference through the
@@ -91,15 +107,30 @@ export function BomTable({
     const collected = useRef(project.collected);
     const preferenceRef = useRef(preference);
     const buildQuantity = useRef(project.buildQuantity);
+    // With filters on, the Total row adds up the shown rows only.
+    const [shownIds, setShownIds] = useState<ReadonlySet<string> | null>(null);
+    const shown = useMemo(
+        () =>
+            shownIds
+                ? {
+                      ...project,
+                      rows: project.rows.filter(row => shownIds.has(row.id))
+                  }
+                : project,
+        [project, shownIds]
+    );
     const totals = useMemo<TableTotals>(
         () => ({
-            rows: project.rows.length,
+            rows: shown.rows.length,
             suppliers: Object.fromEntries(
-                project.suppliers.map(s => [s, supplierTotal(project, s)])
+                shown.suppliers.map(s => [s, supplierTotal(shown, s)])
             ),
-            best: bomTotals(project, preference)
+            manual: Object.fromEntries(
+                shown.manualSuppliers.map(s => [s.id, manualTotal(shown, s)])
+            ),
+            best: bomTotals(shown, preference)
         }),
-        [project, preference]
+        [shown, preference]
     );
     const totalsRef = useRef(totals);
     const context = useMemo<TableContext>(
@@ -119,6 +150,19 @@ export function BomTable({
         apiRef.current?.refreshCells({ force: true });
     }, [project.collected, preference, project.buildQuantity]);
 
+    // With a build quantity, totals show the price per unit as well: make
+    // the Total price columns wide enough for it.
+    const autoSizeTotals = useCallback(() => {
+        const api = apiRef.current;
+        if (!api || buildQuantity.current <= 1) {
+            return;
+        }
+        const totals = (api.getColumns() ?? [])
+            .map(column => column.getColId())
+            .filter(id => id.endsWith("totalPrice"));
+        api.autoSizeColumns(totals);
+    }, []);
+
     useEffect(() => {
         totalsRef.current = totals;
         const api = apiRef.current;
@@ -131,6 +175,10 @@ export function BomTable({
     // Suppliers with collected data get the calculated columns.
     const withData = suppliersWithData(project).join(",");
     const hidden = hiddenColumns.join(",");
+    // Whether the Best price columns show depends on typed-in prices too.
+    const manualPriced = manualSuppliersWithPrices(project)
+        .map(s => s.id)
+        .join(",");
     const collectedAt = project.suppliers
         .map(s => lastCollectedAt(project.collected, s))
         .join(",");
@@ -152,24 +200,82 @@ export function BomTable({
             withData,
             collectedAt,
             project.buildQuantity,
+            project.manualSuppliers,
+            manualPriced,
             hidden
         ]
     );
 
     // Shown once there are prices to add up.
-    const parts = totalQuantity(project);
+    const parts = totalQuantity(shown);
+    const totalLabel = shownIds ? "Total of shown rows" : "Total";
     const pinnedRows = useMemo(
         () =>
-            withData
+            withData || manualPriced
                 ? [
                       {
-                          ...createRow({ reference: "Total", qty: parts }),
+                          ...createRow({ reference: totalLabel, qty: parts }),
                           id: TOTALS_ROW_ID
                       }
                   ]
                 : [],
-        [withData, parts]
+        [withData, manualPriced, parts, totalLabel]
     );
+
+    const filtered = search.trim() !== "" || rowView !== "all";
+    // The rows filter reads the BOM through a ref, so its callbacks stay
+    // the same: filtering again on every edit would stop cell editing.
+    const view = useRef({ project, preference, rowView });
+    const isExternalFilterPresent = useCallback(
+        () => view.current.rowView !== "all",
+        []
+    );
+    const doesExternalFilterPass = useCallback((node: IRowNode<BomRow>) => {
+        const {
+            project: bom,
+            preference: order,
+            rowView: filter
+        } = view.current;
+        return !node.data || matchesRowView(node.data, bom, order, filter);
+    }, []);
+    useEffect(() => {
+        const wasFiltering = view.current.rowView !== "all";
+        view.current = { project, preference, rowView };
+        if (wasFiltering || rowView !== "all") {
+            apiRef.current?.onFilterChanged();
+        }
+    }, [project, preference, rowView]);
+
+    /** Which rows the filters let through, for the Total row and the
+     *  count above the table. */
+    const updateShown = useCallback(() => {
+        const api = apiRef.current;
+        if (!api || !filtered) {
+            setShownIds(current => (current ? null : current));
+            onShownRows(null);
+            return;
+        }
+        const ids = new Set<string>();
+        api.forEachNodeAfterFilter(node => {
+            if (node.data) {
+                ids.add(node.data.id);
+            }
+        });
+        setShownIds(current =>
+            current &&
+            current.size === ids.size &&
+            [...ids].every(id => current.has(id))
+                ? current
+                : ids
+        );
+        onShownRows(ids.size);
+    }, [filtered, onShownRows]);
+    useEffect(updateShown, [updateShown]);
+
+    // Also when columns are added, e.g. after collecting.
+    useEffect(() => {
+        requestAnimationFrame(autoSizeTotals);
+    }, [project.buildQuantity, columnDefs, autoSizeTotals]);
 
     const startPendingEdit = useCallback(() => {
         const api = apiRef.current;
@@ -190,6 +296,12 @@ export function BomTable({
             columnDefs={columnDefs}
             defaultColDef={DEFAULT_COLUMN}
             getRowId={params => params.data.id}
+            // Filtering swaps rows at once, without sliding them.
+            animateRows={false}
+            quickFilterText={search}
+            isExternalFilterPresent={isExternalFilterPresent}
+            doesExternalFilterPass={doesExternalFilterPass}
+            onModelUpdated={updateShown}
             pinnedTopRowData={pinnedRows}
             getRowClass={params =>
                 params.node.rowPinned ? "totals-row" : undefined
@@ -207,6 +319,7 @@ export function BomTable({
                 (apiRef.current = event.api)
             }
             onRowDataUpdated={startPendingEdit}
+            onFirstDataRendered={autoSizeTotals}
             onCellEditRequest={(event: CellEditRequestEvent<BomRow>) => {
                 const key = keys.get(event.column.getColId());
                 if (key && event.data) {

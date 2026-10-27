@@ -81,6 +81,36 @@ test("calculates order quantities, prices and the best supplier", async () => {
             "Best price total: 30.92 EUR · 1 row without a supplier that has enough stock"
         );
 
+        // Search (Ctrl+F, #29): rows with the text in any column.
+        await clickMenuItem(app, "find");
+        const search = page.getByLabel("Search the table");
+        await expect(search).toBeFocused();
+        await page.keyboard.type("tps54");
+        await expect(page.getByTestId("shown-rows")).toContainText(
+            "Showing 1 of 4 rows"
+        );
+        await expect(cell(page, 0, "reference")).toHaveText("U1");
+        await expect(cell(page, 0, "row")).toHaveText("2");
+        await search.press("Escape");
+        await expect(page.getByTestId("shown-rows")).toHaveCount(0);
+
+        // Rows by best supplier (#25); the Total row adds up those shown.
+        const rows = page.getByLabel("Rows");
+        await rows.selectOption({ label: "Best price: None in stock" });
+        await expect(cell(page, 0, "reference")).toHaveText("R1");
+        await expect(page.getByTestId("shown-rows")).toContainText(
+            "Showing 1 of 4 rows"
+        );
+        await rows.selectOption({ label: "Best price: DigiKey" });
+        await expect(cell(page, 0, "reference")).toHaveText("C1");
+        await expect(cell(page, TOTAL, "reference")).toHaveText(
+            "Total of shown rows"
+        );
+        await expect(cell(page, TOTAL, "best:totalPrice")).toHaveText("24.00");
+        await page.getByRole("button", { name: "Show all" }).click();
+        await expect(cell(page, TOTAL, "reference")).toHaveText("Total");
+        await expect(cell(page, R1, "reference")).toHaveText("R1");
+
         // The Total row adds up each price column.
         await expect(cell(page, TOTAL, "reference")).toHaveText("Total");
         await expect(cell(page, TOTAL, "qty")).toHaveText("35");
@@ -128,18 +158,37 @@ test("calculates order quantities, prices and the best supplier", async () => {
         await page.keyboard.press("Control+Z");
         await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("50");
 
+        // A decimal Qty (#19), e.g. part of a roll: still one package of 50.
+        await cell(page, D1, "qty").dblclick();
+        await fillEditor(page, "qty", "0.25");
+        await page.keyboard.press("Enter");
+        await expect(cell(page, D1, "qty")).toHaveText("0.25");
+        await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("50");
+        await expect(page.getByTestId("bom-summary")).toHaveText(
+            "4 rows · 33.25 parts"
+        );
+        await page.keyboard.press("Control+Z");
+        await expect(cell(page, D1, "qty")).toHaveText("2");
+
         // Build quantity: every Qty × 30, undone with Ctrl+Z.
         const buildQty = page.getByLabel("Build qty");
         await buildQty.fill("30");
         await buildQty.press("Enter");
         await expect(cell(page, D1, "totalQty")).toHaveText("60");
         await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("100");
-        await expect(cell(page, D1, "data:tme:totalPrice")).toHaveText("1.24");
+        // Totals show the price per unit too (#27): 1.24 / 30.
+        await expect(cell(page, D1, "data:tme:totalPrice")).toHaveText(
+            "1.24 (0.04)"
+        );
         await expect(page.getByTestId("bom-summary")).toHaveText(
-            "4 rows · 35 parts per unit × 30 = 1050 parts"
+            "4 rows · 35 parts per unit × 30 = 1,050 parts"
+        );
+        await expect(page.getByTestId("bom-total")).toContainText(
+            "EUR per unit)"
         );
         await page.keyboard.press("Control+Z");
         await expect(buildQty).toHaveValue("1");
+        await expect(cell(page, D1, "data:tme:totalPrice")).toHaveText("0.62");
         await expect(cell(page, D1, "totalQty")).toHaveCount(0);
         await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("50");
 

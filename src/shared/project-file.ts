@@ -22,10 +22,21 @@ const rowSchema = z.object({
     id: z.string().min(1),
     reference: z.string(),
     value: z.string(),
-    qty: z.number().int().nonnegative(),
+    qty: z.number().nonnegative(),
     footprint: z.string(),
     partNumbers: z.partialRecord(supplierId, z.string()),
-    custom: z.record(z.string(), z.union([z.string(), z.number()]))
+    custom: z.record(z.string(), z.union([z.string(), z.number()])),
+    manual: z
+        .record(
+            z.string(),
+            z.object({
+                partNumber: z.string().optional(),
+                unitPrice: z.number().nonnegative().optional(),
+                stock: z.number().nonnegative().optional(),
+                moq: z.number().positive().optional()
+            })
+        )
+        .optional()
 });
 
 const offerSchema = z.object({
@@ -119,6 +130,9 @@ const projectSchema: z.ZodType<Project> = z
                 type: z.enum(["text", "number"])
             })
         ),
+        manualSuppliers: z.array(
+            z.object({ id: z.string().min(1), name: z.string().min(1) })
+        ),
         rows: z.array(rowSchema),
         buildQuantity: z.number().int().min(1).max(MAX_BUILD_QUANTITY),
         collected: collectedSchema
@@ -148,7 +162,9 @@ const MIGRATIONS: Partial<Record<number, Migration>> = {
     2: data => ({ ...data, buildQuantity: 1 }),
     // Version 4 added KiCad's values for Sync KiCad…; files without them
     // are compared without knowing which side changed.
-    3: data => data
+    3: data => data,
+    // Version 5 allows decimal quantities and adds suppliers without an API.
+    4: data => ({ ...data, manualSuppliers: [] })
 };
 
 export function parseProjectFile(text: string): Project {

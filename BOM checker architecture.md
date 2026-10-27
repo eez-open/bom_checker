@@ -143,10 +143,11 @@ The project file is a versioned JSON document. 1,000 rows with three suppliers' 
 
 ```ts
 interface Project {
-  schemaVersion: 4;                     // 2 added `collected`, 3 `buildQuantity`, 4 `source.kicadValues`
+  schemaVersion: 5;                     // 2 added `collected`, 3 `buildQuantity`, 4 `source.kicadValues`, 5 decimal `qty` and `manualSuppliers`
   source: { kind: 'manual' | 'csv' | 'kicad'; path?: string; variant?: string; importedAt?: string };
   suppliers: SupplierId[];              // suppliers that have a part-number column in this BOM
-  customColumns: ColumnDef[];           // user-defined columns, plus unmapped imported ones (e.g. LCSC)
+  customColumns: ColumnDef[];           // user-defined columns, plus unmapped imported ones
+  manualSuppliers: { id: string; name: string }[];  // suppliers without an API (#20); rows' `manual[id]` holds what's typed
   rows: BomRow[];
   buildQuantity: number;                // units to build; every Qty is multiplied by it (1 by default)
   collected: {                         // not part of the undo history
@@ -159,7 +160,7 @@ interface BomRow {
   id: string;                           // stable UUID; survives sorting and re-import
   reference: string;                    // "C1,C2,C3"
   value: string;
-  qty: number;
+  qty: number;                          // may be a decimal, e.g. 0.004 (m of tape)
   footprint: string;
   custom: Record<string, string>;
   partNumbers: Partial<Record<SupplierId, string>>;  // trimmed; "" or "-" means not defined
@@ -229,6 +230,8 @@ For one row and one supplier:
 - **No candidate:** the Best columns stay blank and the row is marked "no supplier can deliver the full quantity".
 
 The scope's example works out as follows. Mouser is €1 × 20 but has only 10 in stock, so it isn't a candidate. DigiKey at €1.20 × 20 with enough stock wins.
+
+**Suppliers without an API (#20).** A row's `manual[supplierId]` holds a typed part number, unit price (EUR), stock and MOQ. `manualLine` turns it into an offer with one price break, order multiple 1 and, without a stock, unlimited stock; the rules above then apply unchanged. These suppliers are candidates for the best price like the others and rank after those with an API on equal totals. Their names follow the custom-column rules, since they head columns and export headers (`Shop_Unit price`).
 
 **Out of scope for v1:** buying *more* than needed to reach a cheaper price break. DigiKey offers a "better value" quantity endpoint that could support this later.
 
@@ -591,6 +594,10 @@ These points couldn't be settled from documentation and should be the first thin
 ---
 
 ## 15. Status
+
+### Version 0.6.0
+
+Suppliers without an API (#20, section 5.3), decimal quantities (#19), the price per unit with a build quantity (#27), search (#29) and a rows filter by best supplier (#25). File format 5. Unit tests: 199; end-to-end tests: 15.
 
 ### Version 0.5.0
 

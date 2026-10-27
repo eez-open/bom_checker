@@ -3,6 +3,7 @@ import type { AppInfo, ColumnGroup } from "../shared/ipc";
 import type { SupplierId } from "../shared/model";
 import { BASE_CURRENCY, bomTotals, foreignCurrencies } from "../shared/pricing";
 import {
+    manualSuppliersWithPrices,
     setCell,
     suppliersWithData,
     totalQuantity
@@ -28,6 +29,7 @@ import { KicadSyncDialog } from "./dialogs/KicadSyncDialog";
 import { KicadUpdateDialog } from "./dialogs/KicadUpdateDialog";
 import { SettingsDialog } from "./settings/SettingsDialog";
 import { StartPage } from "./StartPage";
+import { FilterBar, rowViews } from "./FilterBar";
 import { documentName, isDirty, useDocument } from "./store/document";
 import { loadAppSettings, useAppSettings } from "./store/settings";
 import { useUi } from "./store/ui";
@@ -39,13 +41,18 @@ const MONEY = new Intl.NumberFormat("en", {
     maximumFractionDigits: 2
 });
 
+const AMOUNT = new Intl.NumberFormat("en", { maximumFractionDigits: 6 });
+
 function count(n: number, noun: string): string {
-    return `${n} ${noun}${n === 1 ? "" : "s"}`;
+    return `${AMOUNT.format(n)} ${noun}${n === 1 ? "" : "s"}`;
 }
 
 function hasFiles(event: DragEvent): boolean {
     return event.dataTransfer.types.includes("Files");
 }
+
+const onShownRows = (rows: number | null) =>
+    useUi.setState({ shownRows: rows });
 
 export function App() {
     const open = useDocument(state => state.open);
@@ -58,6 +65,13 @@ export function App() {
     const editRowId = useUi(state => state.editRowId);
     const dialog = useUi(state => state.dialog);
     const hiddenColumns = useUi(state => state.hiddenColumns);
+    const search = useUi(state => state.search);
+    const shownRows = useUi(state => state.shownRows);
+    // A filter for a supplier without data any more shows all rows.
+    const chosenView = useUi(state => state.rowView);
+    const rowView = rowViews(project).some(([value]) => value === chosenView)
+        ? chosenView
+        : "all";
     const [info, setInfo] = useState<AppInfo>();
     // dragenter and dragleave also fire for every child element.
     const [dragging, setDragging] = useState(false);
@@ -69,11 +83,12 @@ export function App() {
     );
     const foreign = useMemo(() => foreignCurrencies(project), [project]);
     const withData = suppliersWithData(project);
-    const hasData = withData.length > 0;
-    // The table shows Best price once two suppliers have data.
+    const priced = withData.length + manualSuppliersWithPrices(project).length;
+    const hasData = priced > 0;
+    // The table shows Best price once two suppliers have prices.
     const available: ColumnGroup[] = [
         ...project.suppliers,
-        ...(withData.length >= 2 ? (["best"] as const) : [])
+        ...(priced >= 2 ? (["best"] as const) : [])
     ];
     const hidden = hiddenColumns.filter(group => available.includes(group));
     const availableKey = available.join(",");
@@ -192,6 +207,7 @@ export function App() {
                         and collect again.
                     </div>
                 ))}
+            {open && <FilterBar project={project} rows={shownRows} />}
             {open && (
                 <main className="app-table">
                     <BomTable
@@ -210,6 +226,9 @@ export function App() {
                         onSelectionChange={ids =>
                             useUi.setState({ selectedRowIds: ids })
                         }
+                        search={search}
+                        rowView={rowView}
+                        onShownRows={onShownRows}
                     />
                 </main>
             )}
@@ -248,6 +267,8 @@ export function App() {
                     <span data-testid="bom-total">
                         Best price total: {MONEY.format(totals.total)}{" "}
                         {BASE_CURRENCY}
+                        {project.buildQuantity > 1 &&
+                            ` (${MONEY.format(totals.total / project.buildQuantity)} ${BASE_CURRENCY} per unit)`}
                         {totals.uncovered > 0 &&
                             ` · ${count(totals.uncovered, "row")} without a supplier that has enough stock`}
                     </span>

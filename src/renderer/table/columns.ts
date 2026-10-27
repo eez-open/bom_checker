@@ -13,16 +13,21 @@ import {
     type ColumnKey,
     type Lifecycle,
     type Project,
+    type ManualField,
+    type ManualSupplier,
     type SupplierId
 } from "../../shared/model";
 import { hasAlternatives } from "../../shared/part-number";
+import { manualSuppliersWithPrices } from "../../shared/project-ops";
 import {
     BASE_CURRENCY,
     bestSupplier,
+    hasSupplierData,
+    manualLine,
     supplierLine,
     type SupplierLine
 } from "../../shared/pricing";
-import { SUPPLIERS } from "../../shared/suppliers";
+import { SUPPLIERS, supplierName } from "../../shared/suppliers";
 import { ChooseItemCell } from "./ChooseItemCell";
 import { PartNumberCell, resultFor, type TableContext } from "./PartNumberCell";
 
@@ -67,7 +72,7 @@ const TOTAL_PRICE = new Intl.NumberFormat("en", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
 });
-const QUANTITY = new Intl.NumberFormat("en");
+const QUANTITY = new Intl.NumberFormat("en", { maximumFractionDigits: 6 });
 
 function context(params: { context: unknown }): TableContext {
     return params.context as TableContext;
@@ -86,6 +91,26 @@ function lineOf(
               table.getBuildQuantity()
           )
         : null;
+}
+
+/** A total price; when building several units, the price per unit
+ *  follows in parentheses: "62.50 (2.50)". */
+function formatTotal(params: { value: unknown; context: unknown }): string {
+    if (typeof params.value !== "number") {
+        return "";
+    }
+    const build = context(params).getBuildQuantity();
+    const total = TOTAL_PRICE.format(params.value);
+    return build > 1
+        ? `${total} (${TOTAL_PRICE.format(params.value / build)})`
+        : total;
+}
+
+/** The Total price columns' header tooltip. */
+function totalTooltip(name: string, buildQuantity: number): string {
+    return buildQuantity > 1
+        ? `${name}_Total price (${BASE_CURRENCY}); in parentheses, per unit (÷ ${buildQuantity})`
+        : `${name}_Total price (${BASE_CURRENCY})`;
 }
 
 function formatQuantity(value: unknown): string {
@@ -139,7 +164,10 @@ function partNumberColumn(supplier: SupplierId): ColDef<BomRow, string> {
 
 /** Read-only columns calculated from the collected data. The prefixed
  *  names ("Mouser_Stock Qty") are used in tooltips and exports. */
-function dataColumns(supplier: SupplierId): ColDef<BomRow>[] {
+function dataColumns(
+    supplier: SupplierId,
+    buildQuantity: number
+): ColDef<BomRow>[] {
     const name = SUPPLIERS[supplier].name;
     const column = (
         field: string,
@@ -242,11 +270,8 @@ function dataColumns(supplier: SupplierId): ColDef<BomRow>[] {
                 }
                 return lineOf(params, supplier)?.total ?? null;
             },
-            valueFormatter: params =>
-                typeof params.value === "number"
-                    ? TOTAL_PRICE.format(params.value)
-                    : "",
-            headerTooltip: `${name}_Total price (${BASE_CURRENCY})`,
+            valueFormatter: formatTotal,
+            headerTooltip: totalTooltip(name, buildQuantity),
             tooltipValueGetter: params => {
                 if (params.node?.rowPinned) {
                     const { rows, suppliers } = context(params).getTotals();
@@ -301,7 +326,8 @@ function bestColumns(project: Project): ColGroupDef<BomRow> {
                   context(params).getCollected(),
                   project.suppliers,
                   context(params).getPreference(),
-                  context(params).getBuildQuantity()
+                  context(params).getBuildQuantity(),
+                  project.manualSuppliers
               )
             : null;
     const column = (
@@ -324,18 +350,15 @@ function bestColumns(project: Project): ColGroupDef<BomRow> {
                 valueGetter: params => {
                     const choice = best(params);
                     if (choice) {
-                        return SUPPLIERS[choice.supplier].name;
+                        return supplierName(project, choice.supplier);
                     }
                     const hasData =
                         params.data &&
-                        project.suppliers.some(s =>
-                            supplierLine(
-                                params.data!,
-                                s,
-                                context(params).getCollected(),
-                                context(params).getBuildQuantity()
-                            )
-                        );
+                        hasSupplierData(params.data, {
+                            ...project,
+                            collected: context(params).getCollected(),
+                            buildQuantity: context(params).getBuildQuantity()
+                        });
                     return hasData ? "None in stock" : "";
                 },
                 cellClassRules: {
@@ -364,7 +387,7 @@ function bestColumns(project: Project): ColGroupDef<BomRow> {
             column("totalPrice", "Total price", {
                 type: "rightAligned",
                 initialWidth: 110,
-                headerTooltip: `Best_Total price (${BASE_CURRENCY})`,
+                headerTooltip: totalTooltip("Best", project.buildQuantity),
                 valueGetter: params => {
                     if (params.node?.rowPinned) {
                         const totals = context(params).getTotals().best;
@@ -379,10 +402,123 @@ function bestColumns(project: Project): ColGroupDef<BomRow> {
                     const { rows, best } = context(params).getTotals();
                     return `Sum of the best prices, for ${best.covered} of ${rows} rows.`;
                 },
+                valueFormatter: formatTotal
+            })
+        ]
+    };
+}
+
+/**
+ * A supplier without an API (#20): its part number, unit price (EUR),
+ * stock and MOQ are typed in; order quantity, total and availability are
+ * calculated as for the others.
+ */
+function manualColumns(
+    supplier: ManualSupplier,
+    buildQuantity: number,
+    keys: Map<string, ColumnKey>
+): ColGroupDef<BomRow> {
+    const { id, name } = supplier;
+    const lineOfRow = (params: { data?: BomRow; context: unknown }) =>
+        params.data
+            ? manualLine(
+                  params.data,
+                  supplier,
+                  context(params).getBuildQuantity()
+              )
+            : null;
+    const typed = (
+        field: ManualField,
+        header: string,
+        options: ColDef<BomRow>
+    ): ColDef<BomRow> => {
+        const colId = `manual:${id}:${field}`;
+        keys.set(colId, { kind: "manual", supplier: id, field });
+        return {
+            colId,
+            headerName: header,
+            headerTooltip: `${name}_${header} (typed in)`,
+            valueGetter: params =>
+                params.data?.manual?.[id]?.[field] ??
+                (field === "partNumber" ? "" : null),
+            ...options
+        };
+    };
+    const calculated = (
+        field: string,
+        header: string,
+        options: ColDef<BomRow>
+    ): ColDef<BomRow> => ({
+        colId: `manual:${id}:${field}`,
+        headerName: header,
+        headerTooltip: `${name}_${header}`,
+        editable: false,
+        ...options
+    });
+    return {
+        groupId: `group:manual:${id}`,
+        headerName: name,
+        openByDefault: true,
+        children: [
+            typed("partNumber", name, {
+                cellDataType: "text",
+                initialWidth: 170,
+                headerTooltip: `${name} part number (typed in; ${name} has no API)`
+            }),
+            typed("unitPrice", "Unit price", {
+                type: "rightAligned",
+                cellDataType: "number",
+                cellEditorParams: { min: 0, precision: 6 },
+                initialWidth: 110,
+                headerTooltip: `${name}_Unit price in ${BASE_CURRENCY} (typed in)`,
                 valueFormatter: params =>
                     typeof params.value === "number"
-                        ? TOTAL_PRICE.format(params.value)
+                        ? UNIT_PRICE.format(params.value)
                         : ""
+            }),
+            typed("stock", "Stock Qty", {
+                type: "rightAligned",
+                cellDataType: "number",
+                cellEditorParams: { min: 0, precision: 6 },
+                initialWidth: 110,
+                columnGroupShow: "open",
+                headerTooltip: `${name}_Stock Qty (typed in; empty means always available)`,
+                valueFormatter: params => formatQuantity(params.value)
+            }),
+            typed("moq", "MOQ", {
+                type: "rightAligned",
+                cellDataType: "number",
+                cellEditorParams: { min: 0, precision: 6 },
+                initialWidth: 90,
+                columnGroupShow: "open",
+                valueFormatter: params => formatQuantity(params.value)
+            }),
+            calculated("orderQty", "Order Qty", {
+                type: "rightAligned",
+                initialWidth: 110,
+                columnGroupShow: "open",
+                valueGetter: params => lineOfRow(params)?.orderQty ?? null,
+                valueFormatter: params => formatQuantity(params.value)
+            }),
+            calculated("totalPrice", "Total price", {
+                type: "rightAligned",
+                initialWidth: 110,
+                headerTooltip: totalTooltip(name, buildQuantity),
+                valueGetter: params => {
+                    if (params.node?.rowPinned) {
+                        const sum = context(params).getTotals().manual[id];
+                        return sum?.priced ? sum.total : null;
+                    }
+                    return lineOfRow(params)?.total ?? null;
+                },
+                valueFormatter: formatTotal
+            }),
+            calculated("availability", "Availability", {
+                initialWidth: 160,
+                valueGetter: params =>
+                    availabilityText(lineOfRow(params)) || null,
+                cellClass: (params: CellClassParams<BomRow>) =>
+                    availabilityClass(lineOfRow(params))
             })
         ]
     };
@@ -424,10 +560,11 @@ export function buildColumns(
                 pinned: "left",
                 editable: false,
                 sortable: false,
+                // The row's place in the BOM, also when sorted or filtered.
                 valueGetter: params =>
                     params.node?.rowPinned
                         ? null
-                        : (params.node?.rowIndex ?? 0) + 1
+                        : (params.node?.sourceRowIndex ?? 0) + 1
             });
             continue;
         }
@@ -438,7 +575,8 @@ export function buildColumns(
             headerName: column.header,
             type: numeric ? "rightAligned" : undefined,
             cellDataType: numeric ? "number" : "text",
-            cellEditorParams: numeric ? { min: 0, precision: 0 } : undefined,
+            // Qty may be a decimal, e.g. 0.004 m of tape.
+            cellEditorParams: numeric ? { min: 0, precision: 6 } : undefined,
             initialWidth: WIDTHS[column.field],
             // Row, Reference and Value stay in view while scrolling to
             // supplier data.
@@ -468,7 +606,7 @@ export function buildColumns(
             partNumberColumn(supplier) as ColDef<BomRow>
         ];
         if (withData.includes(supplier)) {
-            children.push(...dataColumns(supplier));
+            children.push(...dataColumns(supplier, project.buildQuantity));
         }
         columnDefs.push(
             hideGroup(
@@ -492,7 +630,12 @@ export function buildColumns(
         );
     }
 
-    if (withData.length >= 2) {
+    for (const supplier of project.manualSuppliers) {
+        columnDefs.push(manualColumns(supplier, project.buildQuantity, keys));
+    }
+
+    // Best price once two suppliers have prices to compare.
+    if (withData.length + manualSuppliersWithPrices(project).length >= 2) {
         columnDefs.push(hideGroup(bestColumns(project), hidden.has("best")));
     }
 

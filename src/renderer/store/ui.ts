@@ -27,6 +27,13 @@ interface UiStore {
     dialog: OpenDialog;
     /** Column groups hidden from the table; remembered between sessions. */
     hiddenColumns: ColumnGroup[];
+    /** Text the table's rows are searched for (Ctrl+F). */
+    search: string;
+    /** Rows filter: "all", "best:<supplier>" or "none" (no supplier can
+     *  deliver). */
+    rowView: string;
+    /** Rows shown with the filters on; null when nothing is filtered. */
+    shownRows: number | null;
 }
 
 const HIDDEN_COLUMNS_KEY = "hidden-columns";
@@ -48,7 +55,10 @@ export const useUi = create<UiStore>()(() => ({
     selectedRowIds: [],
     editRowId: null,
     dialog: null,
-    hiddenColumns: loadHiddenColumns()
+    hiddenColumns: loadHiddenColumns(),
+    search: "",
+    rowView: "all",
+    shownRows: null
 }));
 
 export function setHiddenColumns(hidden: ColumnGroup[]): void {

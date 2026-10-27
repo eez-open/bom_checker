@@ -7,6 +7,7 @@ import {
     type BomRow,
     type CollectedData,
     type LookupResult,
+    type ManualSupplier,
     type PriceBreak,
     type Project,
     type SupplierId,
@@ -34,7 +35,10 @@ export function orderQuantity(
         return 0;
     }
     const step = Math.max(1, multiple);
-    return Math.ceil(Math.max(qty, moq) / step) * step;
+    // Decimal quantities (0.004 m × 1250 = 5.000000000000001) mustn't add
+    // a whole package.
+    const packages = Number((Math.max(qty, moq) / step).toFixed(9));
+    return Math.ceil(packages) * step;
 }
 
 /** The unit price of the largest break at or below `quantity`. Below the
@@ -103,12 +107,16 @@ export function supplierLine(
             availability: null
         };
     }
+    return lineFor(result, row.qty * buildQuantity);
+}
+
+/** Order quantity, price, total and availability of a found offer. */
+function lineFor(
+    result: Extract<LookupResult, { status: "found" }>,
+    quantity: number
+): SupplierLine {
     const { offer } = result;
-    const orderQty = orderQuantity(
-        row.qty * buildQuantity,
-        offer.moq,
-        offer.orderMultiple
-    );
+    const orderQty = orderQuantity(quantity, offer.moq, offer.orderMultiple);
     const price = priceAt(offer.priceBreaks, orderQty);
     const inBaseCurrency = offer.currency === BASE_CURRENCY;
     return {
@@ -121,6 +129,50 @@ export function supplierLine(
         total: inBaseCurrency && price ? price.unitPrice * orderQty : null,
         availability: availabilityOf(offer, orderQty)
     };
+}
+
+/**
+ * The line of a supplier without an API (#20), from what was typed: the
+ * unit price in EUR, the MOQ and the stock, where no stock means always
+ * available (e.g. made to order). Null when nothing was typed.
+ */
+export function manualLine(
+    row: BomRow,
+    supplier: ManualSupplier,
+    buildQuantity: number
+): SupplierLine | null {
+    const entry = row.manual?.[supplier.id];
+    if (!entry || (entry.unitPrice === undefined && !entry.partNumber)) {
+        return null;
+    }
+    const offer: SupplierOffer = {
+        supplierPartNumber: entry.partNumber ?? "",
+        manufacturer: "",
+        manufacturerPartNumber: "",
+        description: "",
+        stockQty: entry.stock ?? Number.POSITIVE_INFINITY,
+        moq: entry.moq ?? 1,
+        orderMultiple: 1,
+        priceBreaks:
+            entry.unitPrice === undefined
+                ? []
+                : [{ qty: 1, unitPrice: entry.unitPrice }],
+        priceKind: "unknown",
+        currency: BASE_CURRENCY,
+        lifecycle: null,
+        lifecycleRaw: null,
+        rohs: null
+    };
+    return lineFor(
+        {
+            status: "found",
+            offer,
+            matchedBy: "supplierPartNumber",
+            runId: "",
+            fetchedAt: ""
+        },
+        row.qty * buildQuantity
+    );
 }
 
 function availabilityOf(offer: SupplierOffer, orderQty: number): Availability {
@@ -136,7 +188,8 @@ function availabilityOf(offer: SupplierOffer, orderQty: number): Availability {
 }
 
 export interface BestChoice {
-    supplier: SupplierId;
+    /** A `SupplierId`, or the id of a supplier without an API. */
+    supplier: string;
     line: SupplierLine & {
         offer: SupplierOffer;
         orderQty: number;
@@ -147,18 +200,19 @@ export interface BestChoice {
 /**
  * The cheapest supplier by total price that has the whole order quantity
  * in stock and prices in the base currency. Equal totals go to the
- * supplier earlier in `preference`.
+ * supplier earlier in `preference`; suppliers without an API come after
+ * those with one.
  */
 export function bestSupplier(
     row: BomRow,
     collected: CollectedData,
     suppliers: readonly SupplierId[],
     preference: readonly SupplierId[],
-    buildQuantity: number
+    buildQuantity: number,
+    manual: readonly ManualSupplier[] = []
 ): BestChoice | null {
     const candidates: BestChoice[] = [];
-    for (const supplier of suppliers) {
-        const line = supplierLine(row, supplier, collected, buildQuantity);
+    const consider = (supplier: string, line: SupplierLine | null) => {
         if (
             line?.offer &&
             line.orderQty &&
@@ -167,10 +221,21 @@ export function bestSupplier(
         ) {
             candidates.push({ supplier, line: line as BestChoice["line"] });
         }
+    };
+    for (const supplier of suppliers) {
+        consider(
+            supplier,
+            supplierLine(row, supplier, collected, buildQuantity)
+        );
     }
-    const rank = (supplier: SupplierId) => {
-        const index = preference.indexOf(supplier);
-        return index < 0 ? preference.length : index;
+    for (const supplier of manual) {
+        consider(supplier.id, manualLine(row, supplier, buildQuantity));
+    }
+    const rank = (supplier: string) => {
+        const index = preference.indexOf(supplier as SupplierId);
+        return index >= 0
+            ? index
+            : preference.length + manual.findIndex(m => m.id === supplier);
     };
     candidates.sort(
         (a, b) =>
@@ -199,20 +264,29 @@ export function bomTotals(
             project.collected,
             project.suppliers,
             preference,
-            project.buildQuantity
+            project.buildQuantity,
+            project.manualSuppliers
         );
         if (best) {
             totals.total += best.line.total;
             totals.covered++;
-        } else if (
-            project.suppliers.some(s =>
-                supplierLine(row, s, project.collected, project.buildQuantity)
-            )
-        ) {
+        } else if (hasSupplierData(row, project)) {
             totals.uncovered++;
         }
     }
     return totals;
+}
+
+/** Whether any supplier has data for the row: collected, or typed in. */
+export function hasSupplierData(row: BomRow, project: Project): boolean {
+    return (
+        project.suppliers.some(s =>
+            supplierLine(row, s, project.collected, project.buildQuantity)
+        ) ||
+        project.manualSuppliers.some(s =>
+            manualLine(row, s, project.buildQuantity)
+        )
+    );
 }
 
 export interface ColumnTotal {
@@ -267,4 +341,48 @@ export function foreignCurrencies(
     return Object.fromEntries(
         Object.entries(found).map(([supplier, set]) => [supplier, [...set]])
     );
+}
+
+/**
+ * Whether a row belongs in a rows filter: "best:<supplier>" when that
+ * supplier has its best price, "none" when no supplier with data can
+ * deliver it, anything else for all rows.
+ */
+export function matchesRowView(
+    row: BomRow,
+    project: Project,
+    preference: readonly SupplierId[],
+    view: string
+): boolean {
+    if (view === "all") {
+        return true;
+    }
+    const best = bestSupplier(
+        row,
+        project.collected,
+        project.suppliers,
+        preference,
+        project.buildQuantity,
+        project.manualSuppliers
+    );
+    if (view === "none") {
+        return !best && hasSupplierData(row, project);
+    }
+    return best !== null && view === `best:${best.supplier}`;
+}
+
+/** The Total price column of a supplier without an API, added up. */
+export function manualTotal(
+    project: Project,
+    supplier: ManualSupplier
+): ColumnTotal {
+    const sum: ColumnTotal = { total: 0, priced: 0 };
+    for (const row of project.rows) {
+        const total = manualLine(row, supplier, project.buildQuantity)?.total;
+        if (total != null) {
+            sum.total += total;
+            sum.priced++;
+        }
+    }
+    return sum;
 }

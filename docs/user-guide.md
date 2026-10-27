@@ -94,6 +94,17 @@ Every change can be undone with **Ctrl+Z** and redone with **Ctrl+Y**.
 
 Importing again (for example after changing the schematic) keeps the supplier data already collected for part numbers that are still in the BOM.
 
+### Suppliers without an API
+
+Some parts don't come from DigiKey, Mouser, TME or LCSC: a TFT display from a specialist shop, a metal enclosure, cardboard shipping boxes. In **Columns…**, under *Suppliers without an API*, add such a supplier by name. It gets a column group in the table where you type, for each row:
+
+- **part number** (optional, for your reference);
+- **Unit price** in EUR;
+- **Stock Qty**: how many it has; leave it empty if it's always available, e.g. made to order;
+- **MOQ**: the smallest quantity it sells (1 if empty).
+
+Order Qty, Total price and Availability are calculated as for the other suppliers, and these suppliers take part in the best price: the cheapest total with enough stock wins; on equal totals, a supplier with an API is preferred. They're included in the Total row, the Rows filter and exports. Renaming or deleting one is done in **Columns…**; deleting removes what was typed for it (Ctrl+Z undoes it).
+
 ## Collecting supplier data
 
 Click **Collect…**. The first time in a session, enter your password. Then, for each supplier:
@@ -118,11 +129,15 @@ Generic values such as *100n*, *4u7* or *10k*, names like *LED* or *Conn_01x04*,
 
 ## Building several units
 
-To check prices and stock for a production batch, enter the number of units in **Build qty** on the toolbar and press Enter. Every row's Qty is multiplied by it: a part used 10 times per board needs 250 for 25 boards. Order quantities, price breaks, availability and the best price follow at once, without collecting again, since the collected data has every price break. A *Total Qty* column shows the multiplied quantity, and the status bar shows the parts per unit and in total. The build quantity is saved with the BOM, Ctrl+Z undoes a change, and exports include it.
+To check prices and stock for a production batch, enter the number of units in **Build qty** on the toolbar and press Enter. Every row's Qty is multiplied by it: a part used 10 times per board needs 250 for 25 boards. Order quantities, price breaks, availability and the best price follow at once, without collecting again, since the collected data has every price break. A *Total Qty* column shows the multiplied quantity, and the status bar shows the parts per unit and in total. Total prices show the price per unit in parentheses, e.g. *62.50 (2.50)* for 25 units, in the table, the Total row and the status bar's best-price total. The build quantity is saved with the BOM, Ctrl+Z undoes a change, and exports include it.
+
+**Qty can be a decimal** for parts used in fractions of their unit, e.g. 0.004 (m) of adhesive tape sold in 5 m rolls (type 0.004 or 0,004). The order quantity is still rounded up to whole packages: one 5 m roll covers up to 1,250 devices, and the 1,251st needs a second one.
 
 ## Reading the table
 
 Each supplier has a group of columns. Click the arrow in the group header to show only the part number, *Total price* and *Availability*. The group header also shows when that supplier's data was last collected. The date is saved with the BOM, and also appears in **Collect…** and on the Info sheet of exports.
+
+**Searching and filtering:** above the table, **Search** (Ctrl+F, or Edit → Find…) shows only the rows that contain the text in any column, e.g. a reference, a value or a part number; Escape clears it. Once supplier data has been collected, **Rows** shows only the rows where one supplier has the best price, or *Best price: None in stock* for the parts no supplier can deliver. While a filter is on, the Total row adds up the shown rows, and **Show all** turns the filters off. The Row column keeps each row's number in the BOM.
 
 To hide all columns of a supplier, or the Best price columns, uncheck them in the **View** menu (Ctrl+1 to Ctrl+5). Hiding only changes the view: the data stays, still counts for the best price, and can still be exported. The status bar lists hidden groups, with **Show all** to bring them back. The app remembers hidden groups for next time.
 
