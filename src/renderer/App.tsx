@@ -29,7 +29,7 @@ import { KicadSyncDialog } from "./dialogs/KicadSyncDialog";
 import { KicadUpdateDialog } from "./dialogs/KicadUpdateDialog";
 import { SettingsDialog } from "./settings/SettingsDialog";
 import { StartPage } from "./StartPage";
-import { FilterBar, rowViews } from "./FilterBar";
+import { FilterBar, rowViews, tableGroups } from "./FilterBar";
 import { documentName, isDirty, useDocument } from "./store/document";
 import { loadAppSettings, useAppSettings } from "./store/settings";
 import { useUi } from "./store/ui";
@@ -85,13 +85,13 @@ export function App() {
     const withData = suppliersWithData(project);
     const priced = withData.length + manualSuppliersWithPrices(project).length;
     const hasData = priced > 0;
-    // The table shows Best price once two suppliers have prices.
-    const available: ColumnGroup[] = [
-        ...project.suppliers,
-        ...(priced >= 2 ? (["best"] as const) : [])
-    ];
-    const hidden = hiddenColumns.filter(group => available.includes(group));
-    const availableKey = available.join(",");
+    const groups = tableGroups(project);
+    const hidden = groups.filter(group => hiddenColumns.includes(group.id));
+    // The View menu has the groups of suppliers with an API and Best price.
+    const availableKey = groups
+        .map(group => group.id)
+        .filter(id => !id.startsWith("manual:"))
+        .join(",");
     const fromKicad = project.source.kind === "kicad" && !!project.source.path;
 
     useEffect(() => {
@@ -135,7 +135,9 @@ export function App() {
                 open && availableKey
                     ? (availableKey.split(",") as ColumnGroup[])
                     : [],
-            hiddenColumns
+            hiddenColumns: hiddenColumns.filter(
+                (group): group is ColumnGroup => !group.startsWith("manual:")
+            )
         });
     }, [open, fromKicad, availableKey, hiddenColumns]);
 
@@ -246,13 +248,7 @@ export function App() {
                         <span data-testid="hidden-columns">
                             {" "}
                             · Hidden:{" "}
-                            {hidden
-                                .map(group =>
-                                    group === "best"
-                                        ? "Best price"
-                                        : SUPPLIERS[group].name
-                                )
-                                .join(", ")}{" "}
+                            {hidden.map(group => group.name).join(", ")}{" "}
                             <button
                                 type="button"
                                 className="link"

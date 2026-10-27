@@ -22,7 +22,7 @@ import {
 import { importedKicadValues } from "../shared/kicad-sync";
 import { PROJECT_FILE_EXTENSION } from "../shared/project-file";
 import { documentName, isDirty, useDocument } from "./store/document";
-import { setHiddenColumns, useUi } from "./store/ui";
+import { setHiddenColumns, useUi, type TableGroup } from "./store/ui";
 
 export async function saveDocument(saveAs = false): Promise<boolean> {
     const { project, filePath, markSaved } = useDocument.getState();
@@ -275,7 +275,7 @@ export function editColumns(): void {
     useUi.setState({ dialog: { kind: "columns" } });
 }
 
-export function toggleColumns(group: ColumnGroup): void {
+export function toggleColumns(group: TableGroup): void {
     const hidden = useUi.getState().hiddenColumns;
     setHiddenColumns(
         hidden.includes(group)

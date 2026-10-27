@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Added
 
 - Undo and Redo buttons on the toolbar, next to Save (#24).
+- Checkboxes above the table show and hide the columns of each supplier, including suppliers without an API, and Best price, without going to the View menu (#5).
 - DigiKey keeps stock per packaging: when another packaging of the same product has stock (e.g. a box when cut tape is out of stock), the Availability and part-number tooltips show its part number, stock and MOQ.
 
 ### Changed

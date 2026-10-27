@@ -5,7 +5,6 @@ import type {
     ValueGetterParams
 } from "ag-grid-community";
 import { lastCollectedAt } from "../../shared/collection";
-import type { ColumnGroup } from "../../shared/ipc";
 import {
     availabilityText,
     OTHER_PACKAGING,
@@ -38,6 +37,7 @@ import { PartNumberCell, resultFor, type TableContext } from "./PartNumberCell";
 /** Id of the pinned row with the column totals. */
 export const TOTALS_ROW_ID = "totals";
 import { describeResult } from "./result-text";
+import type { TableGroup } from "../store/ui";
 import { SupplierGroupHeader } from "./SupplierGroupHeader";
 
 export interface TableColumns {
@@ -555,7 +555,7 @@ function hideGroup(
 export function buildColumns(
     project: Project,
     withData: readonly SupplierId[],
-    hidden: ReadonlySet<ColumnGroup> = new Set()
+    hidden: ReadonlySet<TableGroup> = new Set()
 ): TableColumns {
     const keys = new Map<string, ColumnKey>();
     const columnDefs: (ColDef<BomRow> | ColGroupDef<BomRow>)[] = [];
@@ -642,7 +642,12 @@ export function buildColumns(
     }
 
     for (const supplier of project.manualSuppliers) {
-        columnDefs.push(manualColumns(supplier, project.buildQuantity, keys));
+        columnDefs.push(
+            hideGroup(
+                manualColumns(supplier, project.buildQuantity, keys),
+                hidden.has(`manual:${supplier.id}`)
+            )
+        );
     }
 
     // Best price once two suppliers have prices to compare.

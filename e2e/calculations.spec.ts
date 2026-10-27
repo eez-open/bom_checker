@@ -215,6 +215,17 @@ test("calculates order quantities, prices and the best supplier", async () => {
         await expect(cell(page, D1, "data:tme:totalPrice")).toHaveText("0.62");
         await expect(page.getByTestId("hidden-columns")).toHaveCount(0);
         await expect.poll(() => menuItemChecked(app, "columns:tme")).toBe(true);
+
+        // The same from the bar above the table (#5).
+        const shown = page.getByRole("group", { name: "Shown columns" });
+        await shown.getByLabel("Best price").uncheck();
+        await expect(cell(page, D1, "best:supplier")).toHaveCount(0);
+        await expect
+            .poll(() => menuItemChecked(app, "columns:best"))
+            .toBe(false);
+        await clickMenuItem(app, "columns:best");
+        await expect(shown.getByLabel("Best price")).toBeChecked();
+        await expect(cell(page, D1, "best:supplier")).toHaveCount(1);
     } finally {
         await closeApp(app);
         await fake.close();

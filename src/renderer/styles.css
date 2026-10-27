@@ -833,3 +833,19 @@ select.choose-item {
 .filter-rows select {
     color: var(--app-fg);
 }
+
+.filter-columns {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    margin-left: auto;
+    color: var(--app-muted);
+}
+
+.filter-columns label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--app-fg);
+}

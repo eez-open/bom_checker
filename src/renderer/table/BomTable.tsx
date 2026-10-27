@@ -12,7 +12,6 @@ import {
 import { AgGridReact } from "ag-grid-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { lastCollectedAt } from "../../shared/collection";
-import type { ColumnGroup } from "../../shared/ipc";
 import type {
     BomRow,
     ColumnKey,
@@ -31,6 +30,7 @@ import {
     suppliersWithData,
     totalQuantity
 } from "../../shared/project-ops";
+import type { TableGroup } from "../store/ui";
 import { buildColumns, TOTALS_ROW_ID } from "./columns";
 import type { TableContext, TableTotals } from "./PartNumberCell";
 
@@ -65,7 +65,7 @@ interface BomTableProps {
     project: Project;
     /** Preferred supplier order, for best price ties. */
     preference: readonly SupplierId[];
-    hiddenColumns: readonly ColumnGroup[];
+    hiddenColumns: readonly TableGroup[];
     onCellEdit: (rowId: string, key: ColumnKey, value: unknown) => void;
     onSelectionChange: (rowIds: string[]) => void;
     /** A newly added row whose Reference cell should start editing. */
@@ -188,7 +188,7 @@ export function BomTable({
             buildColumns(
                 project,
                 withData ? (withData.split(",") as SupplierId[]) : [],
-                new Set(hidden.split(",") as ColumnGroup[])
+                new Set(hidden.split(",") as TableGroup[])
             ),
         // Columns change only when suppliers, custom columns, the
         // suppliers with data, their collection times, the build quantity
