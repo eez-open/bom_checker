@@ -6,8 +6,13 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Search the table (Ctrl+F, Edit → Find…) for text in any column (#29), and filter the rows by the supplier with the best price, or the parts no supplier can deliver (#25). While filtered, the Total row adds up the shown rows.
 - With a build quantity above 1, total prices show the price per unit in parentheses, e.g. 62.50 (2.50): in the Total price columns, the Total row, the status bar and the export's Info sheet (#27).
 - Qty can be a decimal, for parts used in fractions of their unit, e.g. 0.004 m of tape from 5 m rolls; order quantities are still whole packages (#19). BOM files are now format 5.
+
+### Changed
+
+- The Row column shows each row's place in the BOM, also when the table is sorted or filtered.
 
 ## [0.5.0] - 2026-10-27
 

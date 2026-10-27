@@ -271,3 +271,35 @@ export function foreignCurrencies(
         Object.entries(found).map(([supplier, set]) => [supplier, [...set]])
     );
 }
+
+/**
+ * Whether a row belongs in a rows filter: "best:<supplier>" when that
+ * supplier has its best price, "none" when no supplier with data can
+ * deliver it, anything else for all rows.
+ */
+export function matchesRowView(
+    row: BomRow,
+    project: Project,
+    preference: readonly SupplierId[],
+    view: string
+): boolean {
+    if (view === "all") {
+        return true;
+    }
+    const best = bestSupplier(
+        row,
+        project.collected,
+        project.suppliers,
+        preference,
+        project.buildQuantity
+    );
+    if (view === "none") {
+        return (
+            !best &&
+            project.suppliers.some(s =>
+                supplierLine(row, s, project.collected, project.buildQuantity)
+            )
+        );
+    }
+    return best !== null && view === `best:${best.supplier}`;
+}

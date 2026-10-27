@@ -807,3 +807,29 @@ select.choose-item {
     color: var(--app-warning);
     font-weight: 600;
 }
+
+/* Search and rows filter above the table */
+
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--app-border);
+}
+
+.filter-bar input[type="search"] {
+    width: 240px;
+}
+
+.filter-rows {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--app-muted);
+}
+
+.filter-rows select {
+    color: var(--app-fg);
+}

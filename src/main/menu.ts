@@ -200,7 +200,12 @@ export function createMenu(): Menu {
                 documentCommand("Add &Row", "add-row"),
                 documentCommand("&Delete Selected Rows", "delete-rows"),
                 { type: "separator" },
-                documentCommand("&Columns…", "edit-columns")
+                documentCommand("&Columns…", "edit-columns"),
+                { type: "separator" },
+                documentCommand("&Find…", "find", {
+                    id: "find",
+                    accelerator: "CmdOrCtrl+F"
+                })
             ]
         },
         {

@@ -28,6 +28,7 @@ import { KicadSyncDialog } from "./dialogs/KicadSyncDialog";
 import { KicadUpdateDialog } from "./dialogs/KicadUpdateDialog";
 import { SettingsDialog } from "./settings/SettingsDialog";
 import { StartPage } from "./StartPage";
+import { FilterBar, rowViews } from "./FilterBar";
 import { documentName, isDirty, useDocument } from "./store/document";
 import { loadAppSettings, useAppSettings } from "./store/settings";
 import { useUi } from "./store/ui";
@@ -49,6 +50,9 @@ function hasFiles(event: DragEvent): boolean {
     return event.dataTransfer.types.includes("Files");
 }
 
+const onShownRows = (rows: number | null) =>
+    useUi.setState({ shownRows: rows });
+
 export function App() {
     const open = useDocument(state => state.open);
     const project = useDocument(state => state.project);
@@ -60,6 +64,13 @@ export function App() {
     const editRowId = useUi(state => state.editRowId);
     const dialog = useUi(state => state.dialog);
     const hiddenColumns = useUi(state => state.hiddenColumns);
+    const search = useUi(state => state.search);
+    const shownRows = useUi(state => state.shownRows);
+    // A filter for a supplier without data any more shows all rows.
+    const chosenView = useUi(state => state.rowView);
+    const rowView = rowViews(project).some(([value]) => value === chosenView)
+        ? chosenView
+        : "all";
     const [info, setInfo] = useState<AppInfo>();
     // dragenter and dragleave also fire for every child element.
     const [dragging, setDragging] = useState(false);
@@ -194,6 +205,7 @@ export function App() {
                         and collect again.
                     </div>
                 ))}
+            {open && <FilterBar project={project} rows={shownRows} />}
             {open && (
                 <main className="app-table">
                     <BomTable
@@ -212,6 +224,9 @@ export function App() {
                         onSelectionChange={ids =>
                             useUi.setState({ selectedRowIds: ids })
                         }
+                        search={search}
+                        rowView={rowView}
+                        onShownRows={onShownRows}
                     />
                 </main>
             )}

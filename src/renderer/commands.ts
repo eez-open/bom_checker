@@ -75,6 +75,7 @@ export async function newDocument(): Promise<void> {
         useDocument
             .getState()
             .load(createProject(), { filePath: null, saved: true });
+        clearFilters();
     }
 }
 
@@ -87,6 +88,7 @@ export async function openDocument(): Promise<void> {
         useDocument
             .getState()
             .load(opened.project, { filePath: opened.filePath, saved: true });
+        clearFilters();
     }
 }
 
@@ -94,6 +96,7 @@ export async function openDocument(): Promise<void> {
 export async function closeDocument(): Promise<void> {
     if (await confirmDiscardChanges()) {
         useDocument.getState().close();
+        clearFilters();
     }
 }
 
@@ -110,6 +113,7 @@ export async function openPath(path: string): Promise<void> {
                 filePath: opened.opened.filePath,
                 saved: true
             });
+            clearFilters();
             break;
         case "csv":
             useUi.setState({
@@ -141,6 +145,7 @@ export async function importCsv(): Promise<void> {
  */
 export function loadImported(project: Project): void {
     const { project: current, load } = useDocument.getState();
+    clearFilters();
     load(
         {
             ...project,
@@ -198,6 +203,22 @@ export function syncKicad(): void {
     if (source.kind === "kicad" && source.path) {
         useUi.setState({ dialog: { kind: "kicad-sync" } });
     }
+}
+
+/** The search field above the table. */
+export const SEARCH_INPUT_ID = "bom-search";
+
+/** Ctrl+F: to the search field above the table. */
+export function find(): void {
+    const input = document.getElementById(SEARCH_INPUT_ID);
+    if (input instanceof HTMLInputElement) {
+        input.focus();
+        input.select();
+    }
+}
+
+export function clearFilters(): void {
+    useUi.setState({ search: "", rowView: "all" });
 }
 
 /** Writes part numbers back into the KiCad project the BOM came from. */
@@ -322,6 +343,7 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     "import-kicad": importKicad,
     export: openExport,
     "update-kicad": updateKicad,
+    find,
     "sync-kicad": syncKicad,
     undo,
     redo,

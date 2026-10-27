@@ -81,6 +81,36 @@ test("calculates order quantities, prices and the best supplier", async () => {
             "Best price total: 30.92 EUR · 1 row without a supplier that has enough stock"
         );
 
+        // Search (Ctrl+F, #29): rows with the text in any column.
+        await clickMenuItem(app, "find");
+        const search = page.getByLabel("Search the table");
+        await expect(search).toBeFocused();
+        await page.keyboard.type("tps54");
+        await expect(page.getByTestId("shown-rows")).toContainText(
+            "Showing 1 of 4 rows"
+        );
+        await expect(cell(page, 0, "reference")).toHaveText("U1");
+        await expect(cell(page, 0, "row")).toHaveText("2");
+        await search.press("Escape");
+        await expect(page.getByTestId("shown-rows")).toHaveCount(0);
+
+        // Rows by best supplier (#25); the Total row adds up those shown.
+        const rows = page.getByLabel("Rows");
+        await rows.selectOption({ label: "Best price: None in stock" });
+        await expect(cell(page, 0, "reference")).toHaveText("R1");
+        await expect(page.getByTestId("shown-rows")).toContainText(
+            "Showing 1 of 4 rows"
+        );
+        await rows.selectOption({ label: "Best price: DigiKey" });
+        await expect(cell(page, 0, "reference")).toHaveText("C1");
+        await expect(cell(page, TOTAL, "reference")).toHaveText(
+            "Total of shown rows"
+        );
+        await expect(cell(page, TOTAL, "best:totalPrice")).toHaveText("24.00");
+        await page.getByRole("button", { name: "Show all" }).click();
+        await expect(cell(page, TOTAL, "reference")).toHaveText("Total");
+        await expect(cell(page, R1, "reference")).toHaveText("R1");
+
         // The Total row adds up each price column.
         await expect(cell(page, TOTAL, "reference")).toHaveText("Total");
         await expect(cell(page, TOTAL, "qty")).toHaveText("35");

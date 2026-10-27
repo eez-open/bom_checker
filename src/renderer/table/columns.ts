@@ -441,10 +441,11 @@ export function buildColumns(
                 pinned: "left",
                 editable: false,
                 sortable: false,
+                // The row's place in the BOM, also when sorted or filtered.
                 valueGetter: params =>
                     params.node?.rowPinned
                         ? null
-                        : (params.node?.rowIndex ?? 0) + 1
+                        : (params.node?.sourceRowIndex ?? 0) + 1
             });
             continue;
         }
