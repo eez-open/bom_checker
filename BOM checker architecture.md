@@ -595,6 +595,10 @@ These points couldn't be settled from documentation and should be the first thin
 
 ## 15. Status
 
+### Version 0.7.0
+
+A chart of the most expensive parts (#28), collecting only the selected rows (#17), column-group checkboxes above the table (#5), Undo and Redo on the toolbar (#24), Change password in Settings → General (#22), a pointer to the Value lookup and filling in from earlier results (#18), stock of other DigiKey packagings in tooltips, and the Delete button counting only the open BOM's rows (#23). Unit tests: 204; end-to-end tests: 17.
+
 ### Version 0.6.0
 
 Suppliers without an API (#20, section 5.3), decimal quantities (#19), the price per unit with a build quantity (#27), search (#29) and a rows filter by best supplier (#25). File format 5. Unit tests: 199; end-to-end tests: 15.

@@ -4,14 +4,16 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-27
+
 ### Added
 
-- Undo and Redo buttons on the toolbar, next to Save (#24).
-- Checkboxes above the table show and hide the columns of each supplier, including suppliers without an API, and Best price, without going to the View menu (#5).
-- Collect only the selected rows: with rows selected in the table, Collect… offers "Only the selected rows", chosen by default (#17).
-- With "Look up the Value where a part number is missing" off, Collect… says for each supplier how many rows without a part number have a Value it could look up (#18).
 - Most expensive parts (status bar, or View → Most Expensive Parts…): a ring chart of the 10 rows that cost the most at their best price, with the rest as Other, and a table with their totals and shares of the best price total (#28).
+- Collect only the selected rows: with rows selected in the table, Collect… offers "Only the selected rows", chosen by default (#17).
+- Checkboxes above the table show and hide the columns of each supplier, including suppliers without an API, and Best price, without going to the View menu (#5).
+- Undo and Redo buttons on the toolbar, next to Save (#24).
 - DigiKey keeps stock per packaging: when another packaging of the same product has stock (e.g. a box when cut tape is out of stock), the Availability and part-number tooltips show its part number, stock and MOQ.
+- With "Look up the Value where a part number is missing" off, Collect… says for each supplier how many rows without a part number have a Value it could look up (#18).
 
 ### Changed
 
