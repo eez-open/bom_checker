@@ -52,6 +52,7 @@ export type MenuCommand =
     | "import-kicad"
     | "export"
     | "update-kicad"
+    | "sync-kicad"
     | "undo"
     | "redo"
     | "add-row"

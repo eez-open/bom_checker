@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type {
     KicadUpdatePlan,
     KicadUpdateRequest,
     KicadUpdateResult
 } from "../../shared/ipc";
+import { markWrittenToKicad } from "../../shared/kicad-sync";
 import type { Project } from "../../shared/model";
 import { SUPPLIERS } from "../../shared/suppliers";
 import { errorMessage } from "../errors";
@@ -61,9 +62,11 @@ function plural(n: number, noun: string): string {
 }
 
 export function KicadUpdateDialog({ onClose }: { onClose: () => void }) {
-    const project = useDocument(state => state.project);
-    // The BOM can't change while the dialog is open.
-    const request = useMemo(() => updateRequest(project), [project]);
+    // Fixed when the dialog opens: recording what was written changes the
+    // BOM, which mustn't start a new preview.
+    const [request] = useState(() =>
+        updateRequest(useDocument.getState().project)
+    );
     const [state, setState] = useState<State>({ kind: "planning" });
     const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
 
@@ -91,6 +94,10 @@ export function KicadUpdateDialog({ onClose }: { onClose: () => void }) {
             const result = await window.api.kicad.applyUpdate(request, [
                 ...selected
             ]);
+            const written = plan.changes.filter(c => selected.has(c.key));
+            useDocument
+                .getState()
+                .edit(project => markWrittenToKicad(project, written));
             setState({ kind: "done", result, restored: false });
         } catch (error) {
             setState({ kind: "error", message: errorMessage(error) });

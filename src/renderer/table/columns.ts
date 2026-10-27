@@ -23,6 +23,7 @@ import {
     type SupplierLine
 } from "../../shared/pricing";
 import { SUPPLIERS } from "../../shared/suppliers";
+import { ChooseItemCell } from "./ChooseItemCell";
 import { PartNumberCell, resultFor, type TableContext } from "./PartNumberCell";
 
 /** Id of the pinned row with the column totals. */
@@ -261,9 +262,17 @@ function dataColumns(supplier: SupplierId): ColDef<BomRow>[] {
             }
         }),
         column("availability", "Availability", availabilityText, {
-            initialWidth: 140,
+            initialWidth: 160,
             cellClass: (params: CellClassParams<BomRow>) =>
-                availabilityClass(lineOf(params, supplier))
+                availabilityClass(lineOf(params, supplier)),
+            // Several items match: a list to choose one from (#15).
+            cellRendererSelector: params =>
+                lineOf(params, supplier)?.result.status === "ambiguous"
+                    ? { component: ChooseItemCell, params: { supplier } }
+                    : undefined,
+            // Arrow keys and Enter belong to the list while it has focus.
+            suppressKeyboardEvent: params =>
+                params.event.target instanceof HTMLSelectElement
         }),
         column("status", "Status", line => statusText(line?.offer) || null, {
             initialWidth: 140,
@@ -431,8 +440,12 @@ export function buildColumns(
             cellDataType: numeric ? "number" : "text",
             cellEditorParams: numeric ? { min: 0, precision: 0 } : undefined,
             initialWidth: WIDTHS[column.field],
-            // Row and Reference stay in view while scrolling to supplier data.
-            pinned: column.field === "reference" ? "left" : undefined
+            // Row, Reference and Value stay in view while scrolling to
+            // supplier data.
+            pinned:
+                column.field === "reference" || column.field === "value"
+                    ? "left"
+                    : undefined
         });
         if (column.field === "qty" && project.buildQuantity > 1) {
             columnDefs.push({

@@ -13,6 +13,7 @@ import {
     openDocument,
     openSettings,
     saveDocument,
+    syncKicad,
     updateKicad
 } from "./commands";
 import { useDocument } from "./store/document";
@@ -100,13 +101,23 @@ export function Toolbar() {
             >
                 Import CSV…
             </button>
-            <button
-                type="button"
-                title="Ctrl+K"
-                onClick={() => void importKicad()}
-            >
-                Import KiCad…
-            </button>
+            {open && fromKicad ? (
+                <button
+                    type="button"
+                    title="Bring changes made in the KiCad project into the BOM"
+                    onClick={syncKicad}
+                >
+                    Sync KiCad…
+                </button>
+            ) : (
+                <button
+                    type="button"
+                    title="Ctrl+K"
+                    onClick={() => void importKicad()}
+                >
+                    Import KiCad…
+                </button>
+            )}
             {open && (
                 <>
                     <span className="toolbar-separator" />

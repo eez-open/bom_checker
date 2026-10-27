@@ -38,6 +38,18 @@ describe("project file", () => {
         expect(parseProjectFile(serializeProject(project))).toEqual(project);
     });
 
+    it("keeps KiCad's values for syncing", () => {
+        const project = {
+            ...sampleProject(),
+            source: {
+                kind: "kicad" as const,
+                path: "/p/board.kicad_pro",
+                kicadValues: { C1: { value: "1n", "pn:mouser": "81-X" } }
+            }
+        };
+        expect(parseProjectFile(serializeProject(project))).toEqual(project);
+    });
+
     it("rejects text that isn't JSON", () => {
         expect(() => parseProjectFile("Reference,Value")).toThrow(/isn't JSON/);
     });

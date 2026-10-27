@@ -5,13 +5,21 @@ import {
     type ColumnGroup,
     type MenuCommand
 } from "../shared/ipc";
-import type { Project, ProjectSource } from "../shared/model";
+import {
+    partNumberKey,
+    type Project,
+    type ProjectSource,
+    type SupplierId,
+    type SupplierOffer
+} from "../shared/model";
 import {
     addRow as addRowToProject,
     createProject,
     createRow,
-    deleteRows
+    deleteRows,
+    replacePartNumber
 } from "../shared/project-ops";
+import { importedKicadValues } from "../shared/kicad-sync";
 import { PROJECT_FILE_EXTENSION } from "../shared/project-file";
 import { documentName, isDirty, useDocument } from "./store/document";
 import { setHiddenColumns, useUi } from "./store/ui";
@@ -136,6 +144,14 @@ export function loadImported(project: Project): void {
     load(
         {
             ...project,
+            // What KiCad had, for Sync KiCad… later.
+            source:
+                project.source.kind === "kicad"
+                    ? {
+                          ...project.source,
+                          kicadValues: importedKicadValues(project)
+                      }
+                    : project.source,
             buildQuantity: current.buildQuantity,
             collected: {
                 ...project.collected,
@@ -176,12 +192,56 @@ export function deleteSelectedRows(): void {
     }
 }
 
+/** Brings changes made in KiCad since the import into the BOM. */
+export function syncKicad(): void {
+    const { source } = useDocument.getState().project;
+    if (source.kind === "kicad" && source.path) {
+        useUi.setState({ dialog: { kind: "kicad-sync" } });
+    }
+}
+
 /** Writes part numbers back into the KiCad project the BOM came from. */
 export function updateKicad(): void {
     const { source } = useDocument.getState().project;
     if (source.kind === "kicad" && source.path) {
         useUi.setState({ dialog: { kind: "kicad-update" } });
     }
+}
+
+/**
+ * One of several items that matched part number `key` was chosen: its own
+ * part number replaces `key` in every row that has it. Its data is already
+ * known, so it needn't be looked up again.
+ */
+export function chooseItem(
+    supplier: SupplierId,
+    key: string,
+    offer: SupplierOffer
+): void {
+    const { project, applyCollected, edit } = useDocument.getState();
+    const result = project.collected.results[supplier]?.[key];
+    if (result?.status !== "ambiguous") {
+        return;
+    }
+    applyCollected(collected => ({
+        ...collected,
+        results: {
+            ...collected.results,
+            [supplier]: {
+                ...collected.results[supplier],
+                [partNumberKey(offer.supplierPartNumber)]: {
+                    status: "found",
+                    offer,
+                    matchedBy: "supplierPartNumber",
+                    runId: result.runId,
+                    fetchedAt: result.fetchedAt
+                }
+            }
+        }
+    }));
+    edit(current =>
+        replacePartNumber(current, supplier, key, offer.supplierPartNumber)
+    );
 }
 
 export function editColumns(): void {
@@ -262,6 +322,7 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     "import-kicad": importKicad,
     export: openExport,
     "update-kicad": updateKicad,
+    "sync-kicad": syncKicad,
     undo,
     redo,
     "add-row": addRow,

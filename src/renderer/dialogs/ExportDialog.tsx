@@ -216,9 +216,25 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                                     })
                                 }
                             />
-                            {SUPPLIERS[supplier].name} part numbers and data
+                            {SUPPLIERS[supplier].name} part numbers
+                            {!selection.partNumbersOnly && " and data"}
                         </label>
                     ))}
+                    {project.suppliers.length > 0 && (
+                        <label className="checkbox">
+                            <input
+                                type="checkbox"
+                                checked={selection.partNumbersOnly === true}
+                                onChange={event =>
+                                    setSelection({
+                                        ...selection,
+                                        partNumbersOnly: event.target.checked
+                                    })
+                                }
+                            />
+                            Part numbers only, without the suppliers&apos; data
+                        </label>
+                    )}
                     <label className="checkbox">
                         <input
                             type="checkbox"

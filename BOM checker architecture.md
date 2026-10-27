@@ -143,7 +143,7 @@ The project file is a versioned JSON document. 1,000 rows with three suppliers' 
 
 ```ts
 interface Project {
-  schemaVersion: 3;                     // 2 added `collected`, 3 added `buildQuantity`
+  schemaVersion: 4;                     // 2 added `collected`, 3 `buildQuantity`, 4 `source.kicadValues`
   source: { kind: 'manual' | 'csv' | 'kicad'; path?: string; variant?: string; importedAt?: string };
   suppliers: SupplierId[];              // suppliers that have a part-number column in this BOM
   customColumns: ColumnDef[];           // user-defined columns, plus unmapped imported ones (e.g. LCSC)
@@ -493,7 +493,14 @@ A BOM doesn't have to come from a file. This is also the quickest way to test su
 
 The `kicad-cli sch export bom --variant` alternative was rejected. It requires KiCad 10.0.6+ installed, variant export had bugs until recently, and its output would still need parsing.
 
-### 9.3 Writing back to the KiCad project (GitHub #11)
+### 9.3 Syncing from the KiCad project (GitHub #30)
+
+- **Reading:** the project is read as on import (main's `loadKicadProject`), and the variant's table is mapped to BOM columns with the import's own header rules (`shared/kicad-sync.ts`): Value, Footprint, supplier part numbers, and custom columns of the same name.
+- **Three-way:** `source.kicadValues` (file format 4) keeps KiCad's values at the last import or sync, per reference and column. A difference where the BOM still has that value is a KiCad change (offered, ticked); one where KiCad still has it is a BOM change (kept, not offered); anything else is offered unticked. Without these values (older files), every difference is offered unticked except added parts.
+- **Applying** (one undo step): accepted values are set per reference; a row whose references end up with different values is split, keeping its other cells; removed references leave their row; added parts join the one row of their KiCad row-mates if its values match, or get a new row at the end. Rows whose references KiCad never had are left alone. Then KiCad's current values become `kicadValues`.
+- **Update KiCad…** records the values it wrote in `kicadValues`, so the next sync doesn't see them as changes.
+
+### 9.4 Writing back to the KiCad project (GitHub #11)
 
 - **Matching:** the project is read again (`readKicadDesign`) and grouped for the BOM's variant, exactly as on import. A BOM row is used only when its references, ignoring order and spaces, are exactly those of one KiCad row. Everything else is reported with a reason (not in the project, DNP/excluded in the variant, grouped differently now, or a reference in two rows).
 - **Fields:** a supplier column goes to the field named like the supplier (or the single field its header pattern matches); it's added as a hidden copy of the symbol's Footprint field when missing. A custom column goes to the field of the same name, only if it exists. Values are compared trimmed, so KiCad's text isn't touched where only spaces differ.
@@ -508,7 +515,7 @@ The `kicad-cli sch export bom --variant` alternative was rejected. It requires K
 
 - **Toolbar:** New · Open · Save · Import CSV · Open KiCad project · **Collect** · **Continue** · Export · Settings · Lock.
 - **Columns:**
-  - Row and Reference are pinned on the left.
+  - Row, Reference and Value are pinned on the left.
   - Each supplier's columns form a collapsible group: collapsed, it shows the part number, Total price and Availability. The Best group and then custom columns follow.
   - Columns can be shown or hidden, and custom columns added, renamed or deleted.
 - **Editing:**
@@ -585,9 +592,13 @@ These points couldn't be settled from documentation and should be the first thin
 
 ## 15. Status
 
+### Version 0.5.0
+
+Sync KiCad… for changes made in the KiCad project (#30, section 9.3; file format 4), choosing one of several matching items from a list in the table (#15), a Basic data only export (#21), and Value pinned with Row and Reference (#26). Unit tests: 192; end-to-end tests: 14.
+
 ### Version 0.4.0
 
-Writing part numbers back into the KiCad project (#11, section 9.3). Unit tests: 185; end-to-end tests: 13.
+Writing part numbers back into the KiCad project (#11, section 9.4). Unit tests: 185; end-to-end tests: 13.
 
 ### Version 0.3.0
 

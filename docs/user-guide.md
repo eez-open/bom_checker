@@ -11,9 +11,10 @@ EEZ BOM checker takes a bill of materials (BOM) and checks every part at DigiKey
 5. [Building several units](#building-several-units)
 6. [Reading the table](#reading-the-table)
 7. [Exporting](#exporting)
-8. [Updating the KiCad project](#updating-the-kicad-project)
-9. [Files and security](#files-and-security)
-10. [Troubleshooting](#troubleshooting)
+8. [Syncing with the KiCad project](#syncing-with-the-kicad-project)
+9. [Updating the KiCad project](#updating-the-kicad-project)
+10. [Files and security](#files-and-security)
+11. [Troubleshooting](#troubleshooting)
 
 ## Installing
 
@@ -110,7 +111,7 @@ The summary shows how long it took, how many part numbers were found, not found 
 Tick **Look up the Value where a part number is missing** to search for rows whose part-number cell is empty. The Value is searched as a manufacturer part number at each selected supplier (e.g. *TPS54331DDA* or *1N4007*), so the supplier needs a part-number column (add one with **Columns…**).
 
 - One matching item fills in the supplier's part number.
-- When several items match, typically different packagings, the cell gets the Value with a **?** badge: click it to choose the item.
+- When several items match, typically different packagings, the cell gets the Value, and the supplier's *Availability* column shows a list to choose the item from.
 - When nothing matches, the cell stays empty.
 
 Generic values such as *100n*, *4u7* or *10k*, names like *LED* or *Conn_01x04*, and cells with "-" are skipped: a value alone can't pick one capacitor out of thousands. The summary says how many part numbers were filled in, are left to choose, or weren't found. Filling in is one step that **Ctrl+Z** undoes. The option is remembered for next time.
@@ -140,7 +141,7 @@ To hide all columns of a supplier, or the Best price columns, uncheck them in th
 
 The **Total** row at the top adds up the Qty column and each *Total price* column, for every supplier and for Best price. Its tooltip says how many rows have a price.
 
-**Several items match:** for example, a DigiKey part comes as cut tape and as a reel. Click the **?** badge, compare stock, MOQ and price, and choose one; its part number replaces the old one in every row that used it.
+**Several items match:** for example, a DigiKey part comes as cut tape and as a reel. Pick one in the list that the supplier's *Availability* column shows instead of a status; each entry has the item's part number, packaging, stock, MOQ and first price. For a side-by-side comparison, choose *Compare the items…* or click the **?** badge. The chosen item's part number replaces the old one in every row that used it, its data is shown at once, and Ctrl+Z undoes the choice.
 
 Prices are compared in EUR. If a supplier returns another currency, a yellow bar says so; those prices aren't included in totals and the best price.
 
@@ -150,14 +151,27 @@ Changing Qty updates all calculations at once, without collecting again.
 
 **Export…** (Ctrl+E):
 
-- **Preset**: e.g. *All data*, *All Mouser data*, *Best price from Mouser*, *Not available anywhere*.
-- **Columns**: which suppliers' part numbers and data, the Best price columns, and your own columns. Row, Reference, Value, Qty and Footprint are always included.
+- **Preset**: e.g. *All data*, *Basic data only* (Row, Reference, Value, Qty, Footprint and the part numbers), *All Mouser data*, *Best price from Mouser*, *Not available anywhere*.
+- **Columns**: which suppliers' part numbers and data, the Best price columns, and your own columns. Row, Reference, Value, Qty and Footprint are always included. **Part numbers only** leaves out the suppliers' data columns.
 - **Rows**: all rows, rows with a supplier's part number, rows where a supplier has the best price, or rows that no supplier can deliver.
 - **Format**: Excel (.xlsx), LibreOffice (.ods) or CSV. Excel and LibreOffice files also get an *Info* sheet with the source, the filter, when data was collected and the totals.
 
 To keep a combination, type a name and click **Save as preset**.
 
 Column names follow the pattern `Supplier_Column`, e.g. `Mouser_Stock Qty`, `Mouser_Total price`, `Best_Supplier`.
+
+## Syncing with the KiCad project
+
+For a BOM imported from a KiCad 10 project, the toolbar's **Import KiCad…** becomes **Sync KiCad…** (also **File → Sync with KiCad Project…**). It reads the project again, for the same design variant, and lists what changed in KiCad since the import or the last sync:
+
+- **New supplier columns:** part numbers in a field the BOM has no column for yet, e.g. LCSC.
+- **Added in KiCad:** new parts. They join the BOM row of their KiCad row-mates when that row has the same values; otherwise they get a new row.
+- **No longer in KiCad's BOM:** parts deleted in KiCad, or now DNP or excluded from the BOM. They leave their row; a row with no parts left goes.
+- **Changed in KiCad:** a Value, Footprint, part number or other field that changed in KiCad. When only some parts of a row changed, they get a row of their own.
+
+Tick what to bring into the BOM and click **Apply**; Ctrl+Z undoes it. What was done in the BOM is kept: rows and columns added by hand, and values changed in the BOM, e.g. a chosen item or a corrected part number, which aren't listed. The BOM file remembers what KiCad had at the import or the last sync to tell the two apart. A value changed on both sides is listed unticked, so the BOM's value stays unless you tick it.
+
+BOMs imported with version 0.4 or older don't have that yet: there, every difference is listed, and only additions are ticked. After the first sync, they work like the others.
 
 ## Updating the KiCad project
 

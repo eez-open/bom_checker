@@ -15,6 +15,7 @@ export type OpenDialog =
     | { kind: "collect" }
     | { kind: "export" }
     | { kind: "kicad-update" }
+    | { kind: "kicad-sync" }
     | { kind: "choose-item"; supplier: SupplierId; key: string }
     | null;
 

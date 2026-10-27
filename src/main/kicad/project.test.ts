@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { decodeText, parseCsv, type CsvTable } from "../../shared/csv-import";
-import { compareReferences, KicadError, loadKicadProject } from "./project";
+import { compareReferences } from "../../shared/references";
+import { KicadError, loadKicadProject } from "./project";
 import { parseSExpr } from "./sexpr";
 
 const EXAMPLE = join(__dirname, "../../../test-fixtures/kicad/dib-dcp405plus");

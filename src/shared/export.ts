@@ -35,6 +35,9 @@ export const rowFilterSchema = z.discriminatedUnion("kind", [
 export const exportSelectionSchema = z.object({
     /** Suppliers whose part-number and data columns are included. */
     suppliers: z.array(supplierId),
+    /** Only the suppliers' part numbers, without their data (#21).
+     *  Optional, so presets saved by older versions still load. */
+    partNumbersOnly: z.boolean().optional(),
     /** The Best price columns. */
     best: z.boolean(),
     /** The user's own columns. */
@@ -73,6 +76,16 @@ export function builtInPresets(project: Project): ExportPreset[] {
                 suppliers: [...project.suppliers],
                 best: true,
                 custom: true,
+                rows: { kind: "all" }
+            }
+        },
+        {
+            name: "Basic data only",
+            selection: {
+                suppliers: [...project.suppliers],
+                partNumbersOnly: true,
+                best: false,
+                custom: false,
                 rows: { kind: "all" }
             }
         },
@@ -196,12 +209,15 @@ function columns(
         selection.suppliers.includes(s)
     )) {
         const name = SUPPLIERS[supplier].name;
+        result.push({
+            header: name,
+            width: 22,
+            value: row => row.partNumbers[supplier] ?? ""
+        });
+        if (selection.partNumbersOnly) {
+            continue;
+        }
         result.push(
-            {
-                header: name,
-                width: 22,
-                value: row => row.partNumbers[supplier] ?? ""
-            },
             {
                 header: `${name}_Manufacturer`,
                 width: 22,

@@ -119,12 +119,32 @@ describe("export", () => {
     it("offers presets for the BOM's suppliers", () => {
         expect(builtInPresets(sampleProject()).map(p => p.name)).toEqual([
             "All data",
+            "Basic data only",
             "All DigiKey data",
             "Best price from DigiKey",
             "All Mouser data",
             "Best price from Mouser",
             "Not available anywhere"
         ]);
+    });
+
+    it("exports basic data only: the base columns and part numbers", () => {
+        const project = sampleProject();
+        const sheet = buildBomSheet(
+            project,
+            PREFERENCE,
+            preset(project, "Basic data only")
+        );
+        expect(sheet.rows[0]).toEqual([
+            "Row",
+            "Reference",
+            "Value",
+            "Qty",
+            "Footprint",
+            "DigiKey",
+            "Mouser"
+        ]);
+        expect(sheet.rows).toHaveLength(project.rows.length + 1);
     });
 
     it("writes all data with the scope's column names and numbers as numbers", () => {

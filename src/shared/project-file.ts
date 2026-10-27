@@ -106,7 +106,10 @@ const projectSchema: z.ZodType<Project> = z
             kind: z.enum(["manual", "csv", "kicad"]),
             path: z.string().optional(),
             variant: z.string().optional(),
-            importedAt: z.string().optional()
+            importedAt: z.string().optional(),
+            kicadValues: z
+                .record(z.string(), z.record(z.string(), z.string()))
+                .optional()
         }),
         suppliers: z.array(supplierId),
         customColumns: z.array(
@@ -142,7 +145,10 @@ const MIGRATIONS: Partial<Record<number, Migration>> = {
     // Version 2 added collected supplier data.
     1: data => ({ ...data, collected: { results: {}, runs: {} } }),
     // Version 3 added the build quantity.
-    2: data => ({ ...data, buildQuantity: 1 })
+    2: data => ({ ...data, buildQuantity: 1 }),
+    // Version 4 added KiCad's values for Sync KiCad…; files without them
+    // are compared without knowing which side changed.
+    3: data => data
 };
 
 export function parseProjectFile(text: string): Project {
