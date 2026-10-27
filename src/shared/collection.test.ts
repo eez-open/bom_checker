@@ -69,7 +69,8 @@ describe("collection work", () => {
             total: 2,
             flagged: 1,
             missing: 2,
-            remaining: 0
+            remaining: 0,
+            valueRows: 0
         });
         expect(partNumbersToCollect(project, "mouser", "all")).toEqual([
             "A-1",
@@ -109,6 +110,36 @@ describe("collection work", () => {
         expect(partNumbersToCollect(older, "mouser", "continue")).toEqual([
             "A-1"
         ]);
+    });
+
+    it("tries part numbers again that only have an error", () => {
+        const failed = withResults(project, {
+            "A-1": {
+                status: "error",
+                message: "HTTP 500",
+                runId: "r1",
+                fetchedAt: AT
+            },
+            "B-2": { status: "notFound", runId: "r1", fetchedAt: AT }
+        });
+        expect(supplierWork(failed, "mouser").missing).toBe(1);
+        expect(partNumbersToCollect(failed, "mouser", "missing")).toEqual([
+            "A-1"
+        ]);
+    });
+
+    it("collects only the selected rows (#17)", () => {
+        const [, second, third] = project.rows;
+        const rowIds = new Set([second!.id, third!.id]);
+        expect(supplierWork(project, "mouser", { rowIds })).toMatchObject({
+            total: 2,
+            missing: 2
+        });
+        expect(
+            partNumbersToCollect(project, "mouser", "all", {
+                rowIds: new Set([second!.id])
+            })
+        ).toEqual(["a-1"]);
     });
 });
 
@@ -249,15 +280,16 @@ describe("looking up Values", () => {
         expect(partNumbersToCollect(project, "mouser", "all")).toEqual([
             "595-NE555P"
         ]);
-        expect(partNumbersToCollect(project, "mouser", "all", true)).toEqual([
-            "595-NE555P",
-            "TPS54331DDA",
-            "1N4007",
-            "BAV99"
-        ]);
-        expect(supplierWork(project, "mouser", true)).toMatchObject({
-            total: 4,
-            missing: 4
+        expect(
+            partNumbersToCollect(project, "mouser", "all", { byValue: true })
+        ).toEqual(["595-NE555P", "TPS54331DDA", "1N4007", "BAV99"]);
+        expect(
+            supplierWork(project, "mouser", { byValue: true })
+        ).toMatchObject({ total: 4, missing: 4, valueRows: 3 });
+        // Counted with the option off too, to point to it.
+        expect(supplierWork(project, "mouser")).toMatchObject({
+            total: 1,
+            valueRows: 3
         });
     });
 
@@ -279,7 +311,7 @@ describe("looking up Values", () => {
             },
             BAV99: { status: "notFound", runId: "r1", fetchedAt: AT }
         });
-        const matches = valueMatches(collected, "mouser", "r1");
+        const matches = valueMatches(collected, "mouser");
         expect(
             matches.cells.map(cell => [
                 collected.rows.find(row => row.id === cell.rowId)?.value,
@@ -290,7 +322,12 @@ describe("looking up Values", () => {
             ["1N4007", "1N4007"]
         ]);
         expect(matches).toMatchObject({ found: 1, ambiguous: 1, notFound: 1 });
-        // Only results of that run count.
-        expect(valueMatches(collected, "mouser", "r2").cells).toEqual([]);
+        // Only the rows asked for.
+        const first = new Set([collected.rows[0]!.id]);
+        expect(valueMatches(collected, "mouser", first)).toMatchObject({
+            found: 1,
+            ambiguous: 0,
+            notFound: 0
+        });
     });
 });

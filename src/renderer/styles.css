@@ -504,7 +504,8 @@ input.number {
     margin-bottom: 16px;
 }
 
-.collect-by-value {
+.collect-by-value,
+.collect-rows {
     margin: 0 0 14px;
 }
 

@@ -8,6 +8,8 @@ All notable changes to this project are documented in this file. The format is b
 
 - Undo and Redo buttons on the toolbar, next to Save (#24).
 - Checkboxes above the table show and hide the columns of each supplier, including suppliers without an API, and Best price, without going to the View menu (#5).
+- Collect only the selected rows: with rows selected in the table, Collect… offers "Only the selected rows", chosen by default (#17).
+- With "Look up the Value where a part number is missing" off, Collect… says for each supplier how many rows without a part number have a Value it could look up (#18).
 - DigiKey keeps stock per packaging: when another packaging of the same product has stock (e.g. a box when cut tape is out of stock), the Availability and part-number tooltips show its part number, stock and MOQ.
 
 ### Changed
@@ -17,6 +19,8 @@ All notable changes to this project are documented in this file. The format is b
 ### Fixed
 
 - The Delete button counted rows selected in the BOM that was open before (#23).
+- Looking up the Value didn't fill in an empty cell when the Value had been looked up in an earlier run (#18).
+- "Only part numbers without data" now also tries again part numbers that got an error last time.
 
 ## [0.6.0] - 2026-10-27
 

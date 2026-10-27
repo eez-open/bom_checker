@@ -110,8 +110,10 @@ Order Qty, Total price and Availability are calculated as for the other supplier
 Click **Collect…**. The first time in a session, enter your password. Then, for each supplier:
 
 - tick the suppliers to collect;
-- choose what to collect: **All part numbers**, **Only part numbers without data**, or **Continue where it stopped** after an interrupted run;
+- choose what to collect: **All part numbers**, **Only part numbers without data** (including ones that got an error last time), or **Continue where it stopped** after an interrupted run;
 - check the estimate: about how many requests it takes, and how many are left today.
+
+To update only some parts, select their rows in the table first (the checkboxes on the left). **Collect…** then offers **Only the selected rows**, chosen by default, or **All rows**. With the selected rows, every supplier that has part numbers in them is ticked, to look them up again.
 
 **Start** shows progress for each supplier and which part is being checked; **Cancel** stops. Collecting stops by itself when a daily limit is reached or credentials are rejected; open **Collect…** again later to continue where it stopped.
 
@@ -125,7 +127,7 @@ Tick **Look up the Value where a part number is missing** to search for rows who
 - When several items match, typically different packagings, the cell gets the Value, and the supplier's *Availability* column shows a list to choose the item from.
 - When nothing matches, the cell stays empty.
 
-Generic values such as *100n*, *4u7* or *10k*, names like *LED* or *Conn_01x04*, and cells with "-" are skipped: a value alone can't pick one capacitor out of thousands. The summary says how many part numbers were filled in, are left to choose, or weren't found. Filling in is one step that **Ctrl+Z** undoes. The option is remembered for next time.
+Generic values such as *100n*, *4u7* or *10k*, names like *LED* or *Conn_01x04*, and cells with "-" are skipped: a value alone can't pick one capacitor out of thousands. The summary says how many part numbers were filled in, are left to choose, or weren't found. A Value looked up in an earlier run fills in an empty cell too. Filling in is one step that **Ctrl+Z** undoes. The option is remembered for next time. While it's off, each supplier says how many rows it could look up by their Value.
 
 ## Building several units
 
