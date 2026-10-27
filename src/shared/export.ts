@@ -15,10 +15,11 @@ import { isPartNumberDefined } from "./part-number";
 import {
     BASE_CURRENCY,
     bestSupplier,
+    manualLine,
     supplierLine,
     type SupplierLine
 } from "./pricing";
-import { SUPPLIERS } from "./suppliers";
+import { SUPPLIERS, supplierName } from "./suppliers";
 
 export const EXPORT_FORMATS = ["xlsx", "ods", "csv"] as const;
 export type ExportFormat = (typeof EXPORT_FORMATS)[number];
@@ -38,6 +39,8 @@ export const exportSelectionSchema = z.object({
     /** Only the suppliers' part numbers, without their data (#21).
      *  Optional, so presets saved by older versions still load. */
     partNumbersOnly: z.boolean().optional(),
+    /** The columns of the suppliers without an API (#20). */
+    manual: z.boolean().optional(),
     /** The Best price columns. */
     best: z.boolean(),
     /** The user's own columns. */
@@ -74,6 +77,7 @@ export function builtInPresets(project: Project): ExportPreset[] {
             name: "All data",
             selection: {
                 suppliers: [...project.suppliers],
+                manual: true,
                 best: true,
                 custom: true,
                 rows: { kind: "all" }
@@ -83,6 +87,7 @@ export function builtInPresets(project: Project): ExportPreset[] {
             name: "Basic data only",
             selection: {
                 suppliers: [...project.suppliers],
+                manual: true,
                 partNumbersOnly: true,
                 best: false,
                 custom: false,
@@ -166,7 +171,8 @@ function columns(
             collected,
             project.suppliers,
             preference,
-            buildQuantity
+            buildQuantity,
+            project.manualSuppliers
         );
     const unitPrice = (l: SupplierLine | null): ExportCell => {
         if (!l?.offer || l.unitPrice === null) {
@@ -274,6 +280,60 @@ function columns(
         );
     }
 
+    if (selection.manual) {
+        for (const supplier of project.manualSuppliers) {
+            const { id, name } = supplier;
+            const typed = (row: BomRow) => row.manual?.[id];
+            const manual = (row: BomRow) =>
+                manualLine(row, supplier, buildQuantity);
+            result.push({
+                header: name,
+                width: 22,
+                value: row => typed(row)?.partNumber ?? ""
+            });
+            if (selection.partNumbersOnly) {
+                continue;
+            }
+            result.push(
+                {
+                    header: `${name}_Unit price`,
+                    width: 12,
+                    format: UNIT_PRICE_FORMAT,
+                    value: row => typed(row)?.unitPrice ?? null
+                },
+                {
+                    header: `${name}_Stock Qty`,
+                    width: 12,
+                    format: QTY_FORMAT,
+                    value: row => typed(row)?.stock ?? null
+                },
+                {
+                    header: `${name}_MOQ`,
+                    width: 8,
+                    format: QTY_FORMAT,
+                    value: row => typed(row)?.moq ?? null
+                },
+                {
+                    header: `${name}_Order Qty`,
+                    width: 10,
+                    format: QUANTITY_FORMAT,
+                    value: row => manual(row)?.orderQty ?? null
+                },
+                {
+                    header: `${name}_Total price`,
+                    width: 12,
+                    format: TOTAL_FORMAT,
+                    value: row => manual(row)?.total ?? null
+                },
+                {
+                    header: `${name}_Availability`,
+                    width: 16,
+                    value: row => availabilityText(manual(row)) || null
+                }
+            );
+        }
+    }
+
     if (selection.best) {
         result.push(
             {
@@ -281,7 +341,7 @@ function columns(
                 width: 12,
                 value: row => {
                     const b = best(row);
-                    return b ? SUPPLIERS[b.supplier].name : null;
+                    return b ? supplierName(project, b.supplier) : null;
                 }
             },
             {
@@ -335,7 +395,8 @@ function matches(
                     project.collected,
                     project.suppliers,
                     preference,
-                    project.buildQuantity
+                    project.buildQuantity,
+                    project.manualSuppliers
                 )?.supplier === filter.supplier
             );
         case "not-available":
@@ -348,7 +409,8 @@ function matches(
                     project.collected,
                     project.suppliers,
                     preference,
-                    project.buildQuantity
+                    project.buildQuantity,
+                    project.manualSuppliers
                 )
             );
     }
@@ -450,6 +512,14 @@ export function buildInfoSheet(
                 : "Not collected"
         ]);
         if (selection.suppliers.includes(supplier)) {
+            rows.push([
+                `${name}_Total price (${BASE_CURRENCY})`,
+                sum(`${name}_Total price`)
+            ]);
+        }
+    }
+    if (selection.manual && !selection.partNumbersOnly) {
+        for (const { name } of project.manualSuppliers) {
             rows.push([
                 `${name}_Total price (${BASE_CURRENCY})`,
                 sum(`${name}_Total price`)

@@ -235,6 +235,25 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                             Part numbers only, without the suppliers&apos; data
                         </label>
                     )}
+                    {project.manualSuppliers.length > 0 && (
+                        <label className="checkbox">
+                            <input
+                                type="checkbox"
+                                checked={selection.manual === true}
+                                onChange={event =>
+                                    setSelection({
+                                        ...selection,
+                                        manual: event.target.checked
+                                    })
+                                }
+                            />
+                            Suppliers without an API (
+                            {project.manualSuppliers
+                                .map(s => s.name)
+                                .join(", ")}
+                            )
+                        </label>
+                    )}
                     <label className="checkbox">
                         <input
                             type="checkbox"

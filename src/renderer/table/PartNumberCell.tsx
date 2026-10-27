@@ -25,6 +25,8 @@ export interface TableContext {
 export interface TableTotals {
     rows: number;
     suppliers: Partial<Record<SupplierId, ColumnTotal>>;
+    /** Suppliers without an API, by id. */
+    manual: Record<string, ColumnTotal>;
     best: BomTotals;
 }
 

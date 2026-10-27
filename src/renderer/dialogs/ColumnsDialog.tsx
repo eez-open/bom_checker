@@ -1,12 +1,20 @@
 import { useState } from "react";
-import type { ColumnType, CustomColumn } from "../../shared/model";
+import type {
+    ColumnType,
+    CustomColumn,
+    ManualSupplier
+} from "../../shared/model";
 import {
     addCustomColumn,
+    addManualSupplier,
     addSupplier,
     customColumnHasValues,
     deleteCustomColumn,
+    deleteManualSupplier,
+    manualSupplierHasValues,
     removeSupplier,
     renameCustomColumn,
+    renameManualSupplier,
     supplierHasValues,
     validateColumnName
 } from "../../shared/project-ops";
@@ -41,6 +49,26 @@ export function ColumnsDialog({ onClose }: { onClose: () => void }) {
                         />
                     ))}
                 </div>
+            </section>
+            <section>
+                <h3>Suppliers without an API</h3>
+                <p className="muted">
+                    For parts no supplier above has, e.g. a display from a local
+                    shop or an enclosure made to order: type the part number,
+                    unit price (EUR), stock and MOQ into the table. They count
+                    for the best price like the others.
+                </p>
+                {project.manualSuppliers.length > 0 && (
+                    <ul className="custom-columns">
+                        {project.manualSuppliers.map(supplier => (
+                            <ManualSupplierItem
+                                key={supplier.id}
+                                supplier={supplier}
+                            />
+                        ))}
+                    </ul>
+                )}
+                <AddManualSupplier />
             </section>
             <section>
                 <h3>Custom columns</h3>
@@ -186,6 +214,90 @@ function AddCustomColumn() {
             </select>
             <button type="submit" disabled={name.trim() === "" || !!error}>
                 Add column
+            </button>
+            {error && <div className="field-error">{error}</div>}
+        </form>
+    );
+}
+
+function ManualSupplierItem({ supplier }: { supplier: ManualSupplier }) {
+    const [name, setName] = useState(supplier.name);
+    const project = useDocument(state => state.project);
+    const error =
+        name.trim() === supplier.name
+            ? null
+            : validateColumnName(project, name, supplier.id);
+
+    const commit = () => {
+        if (!error) {
+            useDocument
+                .getState()
+                .edit(p => renameManualSupplier(p, supplier.id, name));
+        }
+    };
+
+    const remove = async () => {
+        const { project, edit } = useDocument.getState();
+        const confirmed =
+            !manualSupplierHasValues(project, supplier.id) ||
+            (await window.api.dialog.confirm({
+                message: `Delete the supplier "${supplier.name}"?`,
+                detail: "Its part numbers, prices and stock are deleted too. You can undo this with Ctrl+Z.",
+                confirmLabel: "Delete"
+            }));
+        if (confirmed) {
+            edit(p => deleteManualSupplier(p, supplier.id));
+        }
+    };
+
+    return (
+        <li>
+            <input
+                aria-label="Supplier name"
+                value={name}
+                onChange={event => setName(event.target.value)}
+                onBlur={commit}
+                onKeyDown={event => event.key === "Enter" && commit()}
+                aria-invalid={error !== null}
+            />
+            <button type="button" onClick={() => void remove()}>
+                Delete
+            </button>
+            {error && <div className="field-error">{error}</div>}
+        </li>
+    );
+}
+
+function AddManualSupplier() {
+    const [name, setName] = useState("");
+    const project = useDocument(state => state.project);
+    const error = name.trim() === "" ? null : validateColumnName(project, name);
+
+    const add = () => {
+        if (name.trim() === "" || error) {
+            return;
+        }
+        useDocument.getState().edit(p => addManualSupplier(p, name).project);
+        setName("");
+    };
+
+    return (
+        <form
+            className="add-column"
+            onSubmit={event => {
+                event.preventDefault();
+                add();
+            }}
+        >
+            <input
+                aria-label="New supplier name"
+                placeholder="Supplier name"
+                value={name}
+                onChange={event => setName(event.target.value)}
+                aria-invalid={error !== null}
+            />
+            <button type="submit" disabled={name.trim() === "" || !!error}>
+                Add supplier
             </button>
             {error && <div className="field-error">{error}</div>}
         </form>

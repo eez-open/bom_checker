@@ -3,6 +3,7 @@ import type { AppInfo, ColumnGroup } from "../shared/ipc";
 import type { SupplierId } from "../shared/model";
 import { BASE_CURRENCY, bomTotals, foreignCurrencies } from "../shared/pricing";
 import {
+    manualSuppliersWithPrices,
     setCell,
     suppliersWithData,
     totalQuantity
@@ -82,11 +83,12 @@ export function App() {
     );
     const foreign = useMemo(() => foreignCurrencies(project), [project]);
     const withData = suppliersWithData(project);
-    const hasData = withData.length > 0;
-    // The table shows Best price once two suppliers have data.
+    const priced = withData.length + manualSuppliersWithPrices(project).length;
+    const hasData = priced > 0;
+    // The table shows Best price once two suppliers have prices.
     const available: ColumnGroup[] = [
         ...project.suppliers,
-        ...(withData.length >= 2 ? (["best"] as const) : [])
+        ...(priced >= 2 ? (["best"] as const) : [])
     ];
     const hidden = hiddenColumns.filter(group => available.includes(group));
     const availableKey = available.join(",");

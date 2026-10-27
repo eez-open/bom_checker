@@ -1,5 +1,8 @@
 import type { Project } from "../shared/model";
-import { suppliersWithData } from "../shared/project-ops";
+import {
+    manualSuppliersWithPrices,
+    suppliersWithData
+} from "../shared/project-ops";
 import { SUPPLIERS } from "../shared/suppliers";
 import { clearFilters, SEARCH_INPUT_ID } from "./commands";
 import { useUi } from "./store/ui";
@@ -7,7 +10,8 @@ import { useUi } from "./store/ui";
 /** The rows filters offered for this BOM, as value → label. */
 export function rowViews(project: Project): [string, string][] {
     const withData = suppliersWithData(project);
-    if (withData.length === 0) {
+    const manual = manualSuppliersWithPrices(project);
+    if (withData.length + manual.length === 0) {
         return [];
     }
     return [
@@ -15,6 +19,10 @@ export function rowViews(project: Project): [string, string][] {
         ...withData.map((supplier): [string, string] => [
             `best:${supplier}`,
             `Best price: ${SUPPLIERS[supplier].name}`
+        ]),
+        ...manual.map((supplier): [string, string] => [
+            `best:${supplier.id}`,
+            `Best price: ${supplier.name}`
         ]),
         ["none", "Best price: None in stock"]
     ];

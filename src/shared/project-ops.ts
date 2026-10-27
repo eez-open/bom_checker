@@ -13,6 +13,9 @@ import {
     type CustomColumn,
     type CustomValue,
     type Project,
+    type ManualField,
+    type ManualOffer,
+    type ManualSupplier,
     type SupplierId
 } from "./model";
 import { ALL_SUPPLIERS, sortSuppliers } from "./suppliers";
@@ -23,6 +26,7 @@ export function createProject(): Project {
         source: { kind: "manual" },
         suppliers: [],
         customColumns: [],
+        manualSuppliers: [],
         rows: [],
         buildQuantity: 1,
         collected: { results: {}, runs: {} }
@@ -118,6 +122,44 @@ function updateRow(
             }
             const custom = withEntry(row.custom, key.id, value);
             return custom === row.custom ? row : { ...row, custom };
+        }
+        case "manual": {
+            if (!project.manualSuppliers.some(s => s.id === key.supplier)) {
+                return row;
+            }
+            const value =
+                key.field === "partNumber"
+                    ? toText(raw)
+                    : toOptionalNumber(raw);
+            if (
+                value === undefined ||
+                (typeof value === "number" &&
+                    (value < 0 || (key.field === "moq" && value === 0)))
+            ) {
+                return row;
+            }
+            const offer = row.manual?.[key.supplier] ?? {};
+            if (
+                value === ""
+                    ? !(key.field in offer)
+                    : offer[key.field] === value
+            ) {
+                return row;
+            }
+            const next: ManualOffer = { ...offer };
+            if (value === "") {
+                delete next[key.field];
+            } else {
+                (next as Record<ManualField, string | number>)[key.field] =
+                    value;
+            }
+            const manual = { ...row.manual };
+            if (Object.keys(next).length === 0) {
+                delete manual[key.supplier];
+            } else {
+                manual[key.supplier] = next;
+            }
+            return { ...row, manual };
         }
     }
 }
@@ -267,15 +309,22 @@ export function validateColumnName(
     if (reserved.some(other => other.toLowerCase() === lower)) {
         return `"${trimmed}" is a built-in column.`;
     }
-    const prefix = [...ALL_SUPPLIERS.map(s => s.name), "Best"]
+    const manual = project.manualSuppliers.filter(s => s.id !== exceptId);
+    const prefix = [
+        ...ALL_SUPPLIERS.map(s => s.name),
+        ...manual.map(s => s.name),
+        "Best"
+    ]
         .map(name => `${name}_`)
         .find(prefix => lower.startsWith(prefix.toLowerCase()));
     if (prefix) {
-        return `Names starting with "${prefix}" are reserved for collected supplier data.`;
+        return `Names starting with "${prefix}" are reserved for supplier data.`;
     }
-    const duplicate = project.customColumns.some(
-        column => column.id !== exceptId && column.name.toLowerCase() === lower
-    );
+    const duplicate =
+        project.customColumns.some(
+            column =>
+                column.id !== exceptId && column.name.toLowerCase() === lower
+        ) || manual.some(supplier => supplier.name.toLowerCase() === lower);
     return duplicate ? `A column named "${trimmed}" already exists.` : null;
 }
 
@@ -345,6 +394,78 @@ export function deleteCustomColumn(project: Project, id: string): Project {
 
 export function customColumnHasValues(project: Project, id: string): boolean {
     return project.rows.some(row => id in row.custom);
+}
+
+// --- Suppliers without an API ----------------------------------------------
+
+/** Adds a supplier without an API; its name follows the column-name rules,
+ *  since it heads its columns ("Shop_Unit price" in exports). */
+export function addManualSupplier(
+    project: Project,
+    name: string
+): { project: Project; supplier: ManualSupplier } {
+    assertValidName(project, name);
+    const supplier: ManualSupplier = {
+        id: crypto.randomUUID(),
+        name: name.trim()
+    };
+    return {
+        project: {
+            ...project,
+            manualSuppliers: [...project.manualSuppliers, supplier]
+        },
+        supplier
+    };
+}
+
+export function renameManualSupplier(
+    project: Project,
+    id: string,
+    name: string
+): Project {
+    const supplier = project.manualSuppliers.find(s => s.id === id);
+    if (!supplier || supplier.name === name.trim()) {
+        return project;
+    }
+    assertValidName(project, name, id);
+    return {
+        ...project,
+        manualSuppliers: project.manualSuppliers.map(s =>
+            s.id === id ? { ...s, name: name.trim() } : s
+        )
+    };
+}
+
+/** Removes a supplier without an API with everything typed for it. */
+export function deleteManualSupplier(project: Project, id: string): Project {
+    if (!project.manualSuppliers.some(s => s.id === id)) {
+        return project;
+    }
+    return {
+        ...project,
+        manualSuppliers: project.manualSuppliers.filter(s => s.id !== id),
+        rows: project.rows.map(row => {
+            if (!row.manual || !(id in row.manual)) {
+                return row;
+            }
+            const manual = { ...row.manual };
+            delete manual[id];
+            return { ...row, manual };
+        })
+    };
+}
+
+export function manualSupplierHasValues(project: Project, id: string): boolean {
+    return project.rows.some(row => row.manual?.[id] !== undefined);
+}
+
+/** Suppliers without an API that have a price in some row. */
+export function manualSuppliersWithPrices(project: Project): ManualSupplier[] {
+    return project.manualSuppliers.filter(supplier =>
+        project.rows.some(
+            row => row.manual?.[supplier.id]?.unitPrice !== undefined
+        )
+    );
 }
 
 function assertValidName(project: Project, name: string, exceptId?: string) {

@@ -1,4 +1,4 @@
-import { SUPPLIER_IDS, type SupplierId } from "./model";
+import { SUPPLIER_IDS, type Project, type SupplierId } from "./model";
 
 export interface SupplierInfo {
     id: SupplierId;
@@ -25,4 +25,14 @@ export function sortSuppliers(ids: Iterable<SupplierId>): SupplierId[] {
     return [...new Set(ids)].sort(
         (a, b) => SUPPLIER_IDS.indexOf(a) - SUPPLIER_IDS.indexOf(b)
     );
+}
+
+/** The name of a supplier with an API, or of one without (by its id). */
+export function supplierName(
+    project: Pick<Project, "manualSuppliers">,
+    key: string
+): string {
+    return (SUPPLIER_IDS as readonly string[]).includes(key)
+        ? SUPPLIERS[key as SupplierId].name
+        : (project.manualSuppliers.find(s => s.id === key)?.name ?? key);
 }

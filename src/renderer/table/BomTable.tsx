@@ -19,9 +19,15 @@ import type {
     Project,
     SupplierId
 } from "../../shared/model";
-import { bomTotals, matchesRowView, supplierTotal } from "../../shared/pricing";
+import {
+    bomTotals,
+    manualTotal,
+    matchesRowView,
+    supplierTotal
+} from "../../shared/pricing";
 import {
     createRow,
+    manualSuppliersWithPrices,
     suppliersWithData,
     totalQuantity
 } from "../../shared/project-ops";
@@ -119,6 +125,9 @@ export function BomTable({
             suppliers: Object.fromEntries(
                 shown.suppliers.map(s => [s, supplierTotal(shown, s)])
             ),
+            manual: Object.fromEntries(
+                shown.manualSuppliers.map(s => [s.id, manualTotal(shown, s)])
+            ),
             best: bomTotals(shown, preference)
         }),
         [shown, preference]
@@ -166,6 +175,10 @@ export function BomTable({
     // Suppliers with collected data get the calculated columns.
     const withData = suppliersWithData(project).join(",");
     const hidden = hiddenColumns.join(",");
+    // Whether the Best price columns show depends on typed-in prices too.
+    const manualPriced = manualSuppliersWithPrices(project)
+        .map(s => s.id)
+        .join(",");
     const collectedAt = project.suppliers
         .map(s => lastCollectedAt(project.collected, s))
         .join(",");
@@ -187,6 +200,8 @@ export function BomTable({
             withData,
             collectedAt,
             project.buildQuantity,
+            project.manualSuppliers,
+            manualPriced,
             hidden
         ]
     );
@@ -196,7 +211,7 @@ export function BomTable({
     const totalLabel = shownIds ? "Total of shown rows" : "Total";
     const pinnedRows = useMemo(
         () =>
-            withData
+            withData || manualPriced
                 ? [
                       {
                           ...createRow({ reference: totalLabel, qty: parts }),
@@ -204,7 +219,7 @@ export function BomTable({
                       }
                   ]
                 : [],
-        [withData, parts, totalLabel]
+        [withData, manualPriced, parts, totalLabel]
     );
 
     const filtered = search.trim() !== "" || rowView !== "all";

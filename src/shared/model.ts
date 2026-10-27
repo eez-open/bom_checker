@@ -25,6 +25,27 @@ export interface BomRow {
     partNumbers: Partial<Record<SupplierId, string>>;
     /** Custom column values, keyed by `CustomColumn.id`. */
     custom: Record<string, CustomValue>;
+    /** What was typed for suppliers without an API, keyed by
+     *  `ManualSupplier.id`. */
+    manual?: Record<string, ManualOffer>;
+}
+
+/** A supplier without an API (#20), e.g. a local shop or an enclosure
+ *  maker: its part numbers, prices and stock are typed into the table. */
+export interface ManualSupplier {
+    id: string;
+    name: string;
+}
+
+export type ManualField = "partNumber" | "unitPrice" | "stock" | "moq";
+
+/** One row's data for a supplier without an API. Prices are in EUR; no
+ *  stock means it's always available, e.g. made to order. */
+export interface ManualOffer {
+    partNumber?: string;
+    unitPrice?: number;
+    stock?: number;
+    moq?: number;
 }
 
 export interface ProjectSource {
@@ -54,6 +75,8 @@ export interface Project {
     /** Suppliers that have a part-number column, in `SUPPLIER_IDS` order. */
     suppliers: SupplierId[];
     customColumns: CustomColumn[];
+    /** Suppliers without an API, in the order they were added. */
+    manualSuppliers: ManualSupplier[];
     rows: BomRow[];
     /** How many units (e.g. boards) to build: every row's Qty is multiplied
      *  by it for order quantities, prices and availability. */
@@ -169,4 +192,5 @@ export const BASE_COLUMNS: readonly BaseColumn[] = [
 export type ColumnKey =
     | { kind: "base"; field: BaseField }
     | { kind: "partNumber"; supplier: SupplierId }
-    | { kind: "custom"; id: string };
+    | { kind: "custom"; id: string }
+    | { kind: "manual"; supplier: string; field: ManualField };

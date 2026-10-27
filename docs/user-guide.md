@@ -94,6 +94,17 @@ Every change can be undone with **Ctrl+Z** and redone with **Ctrl+Y**.
 
 Importing again (for example after changing the schematic) keeps the supplier data already collected for part numbers that are still in the BOM.
 
+### Suppliers without an API
+
+Some parts don't come from DigiKey, Mouser, TME or LCSC: a TFT display from a specialist shop, a metal enclosure, cardboard shipping boxes. In **Columns…**, under *Suppliers without an API*, add such a supplier by name. It gets a column group in the table where you type, for each row:
+
+- **part number** (optional, for your reference);
+- **Unit price** in EUR;
+- **Stock Qty**: how many it has; leave it empty if it's always available, e.g. made to order;
+- **MOQ**: the smallest quantity it sells (1 if empty).
+
+Order Qty, Total price and Availability are calculated as for the other suppliers, and these suppliers take part in the best price: the cheapest total with enough stock wins; on equal totals, a supplier with an API is preferred. They're included in the Total row, the Rows filter and exports. Renaming or deleting one is done in **Columns…**; deleting removes what was typed for it (Ctrl+Z undoes it).
+
 ## Collecting supplier data
 
 Click **Collect…**. The first time in a session, enter your password. Then, for each supplier:
