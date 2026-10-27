@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+
+- The Value column stays in view with Row and Reference when scrolling to the supplier columns (#26).
+
 ## [0.4.0] - 2026-10-26
 
 ### Added

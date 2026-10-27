@@ -508,7 +508,7 @@ The `kicad-cli sch export bom --variant` alternative was rejected. It requires K
 
 - **Toolbar:** New · Open · Save · Import CSV · Open KiCad project · **Collect** · **Continue** · Export · Settings · Lock.
 - **Columns:**
-  - Row and Reference are pinned on the left.
+  - Row, Reference and Value are pinned on the left.
   - Each supplier's columns form a collapsible group: collapsed, it shows the part number, Total price and Availability. The Best group and then custom columns follow.
   - Columns can be shown or hidden, and custom columns added, renamed or deleted.
 - **Editing:**

@@ -431,8 +431,12 @@ export function buildColumns(
             cellDataType: numeric ? "number" : "text",
             cellEditorParams: numeric ? { min: 0, precision: 0 } : undefined,
             initialWidth: WIDTHS[column.field],
-            // Row and Reference stay in view while scrolling to supplier data.
-            pinned: column.field === "reference" ? "left" : undefined
+            // Row, Reference and Value stay in view while scrolling to
+            // supplier data.
+            pinned:
+                column.field === "reference" || column.field === "value"
+                    ? "left"
+                    : undefined
         });
         if (column.field === "qty" && project.buildQuantity > 1) {
             columnDefs.push({
