@@ -67,7 +67,7 @@ const TOTAL_PRICE = new Intl.NumberFormat("en", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
 });
-const QUANTITY = new Intl.NumberFormat("en");
+const QUANTITY = new Intl.NumberFormat("en", { maximumFractionDigits: 6 });
 
 function context(params: { context: unknown }): TableContext {
     return params.context as TableContext;
@@ -438,7 +438,8 @@ export function buildColumns(
             headerName: column.header,
             type: numeric ? "rightAligned" : undefined,
             cellDataType: numeric ? "number" : "text",
-            cellEditorParams: numeric ? { min: 0, precision: 0 } : undefined,
+            // Qty may be a decimal, e.g. 0.004 m of tape.
+            cellEditorParams: numeric ? { min: 0, precision: 6 } : undefined,
             initialWidth: WIDTHS[column.field],
             // Row, Reference and Value stay in view while scrolling to
             // supplier data.

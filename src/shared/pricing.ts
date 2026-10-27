@@ -34,7 +34,10 @@ export function orderQuantity(
         return 0;
     }
     const step = Math.max(1, multiple);
-    return Math.ceil(Math.max(qty, moq) / step) * step;
+    // Decimal quantities (0.004 m × 1250 = 5.000000000000001) mustn't add
+    // a whole package.
+    const packages = Number((Math.max(qty, moq) / step).toFixed(9));
+    return Math.ceil(packages) * step;
 }
 
 /** The unit price of the largest break at or below `quantity`. Below the

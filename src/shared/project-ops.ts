@@ -148,10 +148,19 @@ function toText(raw: unknown): string {
 
 function toQuantity(raw: unknown): number | undefined {
     if (typeof raw === "number") {
-        return Number.isInteger(raw) && raw >= 0 ? raw : undefined;
+        return Number.isFinite(raw) && raw >= 0 ? raw : undefined;
     }
-    const text = toText(raw);
-    return /^\d+$/.test(text) ? Number(text) : undefined;
+    return parseQuantity(toText(raw));
+}
+
+/**
+ * A Qty as typed or imported: a whole or decimal number, with "." or ","
+ * as the decimal separator ("0.004", "0,004"), for parts used in fractions
+ * of their unit, such as metres of tape. Undefined if it isn't one.
+ */
+export function parseQuantity(text: string): number | undefined {
+    const match = /^(\d+)(?:[.,](\d+))?$/.exec(text.trim());
+    return match ? Number(`${match[1]}.${match[2] ?? "0"}`) : undefined;
 }
 
 /** A number, "" for "no value", or undefined when the input isn't a number. */

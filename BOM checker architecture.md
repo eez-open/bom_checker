@@ -143,7 +143,7 @@ The project file is a versioned JSON document. 1,000 rows with three suppliers' 
 
 ```ts
 interface Project {
-  schemaVersion: 4;                     // 2 added `collected`, 3 `buildQuantity`, 4 `source.kicadValues`
+  schemaVersion: 5;                     // 2 added `collected`, 3 `buildQuantity`, 4 `source.kicadValues`, 5 decimal `qty`
   source: { kind: 'manual' | 'csv' | 'kicad'; path?: string; variant?: string; importedAt?: string };
   suppliers: SupplierId[];              // suppliers that have a part-number column in this BOM
   customColumns: ColumnDef[];           // user-defined columns, plus unmapped imported ones (e.g. LCSC)
@@ -159,7 +159,7 @@ interface BomRow {
   id: string;                           // stable UUID; survives sorting and re-import
   reference: string;                    // "C1,C2,C3"
   value: string;
-  qty: number;
+  qty: number;                          // may be a decimal, e.g. 0.004 (m of tape)
   footprint: string;
   custom: Record<string, string>;
   partNumbers: Partial<Record<SupplierId, string>>;  // trimmed; "" or "-" means not defined

@@ -18,6 +18,7 @@ export interface BomRow {
     id: string;
     reference: string;
     value: string;
+    /** May be a decimal, e.g. 0.004 (metres of tape). */
     qty: number;
     footprint: string;
     /** Trimmed supplier part numbers. A missing entry means "none". */
@@ -43,7 +44,7 @@ export interface ProjectSource {
     kicadValues?: Record<string, Record<string, string>>;
 }
 
-export const PROJECT_SCHEMA_VERSION = 4;
+export const PROJECT_SCHEMA_VERSION = 5;
 
 export const MAX_BUILD_QUANTITY = 1_000_000;
 

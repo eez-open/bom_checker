@@ -146,6 +146,8 @@ interface Column {
 }
 
 const QUANTITY_FORMAT = "0";
+/** Qty may be a decimal; "General" shows it as it is. */
+const QTY_FORMAT = "General";
 const UNIT_PRICE_FORMAT = "0.0000";
 const TOTAL_FORMAT = "0.00";
 
@@ -189,7 +191,7 @@ function columns(
         {
             header: "Qty",
             width: 6,
-            format: QUANTITY_FORMAT,
+            format: QTY_FORMAT,
             value: row => row.qty
         },
         ...(buildQuantity > 1
@@ -197,8 +199,9 @@ function columns(
                   {
                       header: "Total Qty",
                       width: 9,
-                      format: QUANTITY_FORMAT,
-                      value: (row: BomRow) => row.qty * buildQuantity
+                      format: QTY_FORMAT,
+                      value: (row: BomRow) =>
+                          Number((row.qty * buildQuantity).toFixed(9))
                   }
               ]
             : []),

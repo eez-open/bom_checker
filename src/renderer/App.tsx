@@ -39,8 +39,10 @@ const MONEY = new Intl.NumberFormat("en", {
     maximumFractionDigits: 2
 });
 
+const AMOUNT = new Intl.NumberFormat("en", { maximumFractionDigits: 6 });
+
 function count(n: number, noun: string): string {
-    return `${n} ${noun}${n === 1 ? "" : "s"}`;
+    return `${AMOUNT.format(n)} ${noun}${n === 1 ? "" : "s"}`;
 }
 
 function hasFiles(event: DragEvent): boolean {

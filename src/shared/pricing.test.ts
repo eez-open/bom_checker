@@ -73,6 +73,13 @@ function setup(
 }
 
 describe("order quantity", () => {
+    it("handles decimal quantities without rounding noise", () => {
+        // 0.004 m of tape per device, sold in 5 m rolls (MOQ 5, multiple 5).
+        expect(orderQuantity(0.004, 5, 5)).toBe(5);
+        expect(orderQuantity(0.004 * 1250, 5, 5)).toBe(5);
+        expect(orderQuantity(0.004 * 1251, 5, 5)).toBe(10);
+    });
+
     it("raises the quantity to the MOQ and the multiple", () => {
         expect(orderQuantity(3, 10, 1)).toBe(10); // scope: Qty 3, MOQ 10 → 10
         expect(orderQuantity(25, 10, 1)).toBe(25);

@@ -128,6 +128,18 @@ test("calculates order quantities, prices and the best supplier", async () => {
         await page.keyboard.press("Control+Z");
         await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("50");
 
+        // A decimal Qty (#19), e.g. part of a roll: still one package of 50.
+        await cell(page, D1, "qty").dblclick();
+        await fillEditor(page, "qty", "0.25");
+        await page.keyboard.press("Enter");
+        await expect(cell(page, D1, "qty")).toHaveText("0.25");
+        await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("50");
+        await expect(page.getByTestId("bom-summary")).toHaveText(
+            "4 rows · 33.25 parts"
+        );
+        await page.keyboard.press("Control+Z");
+        await expect(cell(page, D1, "qty")).toHaveText("2");
+
         // Build quantity: every Qty × 30, undone with Ctrl+Z.
         const buildQty = page.getByLabel("Build qty");
         await buildQty.fill("30");
@@ -136,7 +148,7 @@ test("calculates order quantities, prices and the best supplier", async () => {
         await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("100");
         await expect(cell(page, D1, "data:tme:totalPrice")).toHaveText("1.24");
         await expect(page.getByTestId("bom-summary")).toHaveText(
-            "4 rows · 35 parts per unit × 30 = 1050 parts"
+            "4 rows · 35 parts per unit × 30 = 1,050 parts"
         );
         await page.keyboard.press("Control+Z");
         await expect(buildQty).toHaveValue("1");

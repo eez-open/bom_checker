@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- Qty can be a decimal, for parts used in fractions of their unit, e.g. 0.004 m of tape from 5 m rolls; order quantities are still whole packages (#19). BOM files are now format 5.
+
 ## [0.5.0] - 2026-10-27
 
 ### Added

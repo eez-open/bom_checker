@@ -13,6 +13,7 @@ import type {
 } from "./model";
 import { normalizeCell } from "./part-number";
 import {
+    parseQuantity,
     addCustomColumn,
     addSupplier,
     countReferences,
@@ -193,7 +194,7 @@ export function importTable(
             const text = normalizeCell(cells[index]);
             if (target.kind === "base") {
                 if (target.field === "qty") {
-                    qty = /^\d+$/.test(text) ? Number(text) : undefined;
+                    qty = parseQuantity(text);
                 } else {
                     row[target.field] = text;
                 }

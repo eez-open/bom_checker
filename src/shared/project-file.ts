@@ -22,7 +22,7 @@ const rowSchema = z.object({
     id: z.string().min(1),
     reference: z.string(),
     value: z.string(),
-    qty: z.number().int().nonnegative(),
+    qty: z.number().nonnegative(),
     footprint: z.string(),
     partNumbers: z.partialRecord(supplierId, z.string()),
     custom: z.record(z.string(), z.union([z.string(), z.number()]))
@@ -148,7 +148,9 @@ const MIGRATIONS: Partial<Record<number, Migration>> = {
     2: data => ({ ...data, buildQuantity: 1 }),
     // Version 4 added KiCad's values for Sync KiCad…; files without them
     // are compared without knowing which side changed.
-    3: data => data
+    3: data => data,
+    // Version 5 allows decimal quantities.
+    4: data => data
 };
 
 export function parseProjectFile(text: string): Project {

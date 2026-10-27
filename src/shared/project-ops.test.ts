@@ -65,14 +65,20 @@ describe("setCell", () => {
         expect(setCell(project, rowId, key, " 100n ")).toBe(project);
     });
 
-    it("accepts only non-negative whole numbers for Qty", () => {
+    it("accepts non-negative whole and decimal numbers for Qty", () => {
         const { project, rowId } = projectWithRow();
         const key = { kind: "base", field: "qty" } as const;
-        expect(setCell(project, rowId, key, "12").rows[0]?.qty).toBe(12);
-        expect(setCell(project, rowId, key, 7).rows[0]?.qty).toBe(7);
+        const qty = (raw: unknown) =>
+            setCell(project, rowId, key, raw).rows[0]?.qty;
+        expect(qty("12")).toBe(12);
+        expect(qty(7)).toBe(7);
+        // E.g. metres of tape per device.
+        expect(qty(1.5)).toBe(1.5);
+        expect(qty("0.004")).toBe(0.004);
+        expect(qty("0,004")).toBe(0.004);
         expect(setCell(project, rowId, key, "abc")).toBe(project);
+        expect(setCell(project, rowId, key, "1.2.3")).toBe(project);
         expect(setCell(project, rowId, key, -1)).toBe(project);
-        expect(setCell(project, rowId, key, 1.5)).toBe(project);
         expect(setCell(project, rowId, key, null)).toBe(project);
     });
 
