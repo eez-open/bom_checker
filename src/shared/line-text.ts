@@ -7,6 +7,26 @@ import type { SupplierLine } from "./pricing";
 
 const QUANTITY = new Intl.NumberFormat("en");
 
+/** Notes that start with this tell of other packagings of the same product
+ *  with stock, e.g. a box when cut tape is out of stock. */
+export const OTHER_PACKAGING = "Other packaging: ";
+
+/** "Other packaging: 495-4874-3-ND (Tape & Box (TB)): 1,930 in stock,
+ *  MOQ 2,000." */
+export function otherPackagingNote(offer: {
+    supplierPartNumber: string;
+    packaging?: string;
+    stockQty: number;
+    moq: number;
+}): string {
+    return (
+        `${OTHER_PACKAGING}${offer.supplierPartNumber}` +
+        (offer.packaging ? ` (${offer.packaging})` : "") +
+        `: ${QUANTITY.format(offer.stockQty)} in stock` +
+        (offer.moq > 1 ? `, MOQ ${QUANTITY.format(offer.moq)}.` : ".")
+    );
+}
+
 /** The Availability text, including lookups that found nothing usable. */
 export function availabilityText(line: SupplierLine | null): string {
     if (!line) {

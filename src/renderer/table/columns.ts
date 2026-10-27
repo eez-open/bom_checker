@@ -6,7 +6,11 @@ import type {
 } from "ag-grid-community";
 import { lastCollectedAt } from "../../shared/collection";
 import type { ColumnGroup } from "../../shared/ipc";
-import { availabilityText, statusText } from "../../shared/line-text";
+import {
+    availabilityText,
+    OTHER_PACKAGING,
+    statusText
+} from "../../shared/line-text";
 import {
     BASE_COLUMNS,
     type BomRow,
@@ -297,7 +301,14 @@ function dataColumns(
                     : undefined,
             // Arrow keys and Enter belong to the list while it has focus.
             suppressKeyboardEvent: params =>
-                params.event.target instanceof HTMLSelectElement
+                params.event.target instanceof HTMLSelectElement,
+            // Stock in other packagings of the product, if any.
+            tooltipValueGetter: params => {
+                const notes = (
+                    lineOf(params, supplier)?.offer?.notes ?? []
+                ).filter(note => note.startsWith(OTHER_PACKAGING));
+                return notes.length > 0 ? notes.join("\n") : undefined;
+            }
         }),
         column("status", "Status", line => statusText(line?.offer) || null, {
             initialWidth: 140,

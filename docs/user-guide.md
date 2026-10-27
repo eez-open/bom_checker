@@ -148,7 +148,7 @@ To hide all columns of a supplier, or the Best price columns, uncheck them in th
 | Order Qty | What you need to buy: Qty (× build quantity), raised to the MOQ and rounded up to the order multiple. Example: Qty 3 with MOQ 10 → 10. |
 | Unit price | The price break that applies to the Order Qty; highlighted if the quantity is below the first break. Hover to see whether it's your account's price. |
 | Total price | Unit price × Order Qty, in EUR. |
-| Availability | In stock, Partial (with the quantity in stock), Out of stock, or Not orderable. |
+| Availability | In stock, Partial (with the quantity in stock), Out of stock, or Not orderable. DigiKey keeps stock per packaging: when another packaging of the same product has stock, e.g. a box when cut tape is out of stock, hovering shows its part number, stock and MOQ. |
 | Status | Active; **amber** for new, NRND, last time buy and special order; **red** for obsolete and not orderable. |
 | RoHS | As reported (TME doesn't report it). |
 

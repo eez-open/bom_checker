@@ -119,6 +119,43 @@ describe("DigiKey", () => {
         });
     });
 
+    it("mentions other packagings that have stock", async () => {
+        // As DigiKey answered for TDK B32620A6222J289: no cut tape in
+        // stock, 1,930 in a box of 2,000.
+        const body = product();
+        body.Product.ProductVariations = [
+            {
+                ...body.Product.ProductVariations[0]!,
+                DigiKeyProductNumber: "495-4874-1-ND",
+                QuantityAvailableforPackageType: 0
+            },
+            {
+                ...body.Product.ProductVariations[1]!,
+                DigiKeyProductNumber: "495-4874-3-ND",
+                PackageType: { Id: 4, Name: "Tape & Box (TB)" },
+                MinimumOrderQuantity: 2000,
+                QuantityAvailableforPackageType: 1930
+            }
+        ];
+        const context = fakeContext(
+            "digikey",
+            SECRETS,
+            digikeyServer(() => ({ body }))
+        );
+        const outcome = (await digikey.lookup(["495-4874-1-ND"], context)).get(
+            "495-4874-1-ND"
+        );
+        expect(outcome).toMatchObject({
+            status: "found",
+            offer: {
+                stockQty: 0,
+                notes: [
+                    "Other packaging: 495-4874-3-ND (Tape & Box (TB)): 1,930 in stock, MOQ 2,000."
+                ]
+            }
+        });
+    });
+
     it("falls back to list prices and asks which packaging for a manufacturer number", async () => {
         const context = fakeContext(
             "digikey",
