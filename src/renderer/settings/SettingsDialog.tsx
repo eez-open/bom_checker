@@ -168,8 +168,21 @@ function GeneralPanel({
                 About shows where the log file is.
             </p>
             {error && <p className="field-error">{error}</p>}
+            <PasswordSection />
         </section>
     );
+}
+
+/** Change password, once there is one (#22). */
+function PasswordSection() {
+    const [hasPassword, setHasPassword] = useState(false);
+    useEffect(() => {
+        window.api.vault
+            .getState()
+            .then(state => setHasPassword(state !== "none"))
+            .catch(() => setHasPassword(false));
+    }, []);
+    return hasPassword ? <ChangePasswordForm /> : null;
 }
 
 function PasswordGate({ onOpened }: { onOpened: (token: string) => void }) {
@@ -199,7 +212,7 @@ function PasswordGate({ onOpened }: { onOpened: (token: string) => void }) {
     );
 }
 
-type Section = SupplierId | "password";
+type Section = SupplierId;
 
 function SuppliersPanel({
     token,
@@ -236,13 +249,9 @@ function SuppliersPanel({
             .catch((caught: unknown) => setError(errorMessage(caught)));
     }, [token]);
 
-    const sections: { id: Section; label: string }[] = [
-        ...ALL_SUPPLIERS.map(supplier => ({
-            id: supplier.id,
-            label: supplier.name
-        })),
-        { id: "password", label: "Password" }
-    ];
+    const sections: { id: Section; label: string }[] = ALL_SUPPLIERS.map(
+        supplier => ({ id: supplier.id, label: supplier.name })
+    );
 
     return (
         <div className="settings-split">
@@ -260,23 +269,19 @@ function SuppliersPanel({
             </nav>
             <div>
                 {error && <p className="field-error">{error}</p>}
-                {section === "password" ? (
-                    <ChangePasswordForm token={token} onLocked={onLocked} />
-                ) : (
-                    status && (
-                        <SupplierForm
-                            key={section}
-                            supplier={section}
-                            token={token}
-                            config={settings.suppliers[section]}
-                            secretsSet={status[section]}
-                            onLocked={onLocked}
-                            onSaved={async saved => {
-                                onChange(saved);
-                                await loadStatus();
-                            }}
-                        />
-                    )
+                {status && (
+                    <SupplierForm
+                        key={section}
+                        supplier={section}
+                        token={token}
+                        config={settings.suppliers[section]}
+                        secretsSet={status[section]}
+                        onLocked={onLocked}
+                        onSaved={async saved => {
+                            onChange(saved);
+                            await loadStatus();
+                        }}
+                    />
                 )}
             </div>
         </div>

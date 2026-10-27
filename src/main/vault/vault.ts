@@ -203,23 +203,26 @@ export async function saveSecrets(
     secrets = next;
 }
 
-/** False if `currentPassword` is wrong. */
+/**
+ * False if `currentPassword` is wrong. The current password proves who
+ * asks, so this needs no settings session (it's in Settings → General) and
+ * works while the credentials are locked too.
+ */
 export async function changePassword(
-    token: string,
     currentPassword: string,
     newPassword: string
 ): Promise<boolean> {
-    checkSession(token);
     checkNewPassword(newPassword);
     const vault = await loadFile();
-    if (!vault || !dataKey) {
-        throw new SettingsLockedError();
+    if (!vault) {
+        throw new Error("No password has been set yet.");
     }
-    if (!(await unlockVault(vault, currentPassword))) {
+    const key = await unlockVault(vault, currentPassword);
+    if (!key) {
         await sleep(WRONG_PASSWORD_DELAY_MS);
         return false;
     }
-    await saveFile(await changeVaultPassword(vault, dataKey, newPassword));
+    await saveFile(await changeVaultPassword(vault, key, newPassword));
     log.info("Vault password changed");
     return true;
 }

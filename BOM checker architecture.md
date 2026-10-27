@@ -391,7 +391,7 @@ Files in the app-data folder (`%APPDATA%\EEZ BOM checker\` on Windows, `~/.confi
 
 - **Password key:** `scrypt(password, salt)` produces a 256-bit password key. A random 256-bit data key encrypts the credentials (AES-256-GCM), and the password key encrypts the data key.
 - **Password check:** a wrong password fails the GCM authentication of `wrappedKey`. This acts as the salted, slow password verifier, so no separate hash is stored. One check costs about 0.3 s, which makes guessing slow.
-- **Changing the password** re-encrypts only the data key, with a new salt. Writes are atomic (temp file + rename).
+- **Changing the password** (Settings → General) re-encrypts only the data key, with a new salt. The current password unwraps the data key, which proves who's asking, so no settings session is needed. Writes are atomic (temp file + rename).
 - **Once-per-session unlock.** After the password is entered, the data key stays in main-process memory until the app quits or the user picks **Lock**. The first Collect of a session asks for the password.
 - **Settings access.** Opening the **Suppliers** section of Settings asks for the password every time, even when the vault is unlocked, so the section stays protected while the app is left open. **General** (supplier order for ties, export presets and similar) needs no password.
 - **The UI receives credential values only on request.** It learns "set / not set"; a value is sent only when the user clicks Show or Copy next to it in supplier settings, which needs an open settings session (the password). Copying goes through main's clipboard, because the renderer's permission requests are all denied.

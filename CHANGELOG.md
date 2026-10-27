@@ -9,6 +9,10 @@ All notable changes to this project are documented in this file. The format is b
 - Undo and Redo buttons on the toolbar, next to Save (#24).
 - DigiKey keeps stock per packaging: when another packaging of the same product has stock (e.g. a box when cut tape is out of stock), the Availability and part-number tooltips show its part number, stock and MOQ.
 
+### Changed
+
+- Change password moved from Settings → Suppliers to Settings → General (#22).
+
 ### Fixed
 
 - The Delete button counted rows selected in the BOM that was open before (#23).

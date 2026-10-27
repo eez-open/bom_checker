@@ -1,6 +1,6 @@
 import { useId, useState, type ReactNode } from "react";
 import { MIN_PASSWORD_LENGTH, newPasswordProblem } from "../../shared/password";
-import { errorMessage, isSettingsLocked } from "../errors";
+import { errorMessage } from "../errors";
 
 function PasswordField({
     label,
@@ -169,13 +169,8 @@ export function EnterPasswordForm({
     );
 }
 
-export function ChangePasswordForm({
-    token,
-    onLocked
-}: {
-    token: string;
-    onLocked: () => void;
-}) {
+/** In Settings → General: the current password is the proof needed. */
+export function ChangePasswordForm() {
     const [current, setCurrent] = useState("");
     const [password, setPassword] = useState("");
     const [confirmation, setConfirmation] = useState("");
@@ -192,7 +187,6 @@ export function ChangePasswordForm({
         }
         try {
             const changed = await window.api.vault.changePassword(
-                token,
                 current,
                 password
             );
@@ -208,17 +202,16 @@ export function ChangePasswordForm({
             setConfirmation("");
             setMessage({ text: "Password changed.", error: false });
         } catch (caught) {
-            if (isSettingsLocked(caught)) {
-                onLocked();
-            } else {
-                setMessage({ text: errorMessage(caught), error: true });
-            }
+            setMessage({ text: errorMessage(caught), error: true });
         }
     };
 
     return (
         <Form onSubmit={submit}>
-            <h3>Change password</h3>
+            <h3 className="section-gap">Change password</h3>
+            <p className="muted">
+                The password that protects the stored API credentials.
+            </p>
             <PasswordField
                 label="Current password"
                 value={current}
