@@ -150,8 +150,8 @@ Changing Qty updates all calculations at once, without collecting again.
 
 **Export…** (Ctrl+E):
 
-- **Preset**: e.g. *All data*, *All Mouser data*, *Best price from Mouser*, *Not available anywhere*.
-- **Columns**: which suppliers' part numbers and data, the Best price columns, and your own columns. Row, Reference, Value, Qty and Footprint are always included.
+- **Preset**: e.g. *All data*, *Basic data only* (Row, Reference, Value, Qty, Footprint and the part numbers), *All Mouser data*, *Best price from Mouser*, *Not available anywhere*.
+- **Columns**: which suppliers' part numbers and data, the Best price columns, and your own columns. Row, Reference, Value, Qty and Footprint are always included. **Part numbers only** leaves out the suppliers' data columns.
 - **Rows**: all rows, rows with a supplier's part number, rows where a supplier has the best price, or rows that no supplier can deliver.
 - **Format**: Excel (.xlsx), LibreOffice (.ods) or CSV. Excel and LibreOffice files also get an *Info* sheet with the source, the filter, when data was collected and the totals.
 

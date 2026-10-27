@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- Export: the *Basic data only* preset and a *Part numbers only* option, for Row, Reference, Value, Qty, Footprint and the suppliers' part numbers without their data (#21).
+
 ### Changed
 
 - The Value column stays in view with Row and Reference when scrolling to the supplier columns (#26).
