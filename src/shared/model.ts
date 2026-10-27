@@ -34,9 +34,16 @@ export interface ProjectSource {
     variant?: string;
     /** ISO 8601 time of the import. */
     importedAt?: string;
+    /**
+     * KiCad's values at the last import or sync, by reference and BOM
+     * column ("value", "footprint", "pn:mouser", "custom:<id>"). Sync
+     * KiCad… compares them with the project and the BOM to tell changes
+     * made in KiCad from changes made in the BOM.
+     */
+    kicadValues?: Record<string, Record<string, string>>;
 }
 
-export const PROJECT_SCHEMA_VERSION = 3;
+export const PROJECT_SCHEMA_VERSION = 4;
 
 export const MAX_BUILD_QUANTITY = 1_000_000;
 

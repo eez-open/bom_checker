@@ -11,9 +11,10 @@ EEZ BOM checker takes a bill of materials (BOM) and checks every part at DigiKey
 5. [Building several units](#building-several-units)
 6. [Reading the table](#reading-the-table)
 7. [Exporting](#exporting)
-8. [Updating the KiCad project](#updating-the-kicad-project)
-9. [Files and security](#files-and-security)
-10. [Troubleshooting](#troubleshooting)
+8. [Syncing with the KiCad project](#syncing-with-the-kicad-project)
+9. [Updating the KiCad project](#updating-the-kicad-project)
+10. [Files and security](#files-and-security)
+11. [Troubleshooting](#troubleshooting)
 
 ## Installing
 
@@ -158,6 +159,19 @@ Changing Qty updates all calculations at once, without collecting again.
 To keep a combination, type a name and click **Save as preset**.
 
 Column names follow the pattern `Supplier_Column`, e.g. `Mouser_Stock Qty`, `Mouser_Total price`, `Best_Supplier`.
+
+## Syncing with the KiCad project
+
+For a BOM imported from a KiCad 10 project, the toolbar's **Import KiCad…** becomes **Sync KiCad…** (also **File → Sync with KiCad Project…**). It reads the project again, for the same design variant, and lists what changed in KiCad since the import or the last sync:
+
+- **New supplier columns:** part numbers in a field the BOM has no column for yet, e.g. LCSC.
+- **Added in KiCad:** new parts. They join the BOM row of their KiCad row-mates when that row has the same values; otherwise they get a new row.
+- **No longer in KiCad's BOM:** parts deleted in KiCad, or now DNP or excluded from the BOM. They leave their row; a row with no parts left goes.
+- **Changed in KiCad:** a Value, Footprint, part number or other field that changed in KiCad. When only some parts of a row changed, they get a row of their own.
+
+Tick what to bring into the BOM and click **Apply**; Ctrl+Z undoes it. What was done in the BOM is kept: rows and columns added by hand, and values changed in the BOM, e.g. a chosen item or a corrected part number, which aren't listed. The BOM file remembers what KiCad had at the import or the last sync to tell the two apart. A value changed on both sides is listed unticked, so the BOM's value stays unless you tick it.
+
+BOMs imported with version 0.4 or older don't have that yet: there, every difference is listed, and only additions are ticked. After the first sync, they work like the others.
 
 ## Updating the KiCad project
 

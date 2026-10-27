@@ -5,10 +5,10 @@
 
 import { relative } from "node:path";
 import type { KicadUpdatePlan, KicadUpdateRequest } from "../../shared/ipc";
+import { joinReferences, splitReferences } from "../../shared/references";
 import { SUPPLIERS } from "../../shared/suppliers";
 import { editFields, type FieldEdit, type FieldTarget } from "./edit";
 import {
-    compareReferences,
     DEFAULT_VARIANT,
     KicadError,
     variantParts,
@@ -22,14 +22,7 @@ export interface KicadUpdate {
     edits: Map<string, (FieldEdit & { column: string })[]>;
 }
 
-/** "C1, C2,C3 " → ["C1", "C2", "C3"]. */
-export function splitReferences(text: string): string[] {
-    return text.split(/[,\s]+/).filter(Boolean);
-}
-
-function referenceKey(references: readonly string[]): string {
-    return [...references].sort(compareReferences).join(",");
-}
+const referenceKey = joinReferences;
 
 /** A field's value as the BOM shows it: trimmed (the import trims cells),
  *  with KiCad's "~" for empty. Values that differ only in spaces count as

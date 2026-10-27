@@ -19,6 +19,7 @@ import {
     deleteRows,
     replacePartNumber
 } from "../shared/project-ops";
+import { importedKicadValues } from "../shared/kicad-sync";
 import { PROJECT_FILE_EXTENSION } from "../shared/project-file";
 import { documentName, isDirty, useDocument } from "./store/document";
 import { setHiddenColumns, useUi } from "./store/ui";
@@ -143,6 +144,14 @@ export function loadImported(project: Project): void {
     load(
         {
             ...project,
+            // What KiCad had, for Sync KiCad… later.
+            source:
+                project.source.kind === "kicad"
+                    ? {
+                          ...project.source,
+                          kicadValues: importedKicadValues(project)
+                      }
+                    : project.source,
             buildQuantity: current.buildQuantity,
             collected: {
                 ...project.collected,
@@ -180,6 +189,14 @@ export function deleteSelectedRows(): void {
     const ids = useUi.getState().selectedRowIds;
     if (ids.length > 0) {
         useDocument.getState().edit(project => deleteRows(project, ids));
+    }
+}
+
+/** Brings changes made in KiCad since the import into the BOM. */
+export function syncKicad(): void {
+    const { source } = useDocument.getState().project;
+    if (source.kind === "kicad" && source.path) {
+        useUi.setState({ dialog: { kind: "kicad-sync" } });
     }
 }
 
@@ -305,6 +322,7 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     "import-kicad": importKicad,
     export: openExport,
     "update-kicad": updateKicad,
+    "sync-kicad": syncKicad,
     undo,
     redo,
     "add-row": addRow,

@@ -4,6 +4,7 @@
 
 import { basename, dirname, join } from "node:path";
 import type { CsvTable } from "../../shared/csv-import";
+import { compareReferences } from "../../shared/references";
 import { ALL_SUPPLIERS } from "../../shared/suppliers";
 import {
     parseSchematic,
@@ -423,9 +424,4 @@ function toTable(
         ];
     });
     return { headers, rows };
-}
-
-/** Natural order: R2 before R10, C9 before R1. */
-export function compareReferences(a: string, b: string): number {
-    return a.localeCompare(b, "en", { numeric: true, sensitivity: "base" });
 }

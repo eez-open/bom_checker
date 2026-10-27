@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Sync KiCad… (the toolbar's Import KiCad… for a BOM imported from KiCad) lists what changed in the KiCad project since the import: added and removed parts, changed values and part numbers, new supplier columns. Ticked changes are brought into the BOM; rows and columns added in the BOM, and values changed only in the BOM, are kept (#30). BOM files are now format 4, which remembers KiCad's values for this; older files open as before.
 - When several supplier items match a part number, the Availability cell is a list to choose the item from, with each item's packaging, stock, MOQ and price; the chosen item's part number goes into the cell (#15).
 - Export: the *Basic data only* preset and a *Part numbers only* option, for Row, Reference, Value, Qty, Footprint and the suppliers' part numbers without their data (#21).
 

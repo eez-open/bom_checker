@@ -163,6 +163,10 @@ export function createMenu(): Menu {
                 command("Import &KiCad Project…", "import-kicad", {
                     accelerator: "CmdOrCtrl+K"
                 }),
+                command("S&ync with KiCad Project…", "sync-kicad", {
+                    id: "sync-kicad",
+                    enabled: state.documentOpen && state.fromKicad
+                }),
                 { type: "separator" },
                 documentCommand("&Export…", "export", {
                     accelerator: "CmdOrCtrl+E"

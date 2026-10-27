@@ -24,6 +24,7 @@ import { CollectDialog } from "./dialogs/CollectDialog";
 import { CsvImportDialog } from "./dialogs/CsvImportDialog";
 import { ExportDialog } from "./dialogs/ExportDialog";
 import { KicadImportDialog } from "./dialogs/KicadImportDialog";
+import { KicadSyncDialog } from "./dialogs/KicadSyncDialog";
 import { KicadUpdateDialog } from "./dialogs/KicadUpdateDialog";
 import { SettingsDialog } from "./settings/SettingsDialog";
 import { StartPage } from "./StartPage";
@@ -272,6 +273,9 @@ export function App() {
             )}
             {dialog?.kind === "kicad-update" && (
                 <KicadUpdateDialog onClose={closeDialog} />
+            )}
+            {dialog?.kind === "kicad-sync" && (
+                <KicadSyncDialog onClose={closeDialog} />
             )}
             {dialog?.kind === "collect" && (
                 <CollectDialog onClose={closeDialog} />
