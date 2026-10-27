@@ -146,12 +146,19 @@ test("calculates order quantities, prices and the best supplier", async () => {
         await buildQty.press("Enter");
         await expect(cell(page, D1, "totalQty")).toHaveText("60");
         await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("100");
-        await expect(cell(page, D1, "data:tme:totalPrice")).toHaveText("1.24");
+        // Totals show the price per unit too (#27): 1.24 / 30.
+        await expect(cell(page, D1, "data:tme:totalPrice")).toHaveText(
+            "1.24 (0.04)"
+        );
         await expect(page.getByTestId("bom-summary")).toHaveText(
             "4 rows · 35 parts per unit × 30 = 1,050 parts"
         );
+        await expect(page.getByTestId("bom-total")).toContainText(
+            "EUR per unit)"
+        );
         await page.keyboard.press("Control+Z");
         await expect(buildQty).toHaveValue("1");
+        await expect(cell(page, D1, "data:tme:totalPrice")).toHaveText("0.62");
         await expect(cell(page, D1, "totalQty")).toHaveCount(0);
         await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("50");
 

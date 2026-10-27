@@ -119,6 +119,19 @@ export function BomTable({
         apiRef.current?.refreshCells({ force: true });
     }, [project.collected, preference, project.buildQuantity]);
 
+    // With a build quantity, totals show the price per unit as well: make
+    // the Total price columns wide enough for it.
+    const autoSizeTotals = useCallback(() => {
+        const api = apiRef.current;
+        if (!api || buildQuantity.current <= 1) {
+            return;
+        }
+        const totals = (api.getColumns() ?? [])
+            .map(column => column.getColId())
+            .filter(id => id.endsWith("totalPrice"));
+        api.autoSizeColumns(totals);
+    }, []);
+
     useEffect(() => {
         totalsRef.current = totals;
         const api = apiRef.current;
@@ -171,6 +184,11 @@ export function BomTable({
         [withData, parts]
     );
 
+    // Also when columns are added, e.g. after collecting.
+    useEffect(() => {
+        requestAnimationFrame(autoSizeTotals);
+    }, [project.buildQuantity, columnDefs, autoSizeTotals]);
+
     const startPendingEdit = useCallback(() => {
         const api = apiRef.current;
         const node = editRowId ? api?.getRowNode(editRowId) : undefined;
@@ -207,6 +225,7 @@ export function BomTable({
                 (apiRef.current = event.api)
             }
             onRowDataUpdated={startPendingEdit}
+            onFirstDataRendered={autoSizeTotals}
             onCellEditRequest={(event: CellEditRequestEvent<BomRow>) => {
                 const key = keys.get(event.column.getColId());
                 if (key && event.data) {

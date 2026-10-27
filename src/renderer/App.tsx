@@ -250,6 +250,8 @@ export function App() {
                     <span data-testid="bom-total">
                         Best price total: {MONEY.format(totals.total)}{" "}
                         {BASE_CURRENCY}
+                        {project.buildQuantity > 1 &&
+                            ` (${MONEY.format(totals.total / project.buildQuantity)} ${BASE_CURRENCY} per unit)`}
                         {totals.uncovered > 0 &&
                             ` · ${count(totals.uncovered, "row")} without a supplier that has enough stock`}
                     </span>

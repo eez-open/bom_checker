@@ -118,7 +118,7 @@ Generic values such as *100n*, *4u7* or *10k*, names like *LED* or *Conn_01x04*,
 
 ## Building several units
 
-To check prices and stock for a production batch, enter the number of units in **Build qty** on the toolbar and press Enter. Every row's Qty is multiplied by it: a part used 10 times per board needs 250 for 25 boards. Order quantities, price breaks, availability and the best price follow at once, without collecting again, since the collected data has every price break. A *Total Qty* column shows the multiplied quantity, and the status bar shows the parts per unit and in total. The build quantity is saved with the BOM, Ctrl+Z undoes a change, and exports include it.
+To check prices and stock for a production batch, enter the number of units in **Build qty** on the toolbar and press Enter. Every row's Qty is multiplied by it: a part used 10 times per board needs 250 for 25 boards. Order quantities, price breaks, availability and the best price follow at once, without collecting again, since the collected data has every price break. A *Total Qty* column shows the multiplied quantity, and the status bar shows the parts per unit and in total. Total prices show the price per unit in parentheses, e.g. *62.50 (2.50)* for 25 units, in the table, the Total row and the status bar's best-price total. The build quantity is saved with the BOM, Ctrl+Z undoes a change, and exports include it.
 
 **Qty can be a decimal** for parts used in fractions of their unit, e.g. 0.004 (m) of adhesive tape sold in 5 m rolls (type 0.004 or 0,004). The order quantity is still rounded up to whole packages: one 5 m roll covers up to 1,250 devices, and the 1,251st needs a second one.
 

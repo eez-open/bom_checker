@@ -461,6 +461,12 @@ export function buildInfoSheet(
             `Best price total (${BASE_CURRENCY})`,
             sum("Best_Total price")
         ]);
+        if (project.buildQuantity > 1) {
+            rows.push([
+                `Best price total per unit (${BASE_CURRENCY})`,
+                sum("Best_Total price") / project.buildQuantity
+            ]);
+        }
     }
     return { name: "Info", rows, numberFormats: {}, widths: [28, 90] };
 }

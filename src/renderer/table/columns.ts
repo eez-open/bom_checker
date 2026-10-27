@@ -88,6 +88,26 @@ function lineOf(
         : null;
 }
 
+/** A total price; when building several units, the price per unit
+ *  follows in parentheses: "62.50 (2.50)". */
+function formatTotal(params: { value: unknown; context: unknown }): string {
+    if (typeof params.value !== "number") {
+        return "";
+    }
+    const build = context(params).getBuildQuantity();
+    const total = TOTAL_PRICE.format(params.value);
+    return build > 1
+        ? `${total} (${TOTAL_PRICE.format(params.value / build)})`
+        : total;
+}
+
+/** The Total price columns' header tooltip. */
+function totalTooltip(name: string, buildQuantity: number): string {
+    return buildQuantity > 1
+        ? `${name}_Total price (${BASE_CURRENCY}); in parentheses, per unit (÷ ${buildQuantity})`
+        : `${name}_Total price (${BASE_CURRENCY})`;
+}
+
 function formatQuantity(value: unknown): string {
     return typeof value === "number" ? QUANTITY.format(value) : "";
 }
@@ -139,7 +159,10 @@ function partNumberColumn(supplier: SupplierId): ColDef<BomRow, string> {
 
 /** Read-only columns calculated from the collected data. The prefixed
  *  names ("Mouser_Stock Qty") are used in tooltips and exports. */
-function dataColumns(supplier: SupplierId): ColDef<BomRow>[] {
+function dataColumns(
+    supplier: SupplierId,
+    buildQuantity: number
+): ColDef<BomRow>[] {
     const name = SUPPLIERS[supplier].name;
     const column = (
         field: string,
@@ -242,11 +265,8 @@ function dataColumns(supplier: SupplierId): ColDef<BomRow>[] {
                 }
                 return lineOf(params, supplier)?.total ?? null;
             },
-            valueFormatter: params =>
-                typeof params.value === "number"
-                    ? TOTAL_PRICE.format(params.value)
-                    : "",
-            headerTooltip: `${name}_Total price (${BASE_CURRENCY})`,
+            valueFormatter: formatTotal,
+            headerTooltip: totalTooltip(name, buildQuantity),
             tooltipValueGetter: params => {
                 if (params.node?.rowPinned) {
                     const { rows, suppliers } = context(params).getTotals();
@@ -364,7 +384,7 @@ function bestColumns(project: Project): ColGroupDef<BomRow> {
             column("totalPrice", "Total price", {
                 type: "rightAligned",
                 initialWidth: 110,
-                headerTooltip: `Best_Total price (${BASE_CURRENCY})`,
+                headerTooltip: totalTooltip("Best", project.buildQuantity),
                 valueGetter: params => {
                     if (params.node?.rowPinned) {
                         const totals = context(params).getTotals().best;
@@ -379,10 +399,7 @@ function bestColumns(project: Project): ColGroupDef<BomRow> {
                     const { rows, best } = context(params).getTotals();
                     return `Sum of the best prices, for ${best.covered} of ${rows} rows.`;
                 },
-                valueFormatter: params =>
-                    typeof params.value === "number"
-                        ? TOTAL_PRICE.format(params.value)
-                        : ""
+                valueFormatter: formatTotal
             })
         ]
     };
@@ -469,7 +486,7 @@ export function buildColumns(
             partNumberColumn(supplier) as ColDef<BomRow>
         ];
         if (withData.includes(supplier)) {
-            children.push(...dataColumns(supplier));
+            children.push(...dataColumns(supplier, project.buildQuantity));
         }
         columnDefs.push(
             hideGroup(
