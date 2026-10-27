@@ -196,3 +196,28 @@ test("forgets the row selection of the previous BOM", async () => {
         await closeApp(app);
     }
 });
+
+test("undoes and redoes with the toolbar buttons", async () => {
+    const { app, page } = await launchApp();
+    try {
+        await page.getByRole("button", { name: "New", exact: true }).click();
+        const undo = page.getByRole("button", { name: "Undo", exact: true });
+        const redo = page.getByRole("button", { name: "Redo", exact: true });
+        await expect(undo).toBeDisabled();
+        await expect(redo).toBeDisabled();
+
+        await page.getByRole("button", { name: "Add row" }).click();
+        await fillEditor(page, "reference", "R1");
+        await page.keyboard.press("Enter");
+        await expect(cell(page, 0, "reference")).toHaveText("R1");
+
+        await undo.click();
+        await expect(cell(page, 0, "reference")).toHaveText("");
+        await expect(redo).toBeEnabled();
+        await redo.click();
+        await expect(cell(page, 0, "reference")).toHaveText("R1");
+        await expect(redo).toBeDisabled();
+    } finally {
+        await closeApp(app);
+    }
+});

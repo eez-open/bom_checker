@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Undo and Redo buttons on the toolbar, next to Save (#24).
 - DigiKey keeps stock per packaging: when another packaging of the same product has stock (e.g. a box when cut tape is out of stock), the Availability and part-number tooltips show its part number, stock and MOQ.
 
 ### Fixed

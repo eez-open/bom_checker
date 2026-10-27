@@ -76,7 +76,7 @@ The app starts on a start page: **Open BOM…**, or drop a file on the window (a
 
 **New**, then **Add row**: the Reference cell starts editing. Type, then press Tab to move to the next cell and Enter to finish. **Columns…** adds part-number columns for DigiKey, Mouser, TME and LCSC, and your own text or number columns. Select rows with their checkboxes to delete them.
 
-Every change can be undone with **Ctrl+Z** and redone with **Ctrl+Y**.
+Every change can be undone with **Ctrl+Z** and redone with **Ctrl+Y**, or with the **Undo** and **Redo** buttons next to Save.
 
 ### From a CSV file
 

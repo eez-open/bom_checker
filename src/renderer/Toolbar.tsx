@@ -12,10 +12,13 @@ import {
     openExport,
     openDocument,
     openSettings,
+    redo,
     saveDocument,
     syncKicad,
+    undo,
     updateKicad
 } from "./commands";
+import { RedoIcon, UndoIcon } from "./icons";
 import { useDocument } from "./store/document";
 import { useUi } from "./store/ui";
 
@@ -70,6 +73,8 @@ export function Toolbar() {
     }, [rows, selectedIds]);
     const buildQuantity = useDocument(state => state.project.buildQuantity);
     const open = useDocument(state => state.open);
+    const canUndo = useDocument(state => state.past.length > 0);
+    const canRedo = useDocument(state => state.future.length > 0);
     const fromKicad = useDocument(
         state => state.project.source.kind === "kicad"
     );
@@ -98,6 +103,34 @@ export function Toolbar() {
                 >
                     Save
                 </button>
+            )}
+            {open && (
+                <>
+                    <button
+                        type="button"
+                        className="icon"
+                        title="Undo (Ctrl+Z)"
+                        aria-label="Undo"
+                        disabled={!canUndo}
+                        // Keep the focus where it is: in a text field, Undo
+                        // undoes typing there.
+                        onMouseDown={event => event.preventDefault()}
+                        onClick={undo}
+                    >
+                        <UndoIcon />
+                    </button>
+                    <button
+                        type="button"
+                        className="icon"
+                        title="Redo (Ctrl+Y)"
+                        aria-label="Redo"
+                        disabled={!canRedo}
+                        onMouseDown={event => event.preventDefault()}
+                        onClick={redo}
+                    >
+                        <RedoIcon />
+                    </button>
+                </>
             )}
             <span className="toolbar-separator" />
             <button
