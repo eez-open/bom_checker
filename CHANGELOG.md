@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-27
+
 ### Added
 
 - Suppliers without an API (Columns… → Suppliers without an API), for parts no API supplier has, such as a display from a specialist shop or an enclosure: type the part number, unit price, stock and MOQ in the table. Order quantity, total and availability are calculated, and they take part in the best price, the Total row, the Rows filter and exports (#20).

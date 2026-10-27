@@ -595,6 +595,10 @@ These points couldn't be settled from documentation and should be the first thin
 
 ## 15. Status
 
+### Version 0.6.0
+
+Suppliers without an API (#20, section 5.3), decimal quantities (#19), the price per unit with a build quantity (#27), search (#29) and a rows filter by best supplier (#25). File format 5. Unit tests: 199; end-to-end tests: 15.
+
 ### Version 0.5.0
 
 Sync KiCad… for changes made in the KiCad project (#30, section 9.3; file format 4), choosing one of several matching items from a list in the table (#15), a Basic data only export (#21), and Value pinned with Row and Reference (#26). Unit tests: 192; end-to-end tests: 14.
