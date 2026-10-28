@@ -78,10 +78,10 @@ Any third-party library that might need replacing is used from **one module only
 ### 3.2 Maintenance practices (set up in milestone 1)
 
 - **Updates:** the lockfile is committed. Dependabot opens dependency-update PRs.
-- **CI:** every PR runs lint, type checks, tests and both platform builds.
+- **CI:** every PR runs lint, type checks, tests and both platform builds. Since 0.10.0, GitHub Actions is disabled for the repository to stay within the account's Actions storage; the same checks and builds run locally (README, "Testing and releases"), and the workflow is kept.
 - **Documentation** in `docs/`: developer setup, this architecture document, "Adding a supplier", the upgrade checklist (Electron, SheetJS) and a CHANGELOG.
 - **New dependencies** need a stated reason in the PR. Node, Electron and browser APIs come first.
-- **Releases** are tagged in git. CI attaches the Windows and Linux installers to a GitHub Release.
+- **Releases** are tagged in git. The Windows and Linux installers are attached to a GitHub Release: by CI, or, while Actions is disabled, from local builds.
 
 ---
 
@@ -570,7 +570,7 @@ The `kicad-cli sch export bom --variant` alternative was rejected. It requires K
 **Packaging**
 - **Windows:** x64 NSIS installer, installed per user without admin rights. Without code signing, SmartScreen warns on first install; a signing certificate can be added later.
 - **Linux:** x64 AppImage (runs on Ubuntu and Mint without installing) plus a `.deb`.
-- **CI:** GitHub Actions builds Windows on `windows-latest` and Linux on `ubuntu-22.04`. Building against the older glibc lets the Linux build run on Ubuntu 22.04+ and Mint 21+.
+- **CI:** GitHub Actions builds Windows on `windows-latest` and Linux on `ubuntu-22.04`. Building against the older glibc lets the Linux build run on Ubuntu 22.04+ and Mint 21+. The app has no native modules, so a local Linux build on a newer Ubuntu (e.g. in WSL) packages the same prebuilt Electron.
 - **Native modules:** none, so no rebuilds per platform.
 - **Auto-update** is not in v1. electron-updater with GitHub Releases can add it later.
 

@@ -1,6 +1,6 @@
 # Upgrade checklist
 
-Dependabot opens update PRs weekly (npm) and monthly (GitHub Actions). Minor and patch updates only need green CI. The upgrades below need a person.
+Dependabot opens update PRs weekly (npm) and monthly (GitHub Actions). GitHub Actions is disabled for the repository, so check out an update PR and run `npm run check`, `npm run build` and `npm run test:e2e` locally before merging it; minor and patch updates need nothing more. The upgrades below need a person.
 
 ## Electron (about every 6 months)
 
@@ -13,7 +13,7 @@ Electron ships a new major version about every 8 weeks, and only the latest thre
    ELECTRON_RUN_AS_NODE=1 npx electron -p process.versions.node
    ```
 4. Run `npm run check`, `npm run build` and `npm run test:e2e`.
-5. Let CI build and smoke-test both installers. Install the Windows and Linux builds and click through the app once.
+5. Build and smoke-test both installers (README, "Testing and releases"). Install the Windows and Linux builds and click through the app once.
 
 ## TypeScript 7
 
