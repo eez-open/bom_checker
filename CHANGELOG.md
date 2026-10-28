@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-28
+
 ### Added
 
 - BOM lists (File → New BOM List…, `.eezbom-list`) for several BOMs ordered together, such as the modules of one device (#35):
@@ -11,7 +13,6 @@ All notable changes to this project are documented in this file. The format is b
     - **Combined**: the rows of all BOMs, with rows of the same part numbers merged and quantities added up, and a Source BOM column; it can be collected and exported.
     - **Unify part numbers**: the components (same Value and Footprint) whose rows have different part numbers or Values, with every part number used for them, also earlier ones from the history, and stock and prices for the quantity of all rows. Choose one per supplier or type another; Apply saves the changed BOMs after a backup.
     - A **history BOM** remembers every component and part-number combination used in the list's BOMs.
-
 - Most expensive parts: a colour for each of the 10 slices, numbered by rank; **Copy picture** and **Save as PNG…** for the chart with its legend; and a **Top 10** button in the Best price header (#28).
 
 ### Changed

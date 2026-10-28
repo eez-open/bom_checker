@@ -608,6 +608,10 @@ These points couldn't be settled from documentation and should be the first thin
 
 ## 15. Status
 
+### Version 0.8.0
+
+BOM lists (#35, section 9.5): a `.eezbom-list` with its BOMs side by side, a Combined BOM for ordering them together, Unify part numbers across them, and a history BOM of the part numbers used. No absolute paths in the files the app writes (#34, section 5.1). The chart of the most expensive parts gets a colour per rank, Copy picture and Save as PNG…, and a Top 10 button in the Best price header (#28). Unit tests: 221; end-to-end tests: 19.
+
 ### Version 0.7.0
 
 A chart of the most expensive parts (#28), collecting only the selected rows (#17), column-group checkboxes above the table (#5), Undo and Redo on the toolbar (#24), Change password in Settings → General (#22), a pointer to the Value lookup and filling in from earlier results (#18), stock of other DigiKey packagings in tooltips, and the Delete button counting only the open BOM's rows (#23). Unit tests: 204; end-to-end tests: 17.
