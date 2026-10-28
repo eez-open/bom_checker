@@ -3,7 +3,8 @@
 import {
     COLUMN_GROUPS,
     type ColumnGroup,
-    type MenuCommand
+    type MenuCommand,
+    type OpenedDocument
 } from "../shared/ipc";
 import {
     partNumberKey,
@@ -21,20 +22,43 @@ import {
 } from "../shared/project-ops";
 import { importedKicadValues } from "../shared/kicad-sync";
 import { PROJECT_FILE_EXTENSION } from "../shared/project-file";
+import {
+    addBomsToList,
+    afterListSave,
+    closeList,
+    confirmDiscardList,
+    isListOpen,
+    loadList,
+    saveAllInList
+} from "./list-commands";
 import { documentName, isDirty, useDocument } from "./store/document";
-import { setHiddenColumns, useUi, type TableGroup } from "./store/ui";
+import {
+    resetTableView,
+    setHiddenColumns,
+    useUi,
+    type TableGroup
+} from "./store/ui";
 
 export async function saveDocument(saveAs = false): Promise<boolean> {
-    const { project, filePath, markSaved } = useDocument.getState();
+    const { project, filePath, markSaved, readOnly } = useDocument.getState();
+    if (readOnly) {
+        return true;
+    }
+    // The BOMs of a list keep their files.
+    const inList = isListOpen();
     const savedPath = await window.api.project.save(project, {
         filePath,
-        saveAs,
-        suggestedName: suggestedFileName(project.source)
+        saveAs: saveAs && !inList,
+        suggestedName: suggestedFileName(project.source),
+        recent: !inList
     });
     if (!savedPath) {
         return false;
     }
     markSaved(project, savedPath);
+    if (inList) {
+        await afterListSave(savedPath);
+    }
     return true;
 }
 
@@ -57,6 +81,9 @@ function suggestedFileName(source: ProjectSource): string | undefined {
 
 /** Offers to save unsaved changes. Returns false if the user cancelled. */
 export async function confirmDiscardChanges(): Promise<boolean> {
+    if (isListOpen()) {
+        return confirmDiscardList();
+    }
     const state = useDocument.getState();
     if (!isDirty(state)) {
         return true;
@@ -70,12 +97,37 @@ export async function confirmDiscardChanges(): Promise<boolean> {
     return choice === "discard";
 }
 
+/** Shows a single BOM, closing an open list. */
+function loadDocument(project: Project, filePath: string | null): void {
+    closeList();
+    useDocument.getState().load(project, { filePath, saved: true });
+    resetTableView();
+}
+
 export async function newDocument(): Promise<void> {
     if (await confirmDiscardChanges()) {
-        useDocument
-            .getState()
-            .load(createProject(), { filePath: null, saved: true });
-        resetView();
+        loadDocument(createProject(), null);
+    }
+}
+
+/** File → New BOM List… (#35). */
+export async function newList(): Promise<void> {
+    if (!(await confirmDiscardChanges())) {
+        return;
+    }
+    const opened = await window.api.list.create();
+    if (opened) {
+        loadList(opened);
+    }
+}
+
+function openDocumentOrList(
+    opened: Extract<OpenedDocument, { kind: "project" | "list" }>
+): void {
+    if (opened.kind === "list") {
+        loadList(opened.list);
+    } else {
+        loadDocument(opened.opened.project, opened.opened.filePath);
     }
 }
 
@@ -85,23 +137,21 @@ export async function openDocument(): Promise<void> {
     }
     const opened = await window.api.project.open();
     if (opened) {
-        useDocument
-            .getState()
-            .load(opened.project, { filePath: opened.filePath, saved: true });
-        resetView();
+        openDocumentOrList(opened);
     }
 }
 
 /** Back to the start page, after offering to save. */
 export async function closeDocument(): Promise<void> {
     if (await confirmDiscardChanges()) {
+        closeList();
         useDocument.getState().close();
-        resetView();
+        resetTableView();
     }
 }
 
-/** Opens a BOM, or starts importing a CSV file or KiCad project: from the
- *  recent documents, or a file dropped on the window. */
+/** Opens a BOM or a list, or starts importing a CSV file or KiCad project:
+ *  from the recent documents, or a file dropped on the window. */
 export async function openPath(path: string): Promise<void> {
     if (!(await confirmDiscardChanges())) {
         return;
@@ -109,11 +159,8 @@ export async function openPath(path: string): Promise<void> {
     const opened = await window.api.files.openPath(path);
     switch (opened?.kind) {
         case "project":
-            useDocument.getState().load(opened.opened.project, {
-                filePath: opened.opened.filePath,
-                saved: true
-            });
-            resetView();
+        case "list":
+            openDocumentOrList(opened);
             break;
         case "csv":
             useUi.setState({
@@ -145,7 +192,8 @@ export async function importCsv(): Promise<void> {
  */
 export function loadImported(project: Project): void {
     const { project: current, load } = useDocument.getState();
-    resetView();
+    closeList();
+    resetTableView();
     load(
         {
             ...project,
@@ -179,7 +227,7 @@ export async function importKicad(): Promise<void> {
 
 /** Answers the "Save" choice of the prompt shown when closing the window. */
 export async function saveAndClose(): Promise<void> {
-    if (await saveDocument()) {
+    if (await (isListOpen() ? saveAllInList() : saveDocument())) {
         window.api.window.closeConfirmed();
     }
 }
@@ -219,12 +267,6 @@ export function find(): void {
 
 export function clearFilters(): void {
     useUi.setState({ search: "", rowView: "all" });
-}
-
-/** Another BOM starts unfiltered and with no rows selected. */
-function resetView(): void {
-    clearFilters();
-    useUi.setState({ selectedRowIds: [], shownRows: null });
 }
 
 /** Writes part numbers back into the KiCad project the BOM came from. */
@@ -300,6 +342,13 @@ export function openCollect(): void {
     useUi.setState({ dialog: { kind: "collect" } });
 }
 
+/** Tools → Unify Part Numbers… of a BOM list (#35). */
+export function openUnify(): void {
+    if (isListOpen()) {
+        useUi.setState({ dialog: { kind: "unify" } });
+    }
+}
+
 export function openSettings(): void {
     useUi.setState({ dialog: { kind: "settings" } });
 }
@@ -345,10 +394,14 @@ export function isTextEditing(): boolean {
 
 const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     new: newDocument,
+    "new-list": newList,
     open: openDocument,
     close: closeDocument,
     save: () => saveDocument(),
     "save-as": () => saveDocument(true),
+    "save-all": saveAllInList,
+    "add-boms": addBomsToList,
+    unify: openUnify,
     "import-csv": importCsv,
     "import-kicad": importKicad,
     export: openExport,
@@ -377,6 +430,7 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
 /** Commands that work without an open BOM, e.g. on the start page. */
 const WITHOUT_DOCUMENT = new Set<MenuCommand>([
     "new",
+    "new-list",
     "open",
     "import-csv",
     "import-kicad",
@@ -384,9 +438,21 @@ const WITHOUT_DOCUMENT = new Set<MenuCommand>([
     "lock"
 ]);
 
+/** Commands of an open list, also when it shows no BOM (#35). */
+const LIST_COMMANDS = new Set<MenuCommand>([
+    "close",
+    "save-all",
+    "add-boms",
+    "unify"
+]);
+
 export function runMenuCommand(command: MenuCommand): void {
     // The menu disables the others too; this also covers their shortcuts.
-    if (!useDocument.getState().open && !WITHOUT_DOCUMENT.has(command)) {
+    const available =
+        useDocument.getState().open ||
+        WITHOUT_DOCUMENT.has(command) ||
+        (isListOpen() && LIST_COMMANDS.has(command));
+    if (!available) {
         return;
     }
     Promise.resolve(MENU_COMMANDS[command]()).catch((error: unknown) =>

@@ -22,19 +22,28 @@ const FILTERS = [
 // one of these without a dialog, so it can't write files elsewhere.
 const knownPaths = new Set<string>();
 
-export async function openProject(
-    window: BrowserWindow
-): Promise<OpenedProject | null> {
+export function rememberProjectPath(path: string): void {
+    knownPaths.add(path);
+}
+
+export function isKnownProjectPath(path: string): boolean {
+    return knownPaths.has(path);
+}
+
+/** Lets the user pick BOM files; null when cancelled. */
+export async function pickProjectFiles(
+    window: BrowserWindow,
+    title: string,
+    multiple: boolean
+): Promise<string[] | null> {
     const result = await dialog.showOpenDialog(window, {
-        title: "Open BOM",
+        title,
         filters: FILTERS,
-        properties: ["openFile"]
+        properties: multiple ? ["openFile", "multiSelections"] : ["openFile"]
     });
-    const filePath = result.filePaths[0];
-    if (result.canceled || !filePath) {
-        return null;
-    }
-    return readProject(window, filePath);
+    return result.canceled || result.filePaths.length === 0
+        ? null
+        : result.filePaths;
 }
 
 /** Reads a BOM; shows why when it can't. */
@@ -58,7 +67,7 @@ export async function readProject(
 export async function saveProject(
     window: BrowserWindow,
     project: Project,
-    { filePath, saveAs, suggestedName }: SaveOptions
+    { filePath, saveAs, suggestedName, recent = true }: SaveOptions
 ): Promise<string | null> {
     let target =
         !saveAs && filePath && knownPaths.has(filePath) ? filePath : null;
@@ -83,7 +92,9 @@ export async function saveProject(
     try {
         await writeFileAtomic(target, serializeProject(project));
         knownPaths.add(target);
-        addRecent(target);
+        if (recent) {
+            addRecent(target);
+        }
         log.info("Saved", target);
         return target;
     } catch (error) {

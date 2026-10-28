@@ -945,3 +945,122 @@ circle.cost-slice {
 .cost-swatch.other {
     background: var(--chart-other);
 }
+
+/* BOM lists (#35): the list on the left, the selected BOM on the right. */
+.workspace {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+.workspace-main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.list-pane {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 220px;
+    flex: none;
+    padding: 10px 10px 12px;
+    overflow-y: auto;
+    border-right: 1px solid var(--app-border);
+    background: var(--chrome-bg);
+}
+
+.list-pane-title {
+    margin: 0 0 4px;
+    overflow: hidden;
+    font-size: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.list-pane h3 {
+    margin: 10px 0 2px;
+    color: var(--app-muted);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.list-pane p {
+    margin: 2px 0;
+}
+
+.list-pane-message {
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: var(--app-error-bg);
+    color: var(--app-error);
+}
+
+.list-items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.list-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    text-align: left;
+}
+
+.list-item:hover {
+    background: var(--app-border);
+}
+
+.list-item.selected {
+    background: var(--app-accent);
+    color: #ffffff;
+}
+
+.list-item-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.list-item-error {
+    color: var(--app-error);
+    font-weight: 700;
+}
+
+.list-item.selected .list-item-error {
+    color: inherit;
+}
+
+.list-pane-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.list-pane > button.primary {
+    margin-top: 8px;
+}
+
+.list-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 24px;
+}
+
+.list-placeholder p {
+    margin: 0;
+}

@@ -87,6 +87,17 @@ const api: Api = {
     csv: {
         open: () => invoke(IpcChannel.CsvOpen)
     },
+    list: {
+        create: () => invoke(IpcChannel.ListCreate),
+        save: (filePath, boms, history) =>
+            invoke(IpcChannel.ListSave, filePath, boms, history),
+        addBoms: () => invoke(IpcChannel.ListAddBoms),
+        chooseHistory: () => invoke(IpcChannel.ListChooseHistory),
+        saveBoms: (listPath, boms) =>
+            invoke(IpcChannel.ListSaveBoms, listPath, boms),
+        showBackup: folder =>
+            ipcRenderer.send(IpcChannel.ListShowBackup, folder)
+    },
     kicad: {
         open: () => invoke(IpcChannel.KicadOpen),
         planUpdate: request => invoke(IpcChannel.KicadPlanUpdate, request),

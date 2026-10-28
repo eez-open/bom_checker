@@ -1,21 +1,29 @@
 import { create } from "zustand";
 import type { CollectedData, Project } from "../../shared/model";
-import { PROJECT_FILE_EXTENSION } from "../../shared/project-file";
+import { fileTitle } from "../../shared/bom-list";
 import { createProject } from "../../shared/project-ops";
 
 const HISTORY_LIMIT = 100;
 
-interface DocumentStore {
-    /** False on the start page, before a BOM is created, opened or
-     *  imported, and after File → Close. */
-    open: boolean;
+/** A BOM with its undo history: the open one, or one of a list's BOMs
+ *  that isn't shown (#35). */
+export interface DocumentSnapshot {
     project: Project;
     /** The project as last opened or saved; null if it never was. Unsaved
      *  changes exist when `project !== savedProject`. */
     savedProject: Project | null;
-    filePath: string | null;
     past: Project[];
     future: Project[];
+}
+
+interface DocumentStore extends DocumentSnapshot {
+    /** False on the start page, before a BOM is created, opened or
+     *  imported, and after File → Close. */
+    open: boolean;
+    filePath: string | null;
+    /** A view that can't be edited, such as a list's Combined BOM; edits
+     *  are ignored. Collecting still updates its data. */
+    readOnly: boolean;
 
     /** Applies an edit. Edits that return the same object aren't recorded. */
     edit: (change: (project: Project) => Project) => void;
@@ -24,8 +32,10 @@ interface DocumentStore {
     /** Replaces the open BOM (New, Open, Import) and clears the history. */
     load: (
         project: Project,
-        options: { filePath: string | null; saved: boolean }
+        options: { filePath: string | null; saved: boolean; readOnly?: boolean }
     ) => void;
+    /** Shows a BOM with its undo history, e.g. another BOM of a list. */
+    restore: (snapshot: DocumentSnapshot, filePath: string) => void;
     markSaved: (project: Project, filePath: string) => void;
     /** Closes the BOM, back to the start page. */
     close: () => void;
@@ -51,6 +61,7 @@ function closed() {
         project: empty,
         savedProject: empty,
         filePath: null,
+        readOnly: false,
         past: [],
         future: []
     };
@@ -61,7 +72,10 @@ export const useDocument = create<DocumentStore>()((set, get) => {
         ...closed(),
 
         edit: change => {
-            const { project, past } = get();
+            const { project, past, readOnly } = get();
+            if (readOnly) {
+                return;
+            }
             const next = change(project);
             if (next !== project) {
                 set({
@@ -99,15 +113,18 @@ export const useDocument = create<DocumentStore>()((set, get) => {
                 project: { ...project, collected: change(project.collected) }
             });
         },
-        load: (project, { filePath, saved }) =>
+        load: (project, { filePath, saved, readOnly = false }) =>
             set({
                 open: true,
                 project,
                 savedProject: saved ? project : null,
                 filePath,
+                readOnly,
                 past: [],
                 future: []
             }),
+        restore: (snapshot, filePath) =>
+            set({ ...snapshot, open: true, filePath, readOnly: false }),
         markSaved: (project, filePath) =>
             set({ savedProject: project, filePath }),
         close: () => set(closed())
@@ -123,12 +140,10 @@ export function isDirty(state: {
 
 /** File name without folder and extension, or "Untitled". */
 export function documentName(filePath: string | null): string {
-    if (!filePath) {
-        return "Untitled";
-    }
-    const name = filePath.split(/[\\/]/).pop() ?? filePath;
-    const extension = `.${PROJECT_FILE_EXTENSION}`;
-    return name.toLowerCase().endsWith(extension)
-        ? name.slice(0, -extension.length)
-        : name;
+    return filePath ? fileTitle(filePath) : "Untitled";
+}
+
+export function snapshotOf(state: DocumentSnapshot): DocumentSnapshot {
+    const { project, savedProject, past, future } = state;
+    return { project, savedProject, past, future };
 }

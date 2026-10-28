@@ -70,12 +70,13 @@ export async function answerSaveDialog(
 
 export async function answerOpenDialog(
     app: ElectronApplication,
-    filePath: string
+    filePath: string | string[]
 ): Promise<void> {
-    await app.evaluate(({ dialog }, filePath) => {
+    const filePaths = Array.isArray(filePath) ? filePath : [filePath];
+    await app.evaluate(({ dialog }, filePaths) => {
         dialog.showOpenDialog = () =>
-            Promise.resolve({ canceled: false, filePaths: [filePath] });
-    }, filePath);
+            Promise.resolve({ canceled: false, filePaths });
+    }, filePaths);
 }
 
 /** Answers message boxes with the button at `response` (0 = first). */

@@ -15,6 +15,7 @@ export type OpenDialog =
     | { kind: "collect" }
     | { kind: "export" }
     | { kind: "cost-chart" }
+    | { kind: "unify" }
     | { kind: "kicad-update" }
     | { kind: "kicad-sync" }
     | { kind: "choose-item"; supplier: SupplierId; key: string }
@@ -73,6 +74,16 @@ export const useUi = create<UiStore>()(() => ({
     rowView: "all",
     shownRows: null
 }));
+
+/** Another BOM starts unfiltered and with no rows selected. */
+export function resetTableView(): void {
+    useUi.setState({
+        search: "",
+        rowView: "all",
+        selectedRowIds: [],
+        shownRows: null
+    });
+}
 
 export function setHiddenColumns(hidden: TableGroup[]): void {
     useUi.setState({ hiddenColumns: hidden });

@@ -428,9 +428,12 @@ function ChooseSuppliers({
     onStart: (jobs: CollectJob[], scope: CollectScope) => Promise<void>;
 }) {
     const project = useDocument(state => state.project);
+    // A read-only BOM, such as a list's Combined, can't take part numbers
+    // found by Value.
+    const readOnly = useDocument(state => state.readOnly);
     const suppliers = project.suppliers;
     const byValueId = useId();
-    const [byValue, setByValue] = useState(loadByValue);
+    const [byValue, setByValue] = useState(() => !readOnly && loadByValue());
     // The rows selected in the table, if any (#17).
     const [selection] = useState(() => {
         const ids = new Set(useUi.getState().selectedRowIds);
@@ -515,7 +518,7 @@ function ChooseSuppliers({
                     ))}
                 </div>
             )}
-            <div className="collect-by-value">
+            <div className="collect-by-value" hidden={readOnly}>
                 <label className="checkbox">
                     <input
                         type="checkbox"

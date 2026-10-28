@@ -14,8 +14,16 @@ import {
     restoreKicadBackup,
     showKicadBackup
 } from "../project/kicad-update";
-import { openPath } from "../project/open-path";
-import { openProject, saveProject } from "../project/project-files";
+import {
+    addBomsDialog,
+    chooseHistoryDialog,
+    createBomList,
+    saveBomList,
+    saveBomsWithBackup,
+    showListBackup
+} from "../project/list-files";
+import { openDocumentDialog, openPath } from "../project/open-path";
+import { saveProject } from "../project/project-files";
 import { onRecentChange, recentDocuments, removeRecent } from "../recent";
 import { handle, on } from "./handle";
 
@@ -67,11 +75,12 @@ const kicadUpdateSchema = z.object({
 const saveOptionsSchema = z.object({
     filePath: z.string().nullable(),
     saveAs: z.boolean(),
-    suggestedName: z.string().optional()
+    suggestedName: z.string().optional(),
+    recent: z.boolean().optional()
 });
 
 export function registerProjectHandlers(): void {
-    handle(IpcChannel.ProjectOpen, ({ window }) => openProject(window));
+    handle(IpcChannel.ProjectOpen, ({ window }) => openDocumentDialog(window));
     handle(IpcChannel.ProjectSave, ({ window }, project, options) =>
         saveProject(
             window,
@@ -80,6 +89,36 @@ export function registerProjectHandlers(): void {
         )
     );
     handle(IpcChannel.CsvOpen, ({ window }) => openCsvFile(window));
+    handle(IpcChannel.ListCreate, ({ window }) => createBomList(window));
+    handle(IpcChannel.ListSave, (_context, filePath, boms, history) =>
+        saveBomList(
+            absolutePath.parse(filePath),
+            z.array(absolutePath).max(1000).parse(boms),
+            absolutePath.nullable().parse(history)
+        )
+    );
+    handle(IpcChannel.ListAddBoms, ({ window }) => addBomsDialog(window));
+    handle(IpcChannel.ListChooseHistory, ({ window }) =>
+        chooseHistoryDialog(window)
+    );
+    handle(IpcChannel.ListSaveBoms, (_context, listPath, boms) =>
+        saveBomsWithBackup(
+            absolutePath.parse(listPath),
+            z
+                .array(
+                    z.object({ filePath: absolutePath, project: z.unknown() })
+                )
+                .max(1000)
+                .parse(boms)
+                .map(bom => ({
+                    filePath: bom.filePath,
+                    project: validateProject(bom.project)
+                }))
+        )
+    );
+    on(IpcChannel.ListShowBackup, (_context, folder) =>
+        showListBackup(z.string().parse(folder))
+    );
     handle(IpcChannel.FilesOpenPath, ({ window }, path) =>
         openPath(window, absolutePath.parse(path))
     );
