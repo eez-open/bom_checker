@@ -11,6 +11,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Fixed
 
 - Showing a list's Combined BOM marked BOMs as changed when another BOM had newer data for their part numbers. Now only data collected in Combined goes to the BOMs.
+- Hovering the selected item of a BOM list showed its white text on light gray. It now stays blue, a little darker.
 
 ## [0.8.0] - 2026-10-28
 
