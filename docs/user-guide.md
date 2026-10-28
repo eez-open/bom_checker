@@ -159,7 +159,7 @@ To hide all columns of a supplier, or the Best price columns, uncheck them under
 
 **Best price** (shown when two or more suppliers have data): the supplier with the lowest total price that has the whole order quantity in stock. Equal totals go to your preferred supplier (*Settings → General*). *None in stock* means no supplier can deliver the full quantity. The status bar shows the best-price total of the BOM.
 
-The **Total** row at the top adds up the Qty column and each *Total price* column, for every supplier and for Best price. Its tooltip says how many rows have a price.
+The **Total** row at the top adds up each *Total price* column, for every supplier and for Best price. Its tooltip says how many rows have a price. Quantities aren't added up: they're of different parts.
 
 **Most expensive parts** (**Top 10** in the Best price header, *Most expensive parts* in the status bar, or **View → Most Expensive Parts…**) shows where the money goes: a ring chart of the 10 rows with the highest best-price totals, each in its own colour and numbered by rank, the rest of the BOM as one gray *Other* slice, and a table with each row's supplier, total and share of the best-price total. Point at a slice or a table row to find its match. Totals are for the build quantity; rows without a supplier that has enough stock aren't included. **Copy picture** puts the chart with its legend on the clipboard, e.g. for a document or an email; **Save as PNG…** saves it as an image.
 
