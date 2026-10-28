@@ -13,7 +13,7 @@ import {
 function member(
     name: string,
     rows: [string, string, string, number, Record<string, string>][],
-    buildQuantity = 1
+    perDevice = 1
 ): ListMember {
     const project = rows.reduce(
         (bom, [reference, value, footprint, qty, partNumbers]) =>
@@ -24,10 +24,11 @@ function member(
         {
             ...createProject(),
             suppliers: ["digikey", "mouser"],
-            buildQuantity
+            // Doesn't count in a list (#39).
+            buildQuantity: 7
         } as Project
     );
-    return { path: `${name}.eezbom`, name, project };
+    return { path: `${name}.eezbom`, name, project, perDevice };
 }
 
 function found(
@@ -65,7 +66,7 @@ const psu = member(
         ["R3", "10k", "R_0805", 1, { digikey: "D-9" }],
         ["U1", "LM358", "SOIC-8", 1, { digikey: "U-1" }]
     ],
-    10
+    5
 );
 const mcu = member("mcu", [
     ["R1", "10k", "R_0603", 1, { digikey: "D-2", mouser: "M-1" }],
@@ -75,7 +76,7 @@ const mcu = member("mcu", [
 
 describe("unifying part numbers", () => {
     it("finds components with different part numbers", () => {
-        const groups = findUnifyGroups([psu, mcu], null);
+        const groups = findUnifyGroups([psu, mcu], null, { buildQuantity: 2 });
         // LM358 has the same part number everywhere; 0805 is another part.
         expect(groups).toHaveLength(1);
         const [group] = groups;
@@ -86,7 +87,8 @@ describe("unifying part numbers", () => {
             "R1",
             "R4"
         ]);
-        expect(group!.totalQty).toBe(24); // 2 × 10 + 1 + 3
+        // For 2 devices with 5 psu each: (2 × 5 + 1 + 3) × 2.
+        expect(group!.totalQty).toBe(28);
         expect(group!.suppliers.digikey).toEqual([
             { partNumber: "D-1", rows: 2, usedIn: ["psu", "mcu"] },
             { partNumber: "D-2", rows: 1, usedIn: ["mcu"] }

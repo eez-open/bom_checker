@@ -479,6 +479,8 @@ function Done({ result }: { result: UnifyResult }) {
  */
 export function UnifyDialog({ onClose }: { onClose: () => void }) {
     const historyPath = useWorkspace(state => state.list?.history ?? null);
+    // Quantities for all devices (#39).
+    const buildQuantity = useWorkspace(state => state.list?.buildQuantity ?? 1);
     // The BOMs as they were when the dialog opened (they were saved).
     const [members] = useState(listMembers);
     const [history] = useState(
@@ -507,8 +509,12 @@ export function UnifyDialog({ onClose }: { onClose: () => void }) {
     const collected = useStore(session, state => state.project.collected);
     const [matchFootprint, setMatchFootprint] = useState(true);
     const groups = useMemo(
-        () => findUnifyGroups(members, history, { matchFootprint }),
-        [members, history, matchFootprint]
+        () =>
+            findUnifyGroups(members, history, {
+                matchFootprint,
+                buildQuantity
+            }),
+        [members, history, matchFootprint, buildQuantity]
     );
     const [choices, setChoices] = useState<Choices>(() =>
         suggestedChoices(groups, session.getState().project.collected)
@@ -626,7 +632,8 @@ export function UnifyDialog({ onClose }: { onClose: () => void }) {
                                     setChoices(
                                         suggestedChoices(
                                             findUnifyGroups(members, history, {
-                                                matchFootprint: match
+                                                matchFootprint: match,
+                                                buildQuantity
                                             }),
                                             collected
                                         )

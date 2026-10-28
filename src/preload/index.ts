@@ -92,8 +92,7 @@ const api: Api = {
     },
     list: {
         create: () => invoke(IpcChannel.ListCreate),
-        save: (filePath, boms, history) =>
-            invoke(IpcChannel.ListSave, filePath, boms, history),
+        save: list => invoke(IpcChannel.ListSave, list),
         addBoms: () => invoke(IpcChannel.ListAddBoms),
         chooseHistory: () => invoke(IpcChannel.ListChooseHistory),
         saveBoms: (listPath, boms) =>

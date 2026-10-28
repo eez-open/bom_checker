@@ -1,11 +1,14 @@
 import { fileTitle } from "../shared/bom-list";
+import { MAX_PER_DEVICE } from "../shared/bom-list-file";
 import { openUnify } from "./commands";
 import {
     addBomsToList,
     chooseHistory,
     removeFromList,
-    selectInList
+    selectInList,
+    setListQuantities
 } from "./list-commands";
+import { QuantityInput } from "./QuantityInput";
 import { isDirty, useDocument } from "./store/document";
 import { COMBINED, useWorkspace } from "./store/workspace";
 
@@ -14,17 +17,20 @@ function ListItem({
     name,
     title,
     unsaved,
-    error
+    error,
+    perDevice
 }: {
     id: string;
     name: string;
     title: string;
     unsaved: boolean;
     error: string | undefined;
+    /** How many of this BOM one device has (#39); none for the history. */
+    perDevice?: number;
 }) {
     const selected = useWorkspace(state => state.selected === id);
     return (
-        <li>
+        <li className="list-row">
             <button
                 type="button"
                 className={selected ? "list-item selected" : "list-item"}
@@ -47,6 +53,23 @@ function ListItem({
                     </span>
                 )}
             </button>
+            {perDevice !== undefined && (
+                <span
+                    className="list-item-count"
+                    title="How many of this BOM one device has, for the Combined BOM"
+                >
+                    ×
+                    <QuantityInput
+                        key={perDevice}
+                        value={perDevice}
+                        max={MAX_PER_DEVICE}
+                        label={`${name} per device`}
+                        onApply={count =>
+                            void setListQuantities({ perDevice: [id, count] })
+                        }
+                    />
+                </span>
+            )}
         </li>
     );
 }
@@ -69,7 +92,7 @@ export function ListPane() {
         path === selected
             ? shownUnsaved
             : documents[path] !== undefined && isDirty(documents[path]);
-    const item = (path: string) => (
+    const item = (path: string, perDevice?: number) => (
         <ListItem
             key={path}
             id={path}
@@ -77,6 +100,7 @@ export function ListPane() {
             title={path}
             unsaved={unsaved(path)}
             error={errors[path]}
+            perDevice={perDevice}
         />
     );
     const readable = list.boms.filter(path => !errors[path]).length;
@@ -94,7 +118,11 @@ export function ListPane() {
             )}
             <h3>BOMs</h3>
             {list.boms.length > 0 ? (
-                <ul className="list-items">{list.boms.map(item)}</ul>
+                <ul className="list-items">
+                    {list.boms.map(path =>
+                        item(path, list.perDevice[path] ?? 1)
+                    )}
+                </ul>
             ) : (
                 <p className="muted">No BOMs yet.</p>
             )}
@@ -116,7 +144,7 @@ export function ListPane() {
                 <ListItem
                     id={COMBINED}
                     name="Combined"
-                    title="The rows of all BOMs, with the quantities of the same part numbers added up"
+                    title="The rows of all BOMs, with the quantities of the same part numbers added up, for the number of devices"
                     unsaved={false}
                     error={undefined}
                 />

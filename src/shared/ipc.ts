@@ -120,6 +120,22 @@ export interface OpenedList {
     boms: OpenedListBom[];
     /** The BOM with the parts used before; null if the list has none. */
     history: OpenedListBom | null;
+    /** As in `ListState`. */
+    perDevice: Record<string, number>;
+    buildQuantity: number;
+}
+
+/** A BOM list as the renderer keeps and saves it (#35). */
+export interface ListState {
+    filePath: string;
+    /** The BOMs' files, in the list's order. */
+    boms: string[];
+    /** How many of each BOM one device has, by file (#39); 1 if missing. */
+    perDevice: Record<string, number>;
+    /** The history BOM's file; null if the list has none. */
+    history: string | null;
+    /** How many devices the Combined BOM is for (#39). */
+    buildQuantity: number;
 }
 
 /** A file opened by path: a BOM or a list, or a file to import. */
@@ -384,11 +400,7 @@ export interface Api {
          *  history BOM next to it (or the one already there). */
         create(): Promise<OpenedList | null>;
         /** Writes the list file. Every path must be a BOM main has read. */
-        save(
-            filePath: string,
-            boms: string[],
-            history: string | null
-        ): Promise<void>;
+        save(list: ListState): Promise<void>;
         /** Lets the user pick BOMs to add; the ones that could be read. */
         addBoms(): Promise<OpenedProject[]>;
         /** Lets the user pick another history BOM. */
