@@ -27,8 +27,7 @@ import {
 import {
     createRow,
     manualSuppliersWithPrices,
-    suppliersWithData,
-    totalQuantity
+    suppliersWithData
 } from "../../shared/project-ops";
 import type { TableGroup } from "../store/ui";
 import { buildColumns, TOTALS_ROW_ID } from "./columns";
@@ -211,20 +210,20 @@ export function BomTable({
         ]
     );
 
-    // Shown once there are prices to add up.
-    const parts = totalQuantity(shown);
+    // Shown once there are prices to add up. Quantities of different parts
+    // aren't added up (#42).
     const totalLabel = shownIds ? "Total of shown rows" : "Total";
     const pinnedRows = useMemo(
         () =>
             withData || manualPriced
                 ? [
                       {
-                          ...createRow({ reference: totalLabel, qty: parts }),
+                          ...createRow({ reference: totalLabel }),
                           id: TOTALS_ROW_ID
                       }
                   ]
                 : [],
-        [withData, manualPriced, parts, totalLabel]
+        [withData, manualPriced, totalLabel]
     );
 
     const filtered = search.trim() !== "" || rowView !== "all";

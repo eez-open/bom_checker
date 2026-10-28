@@ -5,8 +5,7 @@ import { BASE_CURRENCY, bomTotals, foreignCurrencies } from "../shared/pricing";
 import {
     manualSuppliersWithPrices,
     setCell,
-    suppliersWithData,
-    totalQuantity
+    suppliersWithData
 } from "../shared/project-ops";
 import { fileTitle } from "../shared/bom-list";
 import { SUPPLIERS } from "../shared/suppliers";
@@ -327,10 +326,7 @@ export function App() {
                 <span>
                     {open && (
                         <span data-testid="bom-summary">
-                            {count(project.rows.length, "row")} ·{" "}
-                            {count(totalQuantity(project), "part")}
-                            {project.buildQuantity > 1 &&
-                                ` per unit × ${project.buildQuantity} = ${count(totalQuantity(project) * project.buildQuantity, "part")}`}
+                            {count(project.rows.length, "row")}
                         </span>
                     )}
                     {open && hidden.length > 0 && (

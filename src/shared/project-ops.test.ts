@@ -15,7 +15,6 @@ import {
     renameCustomColumn,
     setCell,
     supplierHasValues,
-    totalQuantity,
     uniqueColumnName,
     validateColumnName
 } from "./project-ops";
@@ -191,12 +190,6 @@ describe("helpers", () => {
         expect(countReferences("C1,C2,C3,C4,C32,C59")).toBe(6);
         expect(countReferences(" R1, R2 ")).toBe(2);
         expect(countReferences("")).toBe(0);
-    });
-
-    it("sums quantities", () => {
-        let project = addRow(createProject(), createRow({ qty: 6 }));
-        project = addRow(project, createRow({ qty: 14 }));
-        expect(totalQuantity(project)).toBe(20);
     });
 });
 

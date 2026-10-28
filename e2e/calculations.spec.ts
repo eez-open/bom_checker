@@ -114,9 +114,10 @@ test("calculates order quantities, prices and the best supplier", async () => {
         await expect(cell(page, TOTAL, "reference")).toHaveText("Total");
         await expect(cell(page, R1, "reference")).toHaveText("R1");
 
-        // The Total row adds up each price column.
+        // The Total row adds up each price column, but not the quantities
+        // of different parts (#42).
         await expect(cell(page, TOTAL, "reference")).toHaveText("Total");
-        await expect(cell(page, TOTAL, "qty")).toHaveText("35");
+        await expect(cell(page, TOTAL, "qty")).toHaveText("");
         await expect(cell(page, TOTAL, "data:tme:totalPrice")).toHaveText(
             "0.62"
         );
@@ -159,7 +160,6 @@ test("calculates order quantities, prices and the best supplier", async () => {
         await page.keyboard.press("Enter");
         await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("100");
         await expect(cell(page, D1, "data:tme:totalPrice")).toHaveText("1.24");
-        await expect(cell(page, TOTAL, "qty")).toHaveText("93");
         await expect(cell(page, TOTAL, "data:tme:totalPrice")).toHaveText(
             "1.24"
         );
@@ -172,9 +172,6 @@ test("calculates order quantities, prices and the best supplier", async () => {
         await page.keyboard.press("Enter");
         await expect(cell(page, D1, "qty")).toHaveText("0.25");
         await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("50");
-        await expect(page.getByTestId("bom-summary")).toHaveText(
-            "4 rows · 33.25 parts"
-        );
         await page.keyboard.press("Control+Z");
         await expect(cell(page, D1, "qty")).toHaveText("2");
 
@@ -188,9 +185,7 @@ test("calculates order quantities, prices and the best supplier", async () => {
         await expect(cell(page, D1, "data:tme:totalPrice")).toHaveText(
             "1.24 (0.04)"
         );
-        await expect(page.getByTestId("bom-summary")).toHaveText(
-            "4 rows · 35 parts per unit × 30 = 1,050 parts"
-        );
+        await expect(cell(page, TOTAL, "totalQty")).toHaveText("");
         await expect(page.getByTestId("bom-total")).toContainText(
             "EUR per unit)"
         );

@@ -34,9 +34,7 @@ test("builds a BOM from scratch, saves, undoes and reopens it", async () => {
         await expect(cell(page, 0, "reference")).toHaveText("C1, C2");
         await expect(cell(page, 0, "value")).toHaveText("100n");
         await expect(cell(page, 0, "footprint")).toHaveText("0603");
-        await expect(page.getByTestId("bom-summary")).toHaveText(
-            "1 row · 2 parts"
-        );
+        await expect(page.getByTestId("bom-summary")).toHaveText("1 row");
         await expect(page).toHaveTitle("*Untitled - EEZ BOM checker");
 
         // Add a Mouser part-number column and a custom column.
@@ -97,9 +95,7 @@ test("builds a BOM from scratch, saves, undoes and reopens it", async () => {
             .locator('.ag-row[row-index="0"] .ag-selection-checkbox input')
             .check();
         await page.getByRole("button", { name: "Delete row" }).click();
-        await expect(page.getByTestId("bom-summary")).toHaveText(
-            "0 rows · 0 parts"
-        );
+        await expect(page.getByTestId("bom-summary")).toHaveText("0 rows");
         await answerMessageBox(app, 1); // "Don't Save"
         await page.getByRole("button", { name: "New" }).click();
         await expect(page).toHaveTitle("Untitled - EEZ BOM checker");

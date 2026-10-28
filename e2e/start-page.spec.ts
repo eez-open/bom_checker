@@ -47,9 +47,7 @@ test("opens recent documents, and forgets ones that are gone", async () => {
         // A CSV file starts the import, as Import CSV… does.
         await recent.getByRole("button", { name: /^calc-bom\.csv/ }).click();
         await page.getByRole("button", { name: "Import", exact: true }).click();
-        await expect(page.getByTestId("bom-summary")).toHaveText(
-            "4 rows · 35 parts"
-        );
+        await expect(page.getByTestId("bom-summary")).toHaveText("4 rows");
 
         // Back on the start page, a document can be removed from the list.
         await answerMessageBox(app, 1); // "Don't Save" the imported BOM

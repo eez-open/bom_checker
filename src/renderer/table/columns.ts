@@ -593,6 +593,13 @@ export function buildColumns(
             // Qty may be a decimal, e.g. 0.004 m of tape.
             cellEditorParams: numeric ? { min: 0, precision: 6 } : undefined,
             initialWidth: WIDTHS[column.field],
+            // The Total row adds up no quantities: they're of different
+            // parts (#42).
+            valueGetter:
+                column.field === "qty"
+                    ? params =>
+                          params.node?.rowPinned ? null : params.data?.qty
+                    : undefined,
             // Row, Reference and Value stay in view while scrolling to
             // supplier data.
             pinned:
@@ -609,7 +616,9 @@ export function buildColumns(
                 initialWidth: 100,
                 editable: false,
                 valueGetter: params =>
-                    (params.data?.qty ?? 0) * project.buildQuantity,
+                    params.node?.rowPinned || !params.data
+                        ? null
+                        : params.data.qty * project.buildQuantity,
                 valueFormatter: params => formatQuantity(params.value)
             });
         }

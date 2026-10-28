@@ -503,6 +503,3 @@ export function suppliersWithData(project: Project): SupplierId[] {
 }
 
 /** Total number of parts (sum of Qty). */
-export function totalQuantity(project: Project): number {
-    return project.rows.reduce((sum, row) => sum + row.qty, 0);
-}

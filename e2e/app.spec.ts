@@ -28,9 +28,7 @@ test("starts on the start page, then shows an empty BOM", async () => {
             ).toBeVisible();
         }
         await expect(page.getByText("No components yet.")).toBeVisible();
-        await expect(page.getByTestId("bom-summary")).toHaveText(
-            "0 rows · 0 parts"
-        );
+        await expect(page.getByTestId("bom-summary")).toHaveText("0 rows");
         await expect(page.getByTestId("app-version")).toHaveText(
             /^v\d+\.\d+\.\d+/
         );

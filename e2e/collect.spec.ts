@@ -75,9 +75,7 @@ test("collects supplier data and continues after a daily limit", async () => {
         await answerOpenDialog(app, BOM);
         await page.getByRole("button", { name: "Import CSV…" }).click();
         await page.getByRole("button", { name: "Import", exact: true }).click();
-        await expect(page.getByTestId("bom-summary")).toHaveText(
-            "4 rows · 14 parts"
-        );
+        await expect(page.getByTestId("bom-summary")).toHaveText("4 rows");
 
         // First run: Mouser stops at its daily limit.
         await page.getByRole("button", { name: "Collect…" }).click();
