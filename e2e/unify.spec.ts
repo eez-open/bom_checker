@@ -34,23 +34,71 @@ async function readBom(path: string): Promise<Project> {
     return parseProjectFile(await readFile(path, "utf8"));
 }
 
-test("unifies part numbers across the BOMs of a list", async () => {
+/** psu and mcu, with the same resistor under different part numbers, in
+ *  a list with an empty history. */
+async function writeList() {
     const folder = await mkdtemp(join(tmpdir(), "eez-unify-"));
-    const psu = join(folder, "psu.eezbom");
-    const mcu = join(folder, "mcu.eezbom");
-    const history = join(folder, "device history.eezbom");
-    const list = join(folder, "device.eezbom-list");
-    await writeFile(psu, bom("R1, R2", 2, "FAKE-PLENTY-ND"));
-    await writeFile(mcu, bom("R7", 3, "RMCF0805FT100KCT-ND"));
-    await writeFile(history, serializeProject(createHistoryProject()));
+    const files = {
+        folder,
+        psu: join(folder, "psu.eezbom"),
+        mcu: join(folder, "mcu.eezbom"),
+        history: join(folder, "device history.eezbom"),
+        list: join(folder, "device.eezbom-list")
+    };
+    await writeFile(files.psu, bom("R1, R2", 2, "FAKE-PLENTY-ND"));
+    await writeFile(files.mcu, bom("R7", 3, "RMCF0805FT100KCT-ND"));
+    await writeFile(files.history, serializeProject(createHistoryProject()));
     await writeFile(
-        list,
+        files.list,
         serializeBomList({
             schemaVersion: 1,
             boms: ["psu.eezbom", "mcu.eezbom"],
             history: "device history.eezbom"
         })
     );
+    return files;
+}
+
+test("gives the BOMs the data collected in Combined", async () => {
+    const { list } = await writeList();
+    const fake = await startFakeSuppliers();
+    const { app, page } = await launchApp({
+        env: { EEZ_BOM_CHECKER_API_URLS: JSON.stringify(fake.urls) }
+    });
+    try {
+        await setUpCredentials(page);
+        await answerOpenDialog(app, list);
+        await page.getByRole("button", { name: "Open BOM…" }).click();
+        const pane = page.getByRole("navigation", { name: "BOM list" });
+        const psuItem = pane.getByRole("button", { name: /^psu/ });
+        await pane.getByRole("button", { name: "Combined" }).click();
+        await expect(psuItem.getByLabel("unsaved")).toHaveCount(0);
+
+        await page.getByRole("button", { name: "Collect…" }).click();
+        const collect = page.getByRole("dialog", {
+            name: "Collect supplier data"
+        });
+        await collect.getByRole("button", { name: "Start" }).click();
+        await expect(
+            collect.getByRole("region", { name: "DigiKey summary" })
+        ).toBeVisible();
+        await collect.getByRole("button", { name: "Close" }).click();
+
+        await expect(psuItem.getByLabel("unsaved")).toBeVisible();
+        await psuItem.click();
+        await expect(
+            page.locator(
+                '.ag-row[row-index="0"] .ag-cell[col-id="data:digikey:availability"]'
+            )
+        ).toHaveText("In stock");
+    } finally {
+        await closeApp(app);
+        await fake.close();
+    }
+});
+
+test("unifies part numbers across the BOMs of a list", async () => {
+    const { folder, psu, mcu, history, list } = await writeList();
 
     const fake = await startFakeSuppliers();
     const { app, page } = await launchApp({

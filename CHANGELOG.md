@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+
+- BOMs of a list with unsaved changes are marked with a larger, orange dot.
+
+### Fixed
+
+- Showing a list's Combined BOM marked BOMs as changed when another BOM had newer data for their part numbers. Now only data collected in Combined goes to the BOMs.
+
 ## [0.8.0] - 2026-10-28
 
 ### Added

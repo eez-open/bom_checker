@@ -1035,6 +1035,19 @@ path.cost-slice {
     white-space: nowrap;
 }
 
+/* Unsaved changes: a dot in the warning colour, as on editor tabs. */
+.list-item-mark {
+    flex: none;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #e8590c;
+}
+
+.list-item.selected .list-item-mark {
+    background: #ffffff;
+}
+
 .list-item-error {
     color: var(--app-error);
     font-weight: 700;

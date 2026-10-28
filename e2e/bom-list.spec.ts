@@ -35,6 +35,21 @@ function bom(rows: [string, string, number, string][]): Project {
     );
 }
 
+/** `project` with a result for D-1 fetched at `fetchedAt`. */
+function withD1(project: Project, fetchedAt: string): Project {
+    return {
+        ...project,
+        collected: {
+            results: {
+                digikey: {
+                    "D-1": { status: "notFound", runId: "r", fetchedAt }
+                }
+            },
+            runs: {}
+        }
+    };
+}
+
 async function readBom(path: string): Promise<Project> {
     return parseProjectFile(await readFile(path, "utf8"));
 }
@@ -46,19 +61,25 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
     await writeFile(
         psu,
         serializeProject(
-            bom([
-                ["R1, R2", "10k", 2, "D-1"],
-                ["C1", "100n", 1, ""]
-            ])
+            withD1(
+                bom([
+                    ["R1, R2", "10k", 2, "D-1"],
+                    ["C1", "100n", 1, ""]
+                ]),
+                "2026-10-02T10:00:00Z"
+            )
         )
     );
     await writeFile(
         mcu,
         serializeProject(
-            bom([
-                ["R1", "10k", 1, "D-1"],
-                ["R5", "10k", 3, "D-2"]
-            ])
+            withD1(
+                bom([
+                    ["R1", "10k", 1, "D-1"],
+                    ["R5", "10k", 3, "D-2"]
+                ]),
+                "2026-10-01T10:00:00Z"
+            )
         )
     );
     const { app, page } = await launchApp();
@@ -117,6 +138,8 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
 
         // Combined: the same part numbers in one row, with the BOMs.
         await pane.getByRole("button", { name: "Combined" }).click();
+        // Showing it changes no BOM, although psu has newer data for D-1.
+        await expect(mcuItem.getByLabel("unsaved")).toHaveCount(0);
         await expect(cell(page, 0, "reference")).toHaveText(
             "R1, R2 (psu); R1 (mcu)"
         );

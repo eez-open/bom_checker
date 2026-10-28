@@ -11,7 +11,12 @@ import {
 } from "../shared/bom-list";
 import { combineBoms } from "../shared/combined-bom";
 import type { OpenedList } from "../shared/ipc";
-import type { CollectedData, Project } from "../shared/model";
+import type {
+    CollectedData,
+    LookupResult,
+    Project,
+    SupplierId
+} from "../shared/model";
 import { addToHistory } from "../shared/parts-history";
 import type { UnifyChanges } from "../shared/unify";
 import { errorMessage } from "./errors";
@@ -157,7 +162,7 @@ function showCombined(): void {
 }
 
 /** Data collected in the Combined BOM goes to the BOMs that use the part
- *  numbers; they then have unsaved changes. */
+ *  numbers, where it's newer; they then have unsaved changes. */
 function shareCollected(collected: CollectedData): void {
     const { list, documents } = useWorkspace.getState();
     if (!list) {
@@ -185,13 +190,35 @@ function shareCollected(collected: CollectedData): void {
     }
 }
 
+/** The results of `next` that `before` doesn't have. */
+function newResults(next: CollectedData, before: CollectedData): CollectedData {
+    const results: CollectedData["results"] = {};
+    for (const [supplier, theirs] of Object.entries(next.results) as [
+        SupplierId,
+        Record<string, LookupResult>
+    ][]) {
+        for (const [key, result] of Object.entries(theirs)) {
+            if (before.results[supplier]?.[key] !== result) {
+                (results[supplier] ??= {})[key] = result;
+            }
+        }
+    }
+    return { results, runs: {} };
+}
+
+// Only what is collected while Combined is shown: showing it, which merges
+// the BOMs' data, mustn't change them.
 useDocument.subscribe((state, previous) => {
     if (
         state.readOnly &&
+        previous.readOnly &&
+        state.project.rows === previous.project.rows &&
         state.project.collected !== previous.project.collected &&
         useWorkspace.getState().selected === COMBINED
     ) {
-        shareCollected(state.project.collected);
+        shareCollected(
+            newResults(state.project.collected, previous.project.collected)
+        );
     }
 });
 
