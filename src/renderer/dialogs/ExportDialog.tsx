@@ -11,7 +11,9 @@ import {
 } from "../../shared/export";
 import { SUPPLIERS } from "../../shared/suppliers";
 import { errorMessage } from "../errors";
+import { fileTitle } from "../../shared/bom-list";
 import { documentName, useDocument } from "../store/document";
+import { useWorkspace } from "../store/workspace";
 import { setAppSettings, useAppSettings } from "../store/settings";
 import { Modal } from "./Modal";
 
@@ -31,7 +33,14 @@ function sameSelection(a: ExportSelection, b: ExportSelection): boolean {
 
 export function ExportDialog({ onClose }: { onClose: () => void }) {
     const project = useDocument(state => state.project);
-    const name = useDocument(state => documentName(state.filePath));
+    const listName = useWorkspace(state =>
+        state.list ? fileTitle(state.list.filePath) : null
+    );
+    const name = useDocument(state =>
+        state.readOnly && listName
+            ? `${listName} (combined)`
+            : documentName(state.filePath)
+    );
     const settings = useAppSettings(state => state.settings);
     const preference = settings.general.supplierOrder;
     const savedPresets = settings.general.exportPresets;
@@ -86,6 +95,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
             sheets.push(
                 buildInfoSheet(project, bom, {
                     documentName: name,
+                    documentPath: useDocument.getState().filePath,
                     exportedAt: new Date().toISOString(),
                     presetName: current?.preset.name ?? null,
                     selection,

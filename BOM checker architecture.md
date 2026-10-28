@@ -141,10 +141,12 @@ src/
 
 The project file is a versioned JSON document. 1,000 rows with three suppliers' results come to well under a few MB, and the file can be committed to git next to the KiCad project.
 
+No file the app writes holds absolute paths (#34). `source.path` is stored relative to the `.eezbom`'s folder with `/` separators, and made absolute when read (`main/project/source-paths.ts`), so the app works with absolute paths. Older files with absolute paths open as before and are saved with relative ones; a source on another Windows drive stays absolute, as there's no relative path. Exports show the source relative to the BOM (`shared/paths.ts`), and backup manifests list files relative to the backup folder.
+
 ```ts
 interface Project {
   schemaVersion: 5;                     // 2 added `collected`, 3 `buildQuantity`, 4 `source.kicadValues`, 5 decimal `qty` and `manualSuppliers`
-  source: { kind: 'manual' | 'csv' | 'kicad'; path?: string; variant?: string; importedAt?: string };
+  source: { kind: 'manual' | 'csv' | 'kicad'; path?: string; variant?: string; importedAt?: string };  // path: relative to the file (#34)
   suppliers: SupplierId[];              // suppliers that have a part-number column in this BOM
   customColumns: ColumnDef[];           // user-defined columns, plus unmapped imported ones
   manualSuppliers: { id: string; name: string }[];  // suppliers without an API (#20); rows' `manual[id]` holds what's typed
@@ -512,6 +514,17 @@ The `kicad-cli sch export bom --variant` alternative was rejected. It requires K
 - **Backup:** the `.kicad_pro` and all schematics are copied to `bom-checker-backups/<YYYY-MM-DD_HHMMSS>/` in the project folder, with `backup.json` listing the originals. Files are written atomically; if one fails, those already written are put back. The dialog can restore a backup made in the same session.
 - **Open in KiCad:** KiCad's lock files (`~<file>.lck`) trigger a warning, since saving in KiCad would overwrite the update.
 
+### 9.5 BOM lists (GitHub #35)
+
+- **File** (`shared/bom-list-file.ts`): `.eezbom-list` is JSON, `{ schemaVersion: 1, boms: [...], history }`, with paths relative to the list's folder and `/` separators. It holds no BOM data.
+- **Main** (`main/project/list-files.ts`) reads the list and every BOM, reporting unreadable ones per BOM, not as an error of the list. The renderer may only save lists main read or created, naming BOMs main read, and saves BOMs to known paths as usual. Saving several BOMs (Unify's Apply) first copies them to `bom-checker-backups/<time>/` next to the list (`main/backups.ts`, shared with 9.4), and puts back those written if one fails.
+- **Renderer:** the selected BOM is in the document store like a single BOM, so every feature works on it unchanged. The others wait in the workspace store (`store/workspace.ts`) as snapshots with their undo history (`list-commands.ts`); switching swaps them. Unsaved changes of any of them count for the close prompt and Save All.
+- **Same component** (`shared/bom-list.ts`): equal Value (spaces tidied; case ignored except m/M, for milli and mega) and Footprint.
+- **History** (`shared/parts-history.ts`): a plain `.eezbom` with a *Used in* column. A BOM row is known when a history row of the same component has all its defined part numbers; otherwise it's added. It also takes newer collected data of its part numbers. Updated when BOMs are added or saved, and after Apply; saved unless it has other unsaved changes.
+- **Combined** (`shared/combined-bom.ts`): computed, read-only (`readOnly` in the document store: edits are ignored, the table can't edit). Rows merge by their set of defined supplier part numbers, or by component without any; Qty = Σ qty × build quantity. Collected data is the newest of all BOMs; data collected there goes to the BOMs that use the part numbers.
+- **Unify** (`shared/unify.ts`): rows are joined (union-find) by component, or by a shared supplier part number. A group is offered when, for a supplier, its cells differ (an empty one included) or its Values do. Candidates: the cells' part numbers by use, then the history's for the same component. Prices are those of a row with the group's total quantity. The dialog collects candidates with the Collect dialog on its own data (`CollectTarget`), and Apply writes the decisions as one undo step per BOM, with the chosen part numbers' data.
+- **Not covered yet:** suppliers without an API (their ids are per BOM) are left out of Combined, the history and Unify.
+
 ---
 
 ## 10. Table UI
@@ -545,7 +558,7 @@ The `kicad-cli sch export bom --variant` alternative was rejected. It requires K
   "Mouser" in these presets can be any supplier.
 
 - **Typed cells:** numbers and prices are written as numeric cells, not text.
-- **Info sheet** (xlsx/ods only): BOM, source file, KiCad variant, export filter, how prices and the best price were chosen, the preferred supplier order, collection dates per supplier, and total prices.
+- **Info sheet** (xlsx/ods only): BOM, source file (relative to the BOM), KiCad variant, export filter, how prices and the best price were chosen, the preferred supplier order, collection dates per supplier, and total prices.
 - **No colours:** SheetJS Community Edition can't write cell styles, so status colours don't appear in exported files. If coloured `.xlsx` output is wanted, ExcelJS could be added for xlsx only.
 
 ---
@@ -594,6 +607,10 @@ These points couldn't be settled from documentation and should be the first thin
 ---
 
 ## 15. Status
+
+### Version 0.8.0
+
+BOM lists (#35, section 9.5): a `.eezbom-list` with its BOMs side by side, a Combined BOM for ordering them together, Unify part numbers across them, and a history BOM of the part numbers used. No absolute paths in the files the app writes (#34, section 5.1). The chart of the most expensive parts gets a colour per rank, Copy picture and Save as PNG…, and a Top 10 button in the Best price header (#28). Unit tests: 221; end-to-end tests: 19.
 
 ### Version 0.7.0
 

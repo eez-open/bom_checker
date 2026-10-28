@@ -270,6 +270,11 @@ input[aria-invalid="true"] {
     min-height: min(560px, calc(100vh - 24px));
 }
 
+.modal-full {
+    width: calc(100vw - 48px);
+    height: calc(100vh - 48px);
+}
+
 /* Shared form pieces */
 
 .toolbar-spacer {
@@ -616,6 +621,13 @@ svg.icon {
     font-weight: 600;
 }
 
+.group-header-button {
+    margin-left: 8px;
+    padding: 0 6px;
+    font-size: 11px;
+    line-height: 18px;
+}
+
 .group-header-date {
     margin-left: 8px;
     color: var(--app-muted);
@@ -851,11 +863,9 @@ select.choose-item {
     color: var(--app-fg);
 }
 
-/* Most expensive parts (#28). Colors: slot 1 of the data-viz palette and
-   its de-emphasis gray; the table carries every value. */
+/* Most expensive parts (#28). Slice colours come from cost-chart.ts; the
+   table carries every value. */
 .cost-chart {
-    --chart-top: #2a78d6;
-    --chart-other: #c3c2b7;
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
@@ -867,21 +877,14 @@ select.choose-item {
     flex: none;
 }
 
-.cost-slice {
-    fill: var(--chart-top);
+path.cost-slice {
     /* 2px gaps between slices. */
     stroke: var(--app-bg);
     stroke-width: 2px;
+}
+
+.cost-slice {
     transition: opacity 0.12s;
-}
-
-circle.cost-slice {
-    fill: none;
-    stroke: var(--chart-top);
-}
-
-.cost-slice.other {
-    fill: var(--chart-other);
 }
 
 .cost-slice.dimmed {
@@ -889,7 +892,6 @@ circle.cost-slice {
 }
 
 .cost-slice-label {
-    fill: #ffffff;
     font-size: 12px;
     font-weight: 600;
     text-anchor: middle;
@@ -939,9 +941,225 @@ circle.cost-slice {
     height: 10px;
     margin-right: 6px;
     border-radius: 2px;
-    background: var(--chart-top);
 }
 
 .cost-swatch.other {
-    background: var(--chart-other);
+    background: #c3c2b7;
+}
+
+/* BOM lists (#35): the list on the left, the selected BOM on the right. */
+.workspace {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+.workspace-main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.list-pane {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 220px;
+    flex: none;
+    padding: 10px 10px 12px;
+    overflow-y: auto;
+    border-right: 1px solid var(--app-border);
+    background: var(--chrome-bg);
+}
+
+.list-pane-title {
+    margin: 0 0 4px;
+    overflow: hidden;
+    font-size: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.list-pane h3 {
+    margin: 10px 0 2px;
+    color: var(--app-muted);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.list-pane p {
+    margin: 2px 0;
+}
+
+.list-pane-message {
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: var(--app-error-bg);
+    color: var(--app-error);
+}
+
+.list-items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.list-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    text-align: left;
+}
+
+.list-item:hover {
+    background: var(--app-border);
+}
+
+.list-item.selected {
+    background: var(--app-accent);
+    color: #ffffff;
+}
+
+.list-item-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.list-item-error {
+    color: var(--app-error);
+    font-weight: 700;
+}
+
+.list-item.selected .list-item-error {
+    color: inherit;
+}
+
+.list-pane-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.list-pane > button.primary {
+    margin-top: 8px;
+}
+
+.list-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 24px;
+}
+
+.list-placeholder p {
+    margin: 0;
+}
+
+/* Unify part numbers (#35) */
+.unify-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin-bottom: 8px;
+}
+
+.unify-header p {
+    flex: 1 1 360px;
+    margin: 0;
+}
+
+.unify-group {
+    margin: 0 0 18px;
+    padding-top: 10px;
+    border-top: 1px solid var(--app-border);
+}
+
+.unify-group h3 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 12px;
+    margin: 0;
+    font-size: 14px;
+}
+
+.unify-footprint,
+.unify-qty {
+    color: var(--app-muted);
+    font-size: 12px;
+    font-weight: 400;
+}
+
+.unify-used-in {
+    margin: 2px 0 6px;
+    font-size: 12px;
+}
+
+.unify-values {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 14px;
+    margin: 4px 0 6px;
+}
+
+.unify-choice {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.unify-table {
+    font-variant-numeric: tabular-nums;
+}
+
+.unify-table th[scope="row"] {
+    width: 80px;
+    font-weight: 600;
+}
+
+.unify-table .number {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.unify-table .unify-text {
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.unify-table tr.chosen td {
+    background: #eef4fc;
+}
+
+.unify-best {
+    margin-left: 8px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: #dafbe1;
+    color: var(--app-success);
+    font-size: 11px;
+}
+
+.unify-other-row td {
+    padding-bottom: 8px;
+}
+
+.unify-other {
+    width: 220px;
+    margin-right: 12px;
 }

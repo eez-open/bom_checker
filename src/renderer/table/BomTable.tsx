@@ -61,6 +61,8 @@ const DEFAULT_COLUMN = {
     sortable: true
 };
 
+const READ_ONLY_COLUMN = { ...DEFAULT_COLUMN, editable: false };
+
 interface BomTableProps {
     project: Project;
     /** Preferred supplier order, for best price ties. */
@@ -77,6 +79,8 @@ interface BomTableProps {
     rowView: string;
     /** Rows shown with the filters on; null when nothing is filtered. */
     onShownRows: (rows: number | null) => void;
+    /** No cell can be edited, e.g. in a list's Combined BOM. */
+    readOnly?: boolean;
 }
 
 function EmptyTable() {
@@ -98,7 +102,8 @@ export function BomTable({
     onEditStarted,
     search,
     rowView,
-    onShownRows
+    onShownRows,
+    readOnly = false
 }: BomTableProps) {
     const apiRef = useRef<GridApi<BomRow> | null>(null);
     // Cells read collected data and the supplier preference through the
@@ -294,7 +299,7 @@ export function BomTable({
             theme={theme}
             rowData={project.rows}
             columnDefs={columnDefs}
-            defaultColDef={DEFAULT_COLUMN}
+            defaultColDef={readOnly ? READ_ONLY_COLUMN : DEFAULT_COLUMN}
             getRowId={params => params.data.id}
             // Filtering swaps rows at once, without sliding them.
             animateRows={false}

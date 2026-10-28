@@ -28,6 +28,7 @@ const api: Api = {
         getInfo: () => invoke(IpcChannel.AppGetInfo),
         openExternal: url => invoke(IpcChannel.AppOpenExternal, url),
         copyText: text => invoke(IpcChannel.AppCopyText, text),
+        copyImage: png => invoke(IpcChannel.AppCopyImage, png),
         pathForFile: file => webUtils.getPathForFile(file)
     },
     files: {
@@ -87,6 +88,17 @@ const api: Api = {
     csv: {
         open: () => invoke(IpcChannel.CsvOpen)
     },
+    list: {
+        create: () => invoke(IpcChannel.ListCreate),
+        save: (filePath, boms, history) =>
+            invoke(IpcChannel.ListSave, filePath, boms, history),
+        addBoms: () => invoke(IpcChannel.ListAddBoms),
+        chooseHistory: () => invoke(IpcChannel.ListChooseHistory),
+        saveBoms: (listPath, boms) =>
+            invoke(IpcChannel.ListSaveBoms, listPath, boms),
+        showBackup: folder =>
+            ipcRenderer.send(IpcChannel.ListShowBackup, folder)
+    },
     kicad: {
         open: () => invoke(IpcChannel.KicadOpen),
         planUpdate: request => invoke(IpcChannel.KicadPlanUpdate, request),
@@ -98,6 +110,8 @@ const api: Api = {
     },
     export: {
         save: request => invoke(IpcChannel.ExportSave, request),
+        saveImage: (png, suggestedName) =>
+            invoke(IpcChannel.ExportSaveImage, png, suggestedName),
         showInFolder: path =>
             ipcRenderer.send(IpcChannel.ExportShowInFolder, path)
     },

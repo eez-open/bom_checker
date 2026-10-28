@@ -1,5 +1,13 @@
-import { copyFile, mkdir, readFile, stat } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, relative } from "node:path";
+import { copyFile, mkdir, readFile } from "node:fs/promises";
+import {
+    basename,
+    dirname,
+    isAbsolute,
+    join,
+    relative,
+    resolve,
+    sep
+} from "node:path";
 import { shell, type BrowserWindow } from "electron";
 import { z } from "zod";
 import type {
@@ -7,6 +15,7 @@ import type {
     KicadUpdateRequest,
     KicadUpdateResult
 } from "../../shared/ipc";
+import { exists, MANIFEST, newBackupFolder } from "../backups";
 import { confirm } from "../dialogs";
 import { writeFileAtomic } from "../files";
 import { readKicadDesign, type KicadDesign } from "../kicad/project";
@@ -14,11 +23,8 @@ import { applyEdits, planKicadUpdate, relativeFiles } from "../kicad/update";
 import { log } from "../logging";
 
 // Writing BOM columns back into a KiCad project (GitHub #11). Every update
-// first copies the project's files to bom-checker-backups/<time>/ next to
-// the project, with a backup.json listing where each copy came from.
-
-const BACKUP_FOLDER = "bom-checker-backups";
-const MANIFEST = "backup.json";
+// first copies the project's files to a backup folder next to the project
+// (see backups.ts).
 
 const manifestSchema = z.object({
     project: z.string(),
@@ -39,15 +45,6 @@ async function readDesign(
         return text;
     });
     return { design, texts };
-}
-
-async function exists(path: string): Promise<boolean> {
-    try {
-        await stat(path);
-        return true;
-    } catch {
-        return false;
-    }
 }
 
 /** KiCad keeps "~<file>.lck" next to a schematic while it's open. */
@@ -76,22 +73,14 @@ export async function planKicadProjectUpdate(
     return plan;
 }
 
-function timestamp(date: Date): string {
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return (
-        `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_` +
-        `${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
-    );
+function toPortable(path: string): string {
+    return path.split(sep).join("/");
 }
 
 /** Copies the project file and all its schematics; returns the folder. */
 async function backUp(design: KicadDesign): Promise<string> {
     const projectFolder = dirname(design.path);
-    const base = join(projectFolder, BACKUP_FOLDER, timestamp(new Date()));
-    let folder = base;
-    for (let n = 2; await exists(folder); n++) {
-        folder = `${base}-${n}`;
-    }
+    const folder = await newBackupFolder(projectFolder);
     const files = [];
     for (const original of [design.path, ...design.files.keys()]) {
         const inside = relative(projectFolder, original);
@@ -101,13 +90,14 @@ async function backUp(design: KicadDesign): Promise<string> {
                 : inside;
         await mkdir(dirname(join(folder, copy)), { recursive: true });
         await copyFile(original, join(folder, copy));
-        files.push({ original, copy });
+        // Relative to the backup folder, so it holds no absolute paths (#34).
+        files.push({ original: toPortable(relative(folder, original)), copy });
     }
     await writeFileAtomic(
         join(folder, MANIFEST),
         JSON.stringify(
             {
-                project: design.path,
+                project: toPortable(relative(folder, design.path)),
                 createdAt: new Date().toISOString(),
                 files
             },
@@ -183,7 +173,11 @@ export async function restoreKicadBackup(
         return false;
     }
     for (const { original, copy } of manifest.files) {
-        await writeFileAtomic(original, await readFile(join(folder, copy)));
+        // Backups from before 0.8.0 have absolute paths.
+        await writeFileAtomic(
+            resolve(folder, original),
+            await readFile(join(folder, copy))
+        );
     }
     log.info("Restored KiCad project from", folder);
     return true;

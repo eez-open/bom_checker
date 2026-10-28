@@ -73,6 +73,8 @@ export function Toolbar() {
     }, [rows, selectedIds]);
     const buildQuantity = useDocument(state => state.project.buildQuantity);
     const open = useDocument(state => state.open);
+    // E.g. a list's Combined BOM: it can be collected and exported only.
+    const editable = useDocument(state => state.open && !state.readOnly);
     const canUndo = useDocument(state => state.past.length > 0);
     const canRedo = useDocument(state => state.future.length > 0);
     const fromKicad = useDocument(
@@ -95,7 +97,7 @@ export function Toolbar() {
             >
                 Open…
             </button>
-            {open && (
+            {editable && (
                 <button
                     type="button"
                     title="Ctrl+S"
@@ -104,7 +106,7 @@ export function Toolbar() {
                     Save
                 </button>
             )}
-            {open && (
+            {editable && (
                 <>
                     <button
                         type="button"
@@ -157,7 +159,7 @@ export function Toolbar() {
                     Import KiCad…
                 </button>
             )}
-            {open && (
+            {editable && (
                 <>
                     <span className="toolbar-separator" />
                     <button type="button" onClick={addRow}>
@@ -188,6 +190,10 @@ export function Toolbar() {
                             value={buildQuantity}
                         />
                     </label>
+                </>
+            )}
+            {open && (
+                <>
                     <span className="toolbar-separator" />
                     <button
                         type="button"

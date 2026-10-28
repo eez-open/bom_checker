@@ -8,6 +8,7 @@ import {
     suppliersWithData,
     totalQuantity
 } from "../shared/project-ops";
+import { fileTitle } from "../shared/bom-list";
 import { SUPPLIERS } from "../shared/suppliers";
 import {
     closeDialog,
@@ -29,12 +30,16 @@ import { ExportDialog } from "./dialogs/ExportDialog";
 import { KicadImportDialog } from "./dialogs/KicadImportDialog";
 import { KicadSyncDialog } from "./dialogs/KicadSyncDialog";
 import { KicadUpdateDialog } from "./dialogs/KicadUpdateDialog";
+import { UnifyDialog } from "./dialogs/UnifyDialog";
 import { SettingsDialog } from "./settings/SettingsDialog";
 import { StartPage } from "./StartPage";
 import { FilterBar, rowViews, tableGroups } from "./FilterBar";
+import { addBomsToList, removeFromList } from "./list-commands";
+import { ListPane } from "./ListPane";
 import { documentName, isDirty, useDocument } from "./store/document";
 import { loadAppSettings, useAppSettings } from "./store/settings";
 import { useUi } from "./store/ui";
+import { COMBINED, useWorkspace } from "./store/workspace";
 import { BomTable } from "./table/BomTable";
 import { Toolbar } from "./Toolbar";
 
@@ -56,11 +61,60 @@ function hasFiles(event: DragEvent): boolean {
 const onShownRows = (rows: number | null) =>
     useUi.setState({ shownRows: rows });
 
+/** The right side of a list (#35) when it shows no BOM. */
+function ListPlaceholder() {
+    const selected = useWorkspace(state => state.selected);
+    const error = useWorkspace(state =>
+        state.selected ? state.errors[state.selected] : undefined
+    );
+    const hasBoms = useWorkspace(state => (state.list?.boms.length ?? 0) > 0);
+    if (selected && error) {
+        return (
+            <div className="list-placeholder">
+                <p className="field-error">
+                    Can&apos;t read {fileTitle(selected)}: {error}
+                </p>
+                <p className="muted">{selected}</p>
+                <button
+                    type="button"
+                    onClick={() => void removeFromList(selected)}
+                >
+                    Remove from the list
+                </button>
+            </div>
+        );
+    }
+    return (
+        <div className="list-placeholder">
+            <p>
+                {hasBoms
+                    ? "Select a BOM on the left."
+                    : "Add the BOMs whose part numbers should match, e.g. the modules of one device."}
+            </p>
+            <button
+                type="button"
+                className="primary"
+                onClick={() => void addBomsToList()}
+            >
+                Add BOMs…
+            </button>
+        </div>
+    );
+}
+
 export function App() {
     const open = useDocument(state => state.open);
     const project = useDocument(state => state.project);
+    const readOnly = useDocument(state => state.readOnly);
     const name = useDocument(state => documentName(state.filePath));
-    const dirty = useDocument(isDirty);
+    const shownDirty = useDocument(state => !state.readOnly && isDirty(state));
+    const list = useWorkspace(state => state.list);
+    const combined = useWorkspace(state => state.selected === COMBINED);
+    // A list has unsaved changes when any of its BOMs has.
+    const waitingDirty = useWorkspace(state =>
+        Object.values(state.documents).some(isDirty)
+    );
+    const dirty = (open && shownDirty) || waitingDirty;
     const preference = useAppSettings(
         state => state.settings.general.supplierOrder
     );
@@ -132,6 +186,8 @@ export function App() {
     useEffect(() => {
         window.api.window.setMenuState({
             documentOpen: open,
+            listOpen: list !== null,
+            editable: open && !readOnly,
             fromKicad: open && fromKicad,
             availableColumns:
                 open && availableKey
@@ -141,14 +197,24 @@ export function App() {
                 (group): group is ColumnGroup => !group.startsWith("manual:")
             )
         });
-    }, [open, fromKicad, availableKey, hiddenColumns]);
+    }, [open, list, readOnly, fromKicad, availableKey, hiddenColumns]);
 
+    const listName = list ? fileTitle(list.filePath) : null;
     useEffect(() => {
-        document.title = open
-            ? `${dirty ? "*" : ""}${name} - EEZ BOM checker`
+        const shown = combined ? "Combined" : open ? name : null;
+        const title = listName
+            ? [listName, shown].filter(Boolean).join(" · ")
+            : open
+              ? name
+              : null;
+        document.title = title
+            ? `${dirty ? "*" : ""}${title} - EEZ BOM checker`
             : "EEZ BOM checker";
-        window.api.window.setDocumentState({ name, dirty: open && dirty });
-    }, [open, name, dirty]);
+        window.api.window.setDocumentState({
+            name: listName ?? name,
+            dirty
+        });
+    }, [open, name, dirty, listName, combined]);
 
     const onDrop = (event: DragEvent) => {
         if (!hasFiles(event)) {
@@ -188,53 +254,74 @@ export function App() {
             onDrop={onDrop}
         >
             <Toolbar />
-            {!open && (
+            {!open && !list && (
                 <main className="app-start">
                     <StartPage dragging={dragging} />
                 </main>
             )}
-            {open &&
-                Object.entries(foreign).map(([supplier, currencies]) => (
-                    <div key={supplier} className="banner" role="alert">
-                        {SUPPLIERS[supplier as SupplierId].name} prices are in{" "}
-                        {currencies.join(", ")}. Totals and the best price are
-                        only calculated in {BASE_CURRENCY}, so these prices are
-                        left out. If {SUPPLIERS[supplier as SupplierId].name}{" "}
-                        can return {BASE_CURRENCY}, set it in{" "}
-                        <button
-                            type="button"
-                            className="link"
-                            onClick={openSettings}
-                        >
-                            Settings
-                        </button>{" "}
-                        and collect again.
+            {(list || open) && (
+                <div className="workspace">
+                    {list && <ListPane />}
+                    <div className="workspace-main">
+                        {list && !open && <ListPlaceholder />}
+                        {open &&
+                            Object.entries(foreign).map(
+                                ([supplier, currencies]) => (
+                                    <div
+                                        key={supplier}
+                                        className="banner"
+                                        role="alert"
+                                    >
+                                        {SUPPLIERS[supplier as SupplierId].name}{" "}
+                                        prices are in {currencies.join(", ")}.
+                                        Totals and the best price are only
+                                        calculated in {BASE_CURRENCY}, so these
+                                        prices are left out. If{" "}
+                                        {SUPPLIERS[supplier as SupplierId].name}{" "}
+                                        can return {BASE_CURRENCY}, set it in{" "}
+                                        <button
+                                            type="button"
+                                            className="link"
+                                            onClick={openSettings}
+                                        >
+                                            Settings
+                                        </button>{" "}
+                                        and collect again.
+                                    </div>
+                                )
+                            )}
+                        {open && (
+                            <FilterBar project={project} rows={shownRows} />
+                        )}
+                        {open && (
+                            <main className="app-table">
+                                <BomTable
+                                    project={project}
+                                    preference={preference}
+                                    hiddenColumns={hiddenColumns}
+                                    editRowId={editRowId}
+                                    onEditStarted={() =>
+                                        useUi.setState({ editRowId: null })
+                                    }
+                                    onCellEdit={(rowId, key, value) =>
+                                        useDocument
+                                            .getState()
+                                            .edit(p =>
+                                                setCell(p, rowId, key, value)
+                                            )
+                                    }
+                                    onSelectionChange={ids =>
+                                        useUi.setState({ selectedRowIds: ids })
+                                    }
+                                    search={search}
+                                    rowView={rowView}
+                                    onShownRows={onShownRows}
+                                    readOnly={readOnly}
+                                />
+                            </main>
+                        )}
                     </div>
-                ))}
-            {open && <FilterBar project={project} rows={shownRows} />}
-            {open && (
-                <main className="app-table">
-                    <BomTable
-                        project={project}
-                        preference={preference}
-                        hiddenColumns={hiddenColumns}
-                        editRowId={editRowId}
-                        onEditStarted={() =>
-                            useUi.setState({ editRowId: null })
-                        }
-                        onCellEdit={(rowId, key, value) =>
-                            useDocument
-                                .getState()
-                                .edit(p => setCell(p, rowId, key, value))
-                        }
-                        onSelectionChange={ids =>
-                            useUi.setState({ selectedRowIds: ids })
-                        }
-                        search={search}
-                        rowView={rowView}
-                        onShownRows={onShownRows}
-                    />
-                </main>
+                </div>
             )}
             <footer className="status-bar">
                 <span>
@@ -303,6 +390,7 @@ export function App() {
             {dialog?.kind === "cost-chart" && (
                 <CostChartDialog onClose={closeDialog} />
             )}
+            {dialog?.kind === "unify" && <UnifyDialog onClose={closeDialog} />}
             {dialog?.kind === "kicad-update" && (
                 <KicadUpdateDialog onClose={closeDialog} />
             )}

@@ -2,10 +2,11 @@ import { useEffect, useId, useState } from "react";
 import iconUrl from "../../build/icon.svg";
 import type { DocumentKind } from "../shared/document-kind";
 import type { RecentDocument } from "../shared/ipc";
-import { newDocument, openDocument, openPath } from "./commands";
+import { newDocument, newList, openDocument, openPath } from "./commands";
 
 const KIND_LABELS: Record<DocumentKind, string> = {
     project: "BOM",
+    list: "BOM list",
     csv: "CSV",
     kicad: "KiCad project"
 };
@@ -45,14 +46,23 @@ export function StartPage({ dragging }: { dragging: boolean }) {
                     Open BOM…
                 </button>
                 <p className="muted">
-                    or drop a BOM (.eezbom), KiCad project (.kicad_pro) or CSV
-                    file here, or{" "}
+                    or drop a BOM (.eezbom), BOM list (.eezbom-list), KiCad
+                    project (.kicad_pro) or CSV file here, or{" "}
                     <button
                         type="button"
                         className="link"
                         onClick={() => void newDocument()}
                     >
                         start a new BOM
+                    </button>{" "}
+                    or a{" "}
+                    <button
+                        type="button"
+                        className="link"
+                        title="BOMs whose part numbers should match, e.g. the modules of one device"
+                        onClick={() => void newList()}
+                    >
+                        BOM list
                     </button>
                 </p>
             </section>

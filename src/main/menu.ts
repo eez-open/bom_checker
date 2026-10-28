@@ -46,6 +46,8 @@ function command(
 
 let state: MenuState = {
     documentOpen: false,
+    listOpen: false,
+    editable: false,
     fromKicad: false,
     availableColumns: [],
     hiddenColumns: []
@@ -58,6 +60,27 @@ function documentCommand(
     options: MenuItemConstructorOptions = {}
 ): MenuItemConstructorOptions {
     return command(label, name, { enabled: state.documentOpen, ...options });
+}
+
+/** A command that changes the open BOM. */
+function editCommand(
+    label: string,
+    name: MenuCommand,
+    options: MenuItemConstructorOptions = {}
+): MenuItemConstructorOptions {
+    return command(label, name, {
+        enabled: state.documentOpen && state.editable,
+        ...options
+    });
+}
+
+/** A command of a BOM list (#35). */
+function listCommand(
+    label: string,
+    name: MenuCommand,
+    options: MenuItemConstructorOptions = {}
+): MenuItemConstructorOptions {
+    return command(label, name, { enabled: state.listOpen, ...options });
 }
 
 function recentItems(): MenuItemConstructorOptions[] {
@@ -106,6 +129,8 @@ function columnItems(): MenuItemConstructorOptions[] {
 
 const menuStateSchema = z.object({
     documentOpen: z.boolean(),
+    listOpen: z.boolean(),
+    editable: z.boolean(),
     fromKicad: z.boolean(),
     availableColumns: z.array(z.enum(COLUMN_GROUPS)),
     hiddenColumns: z.array(z.enum(COLUMN_GROUPS))
@@ -139,6 +164,7 @@ export function createMenu(): Menu {
             label: "&File",
             submenu: [
                 command("&New", "new", { accelerator: "CmdOrCtrl+N" }),
+                command("New BOM &List…", "new-list", { id: "new-list" }),
                 command("&Open…", "open", { accelerator: "CmdOrCtrl+O" }),
                 {
                     label: "Open &Recent",
@@ -150,11 +176,20 @@ export function createMenu(): Menu {
                     accelerator: "CmdOrCtrl+W"
                 }),
                 { type: "separator" },
-                documentCommand("&Save", "save", {
+                editCommand("&Save", "save", {
                     accelerator: "CmdOrCtrl+S"
                 }),
-                documentCommand("Save &As…", "save-as", {
-                    accelerator: "CmdOrCtrl+Shift+S"
+                command("Save &As…", "save-as", {
+                    accelerator: "CmdOrCtrl+Shift+S",
+                    // A list's BOMs keep their files.
+                    enabled: state.documentOpen && !state.listOpen
+                }),
+                listCommand("Save A&ll", "save-all", {
+                    id: "save-all",
+                    accelerator: "CmdOrCtrl+Alt+S"
+                }),
+                listCommand("A&dd BOMs to List…", "add-boms", {
+                    id: "add-boms"
                 }),
                 { type: "separator" },
                 command("&Import CSV…", "import-csv", {
@@ -184,11 +219,11 @@ export function createMenu(): Menu {
             submenu: [
                 // The renderer handles these keys itself, so that text fields
                 // keep their own undo while typing.
-                documentCommand("&Undo", "undo", {
+                editCommand("&Undo", "undo", {
                     accelerator: "CmdOrCtrl+Z",
                     registerAccelerator: false
                 }),
-                documentCommand("&Redo", "redo", {
+                editCommand("&Redo", "redo", {
                     accelerator: "CmdOrCtrl+Y",
                     registerAccelerator: false
                 }),
@@ -197,10 +232,10 @@ export function createMenu(): Menu {
                 { role: "copy" },
                 { role: "paste" },
                 { type: "separator" },
-                documentCommand("Add &Row", "add-row"),
-                documentCommand("&Delete Selected Rows", "delete-rows"),
+                editCommand("Add &Row", "add-row"),
+                editCommand("&Delete Selected Rows", "delete-rows"),
                 { type: "separator" },
-                documentCommand("&Columns…", "edit-columns"),
+                editCommand("&Columns…", "edit-columns"),
                 { type: "separator" },
                 documentCommand("&Find…", "find", {
                     id: "find",
@@ -227,6 +262,7 @@ export function createMenu(): Menu {
             label: "&Tools",
             submenu: [
                 documentCommand("C&ollect Supplier Data…", "collect"),
+                listCommand("&Unify Part Numbers…", "unify", { id: "unify" }),
                 { type: "separator" },
                 command("&Settings…", "settings", {
                     accelerator: "CmdOrCtrl+,"

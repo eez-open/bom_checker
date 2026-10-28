@@ -18,8 +18,10 @@ import type {
 } from "../../shared/ipc";
 import {
     partNumberKey,
+    type CollectedData,
     type CollectionRun,
     type LookupResult,
+    type Project,
     type SupplierId
 } from "../../shared/model";
 import { setCell } from "../../shared/project-ops";
@@ -31,6 +33,30 @@ import { useUi } from "../store/ui";
 import { Modal } from "./Modal";
 
 type Readiness = Record<SupplierId, SupplierReadiness>;
+
+/** What is collected for: the open BOM, or e.g. the part numbers Unify
+ *  offers (#35), which keep their own data. */
+export interface CollectTarget {
+    /** A hook: the project whose part numbers are collected. */
+    useProject: () => Project;
+    get: () => {
+        project: Project;
+        /** Not an undo step. */
+        applyCollected: (
+            change: (collected: CollectedData) => CollectedData
+        ) => void;
+        /** For part numbers found by Value; ignored when read-only. */
+        edit: (change: (project: Project) => Project) => void;
+        /** Part numbers found by Value can't be put in; the option is
+         *  left out. */
+        readOnly: boolean;
+    };
+}
+
+const OPEN_BOM: CollectTarget = {
+    useProject: () => useDocument(state => state.project),
+    get: () => useDocument.getState()
+};
 
 type Step =
     | { kind: "checking" }
@@ -88,10 +114,11 @@ function countFor(work: SupplierWork, mode: CollectMode): number {
  * returns the counts per supplier.
  */
 function fillFromValues(
+    target: CollectTarget,
     jobs: readonly CollectJob[],
     rowIds: ReadonlySet<string> | undefined
 ): Partial<Record<SupplierId, ValueMatches>> {
-    const { project, applyCollected, edit } = useDocument.getState();
+    const { project, applyCollected, edit } = target.get();
     const matches = Object.fromEntries(
         jobs.map(job => [
             job.supplier,
@@ -176,8 +203,8 @@ function formatDuration(run: CollectionRun): string {
 }
 
 /** Applies a collection event to the BOM; returns progress updates. */
-function applyEvent(event: CollectEvent): void {
-    const { applyCollected } = useDocument.getState();
+function applyEvent(target: CollectTarget, event: CollectEvent): void {
+    const { applyCollected } = target.get();
     if (event.type === "results") {
         applyCollected(collected => ({
             ...collected,
@@ -197,8 +224,14 @@ function applyEvent(event: CollectEvent): void {
     }
 }
 
-export function CollectDialog({ onClose }: { onClose: () => void }) {
-    const project = useDocument(state => state.project);
+export function CollectDialog({
+    onClose,
+    target = OPEN_BOM
+}: {
+    onClose: () => void;
+    target?: CollectTarget;
+}) {
+    const project = target.useProject();
     const [step, setStep] = useState<Step>({ kind: "checking" });
     const [error, setError] = useState<string | null>(null);
     const [progress, setProgress] = useState<
@@ -241,7 +274,7 @@ export function CollectDialog({ onClose }: { onClose: () => void }) {
     useEffect(
         () =>
             window.api.collect.onEvent(event => {
-                applyEvent(event);
+                applyEvent(target, event);
                 if (event.type === "progress") {
                     setProgress(current => ({
                         ...current,
@@ -254,12 +287,12 @@ export function CollectDialog({ onClose }: { onClose: () => void }) {
                         kind: "done",
                         jobs,
                         values: scope.byValue
-                            ? fillFromValues(jobs, scope.rowIds)
+                            ? fillFromValues(target, jobs, scope.rowIds)
                             : undefined
                     });
                 }
             }),
-        []
+        [target]
     );
 
     const running = step.kind === "running";
@@ -311,9 +344,10 @@ export function CollectDialog({ onClose }: { onClose: () => void }) {
             )}
             {step.kind === "choose" && (
                 <ChooseSuppliers
+                    target={target}
                     readiness={step.readiness}
                     onStart={async (jobs, scope) => {
-                        const { applyCollected } = useDocument.getState();
+                        const { applyCollected } = target.get();
                         const startedAt = new Date().toISOString();
                         // A run that is still "running" after a crash can be continued.
                         applyCollected(collected => ({
@@ -349,6 +383,7 @@ export function CollectDialog({ onClose }: { onClose: () => void }) {
                 step.jobs.map(job => (
                     <JobStatus
                         key={job.supplier}
+                        target={target}
                         job={job}
                         progress={progress[job.supplier]}
                         run={project.collected.runs[job.supplier]}
@@ -421,16 +456,21 @@ function UnlockForm({ onUnlocked }: { onUnlocked: () => void }) {
 }
 
 function ChooseSuppliers({
+    target,
     readiness,
     onStart
 }: {
+    target: CollectTarget;
     readiness: Readiness;
     onStart: (jobs: CollectJob[], scope: CollectScope) => Promise<void>;
 }) {
-    const project = useDocument(state => state.project);
+    const project = target.useProject();
+    // A read-only BOM, such as a list's Combined, can't take part numbers
+    // found by Value.
+    const [readOnly] = useState(() => target.get().readOnly);
     const suppliers = project.suppliers;
     const byValueId = useId();
-    const [byValue, setByValue] = useState(loadByValue);
+    const [byValue, setByValue] = useState(() => !readOnly && loadByValue());
     // The rows selected in the table, if any (#17).
     const [selection] = useState(() => {
         const ids = new Set(useUi.getState().selectedRowIds);
@@ -515,7 +555,7 @@ function ChooseSuppliers({
                     ))}
                 </div>
             )}
-            <div className="collect-by-value">
+            <div className="collect-by-value" hidden={readOnly}>
                 <label className="checkbox">
                     <input
                         type="checkbox"
@@ -713,19 +753,21 @@ function SupplierChoice({
 }
 
 function JobStatus({
+    target,
     job,
     progress,
     run,
     finished,
     values
 }: {
+    target: CollectTarget;
     job: CollectJob;
     progress: Progress | undefined;
     run: CollectionRun | undefined;
     finished: boolean;
     values: ValueMatches | undefined;
 }) {
-    const project = useDocument(state => state.project);
+    const project = target.useProject();
     const name = SUPPLIERS[job.supplier].name;
     const done = progress?.done ?? 0;
     const total = progress?.total ?? job.partNumbers.length;

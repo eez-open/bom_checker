@@ -2,6 +2,7 @@
 // columns and rows, built from the same calculations as the table. Main
 // turns the sheets into an .xlsx, .ods or .csv file.
 
+import { relativeToFile } from "./paths";
 import { z } from "zod";
 import { formatDateTime, lastCollectedAt } from "./collection";
 import { availabilityText, statusText } from "./line-text";
@@ -443,6 +444,9 @@ export function buildBomSheet(
 
 export interface InfoOptions {
     documentName: string;
+    /** The BOM's file, for the source's path relative to it (#34); null
+     *  if it wasn't saved yet. */
+    documentPath: string | null;
     exportedAt: string;
     presetName: string | null;
     selection: ExportSelection;
@@ -456,8 +460,14 @@ export function buildInfoSheet(
     bom: ExportSheet,
     options: InfoOptions
 ): ExportSheet {
-    const { documentName, exportedAt, presetName, selection, preference } =
-        options;
+    const {
+        documentName,
+        documentPath,
+        exportedAt,
+        presetName,
+        selection,
+        preference
+    } = options;
     const sum = (header: string): number => {
         const index = bom.rows[0]!.indexOf(header);
         return index < 0
@@ -475,7 +485,12 @@ export function buildInfoSheet(
         ["EEZ BOM checker export"],
         [],
         ["BOM", documentName],
-        ["Source", project.source.path ?? "Created in EEZ BOM checker"]
+        [
+            "Source",
+            project.source.path
+                ? relativeToFile(documentPath, project.source.path)
+                : "Created in EEZ BOM checker"
+        ]
     ];
     if (project.source.variant) {
         rows.push(["KiCad variant", project.source.variant]);

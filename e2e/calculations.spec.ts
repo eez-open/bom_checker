@@ -1,8 +1,11 @@
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { startFakeSuppliers } from "./fake-suppliers";
 import {
     answerOpenDialog,
+    answerSaveDialog,
     cell,
     clickMenuItem,
     closeApp,
@@ -246,11 +249,45 @@ test("calculates order quantities, prices and the best supplier", async () => {
         await expect(
             chart.getByRole("img", { name: /most expensive rows/ })
         ).toBeVisible();
+        // A colour per rank.
+        const fills = await Promise.all(
+            (await chart.locator("path.cost-slice").all()).map(path =>
+                path.getAttribute("fill")
+            )
+        );
+        expect(new Set(fills).size).toBe(4);
+
+        // Copied, or saved as PNG.
+        await chart.getByRole("button", { name: "Copy picture" }).click();
+        await expect(chart.getByRole("status")).toHaveText(
+            "The chart was copied."
+        );
+        expect(
+            await app.evaluate(({ clipboard }) => clipboard.has("image/png"))
+        ).toBe(true);
+        const picture = join(
+            await mkdtemp(join(tmpdir(), "eez-chart-")),
+            "chart.png"
+        );
+        await answerSaveDialog(app, picture);
+        await chart.getByRole("button", { name: "Save as PNG…" }).click();
+        await expect(chart.getByRole("status")).toHaveText(
+            "Saved as chart.png."
+        );
+        // The PNG signature.
+        expect([...(await readFile(picture)).subarray(0, 4)]).toEqual([
+            0x89, 0x50, 0x4e, 0x47
+        ]);
         await chart.getByRole("button", { name: "Close" }).click();
+
+        // Also from the menu and the Best price header.
         await clickMenuItem(app, "cost-chart");
         await expect(chart).toBeVisible();
         await page.keyboard.press("Escape");
         await expect(chart).toHaveCount(0);
+        await page.getByRole("button", { name: "Top 10" }).click();
+        await expect(chart).toBeVisible();
+        await page.keyboard.press("Escape");
     } finally {
         await closeApp(app);
         await fake.close();

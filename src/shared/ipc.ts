@@ -34,6 +34,10 @@ export const COLUMN_GROUPS: readonly ColumnGroup[] = [...SUPPLIER_IDS, "best"];
 export interface MenuState {
     /** False on the start page. */
     documentOpen: boolean;
+    /** A BOM list is open (#35). */
+    listOpen: boolean;
+    /** False for a view that can't be edited, e.g. a list's Combined. */
+    editable: boolean;
     /** The open BOM was imported from a KiCad project. */
     fromKicad: boolean;
     /** Column groups the table has now. */
@@ -44,10 +48,14 @@ export interface MenuState {
 /** Commands sent from the application menu (and the close prompt). */
 export type MenuCommand =
     | "new"
+    | "new-list"
     | "open"
     | "close"
     | "save"
     | "save-as"
+    | "save-all"
+    | "add-boms"
+    | "unify"
     | "import-csv"
     | "import-kicad"
     | "export"
@@ -85,9 +93,25 @@ export interface RecentDocument {
     kind: DocumentKind;
 }
 
-/** A file opened by path: a BOM, or a file to import. */
+/** A BOM of an opened list (#35); `project` is null when the file can't be
+ *  read, and `error` says why. */
+export interface OpenedListBom {
+    path: string;
+    project: Project | null;
+    error?: string;
+}
+
+export interface OpenedList {
+    filePath: string;
+    boms: OpenedListBom[];
+    /** The BOM with the parts used before; null if the list has none. */
+    history: OpenedListBom | null;
+}
+
+/** A file opened by path: a BOM or a list, or a file to import. */
 export type OpenedDocument =
     | { kind: "project"; opened: OpenedProject }
+    | { kind: "list"; list: OpenedList }
     | { kind: "csv"; file: OpenedFile }
     | { kind: "kicad"; project: KicadProjectData };
 
@@ -98,6 +122,9 @@ export interface SaveOptions {
     saveAs: boolean;
     /** File name offered in the Save dialog when there's no `filePath`. */
     suggestedName?: string;
+    /** Add the file to the recent documents (default); a list's BOMs
+     *  aren't. */
+    recent?: boolean;
 }
 
 export interface KicadVariantData {
@@ -250,6 +277,8 @@ export interface Api {
         /** Opens a supplier web page in the default browser. */
         openExternal(url: string): Promise<void>;
         copyText(text: string): Promise<void>;
+        /** Puts a PNG image on the clipboard. */
+        copyImage(png: Uint8Array): Promise<void>;
         /** The path of a file dropped on the window; "" if it has none. */
         pathForFile(file: File): string;
     };
@@ -317,18 +346,50 @@ export interface Api {
         ): Promise<ConnectionTest>;
     };
     project: {
-        /** Null when cancelled, or when the file can't be opened (main
-         *  has already shown the error). */
-        open(): Promise<OpenedProject | null>;
+        /** Opens a BOM or a BOM list. Null when cancelled, or when the
+         *  file can't be opened (main has already shown the error). */
+        open(): Promise<Extract<
+            OpenedDocument,
+            { kind: "project" | "list" }
+        > | null>;
         /** Returns the saved file's path; null when cancelled or failed. */
         save(project: Project, options: SaveOptions): Promise<string | null>;
     };
     csv: {
         open(): Promise<OpenedFile | null>;
     };
+    /** BOM lists (#35). */
+    list: {
+        /** Asks where to save a new list, and creates it with an empty
+         *  history BOM next to it (or the one already there). */
+        create(): Promise<OpenedList | null>;
+        /** Writes the list file. Every path must be a BOM main has read. */
+        save(
+            filePath: string,
+            boms: string[],
+            history: string | null
+        ): Promise<void>;
+        /** Lets the user pick BOMs to add; the ones that could be read. */
+        addBoms(): Promise<OpenedProject[]>;
+        /** Lets the user pick another history BOM. */
+        chooseHistory(): Promise<OpenedProject | null>;
+        /** Copies the BOMs' files to a backup folder next to the list,
+         *  then saves them; returns the backup folder. */
+        saveBoms(
+            listPath: string,
+            boms: { filePath: string; project: Project }[]
+        ): Promise<string>;
+        showBackup(backupFolder: string): void;
+    };
     export: {
         /** Asks where to save and writes the file; the path, or null. */
         save(request: ExportRequest): Promise<string | null>;
+        /** Asks where to save a PNG image and writes it; the path, or
+         *  null. */
+        saveImage(
+            png: Uint8Array,
+            suggestedName: string
+        ): Promise<string | null>;
         showInFolder(path: string): void;
     };
     kicad: {
@@ -369,6 +430,7 @@ export const IpcChannel = {
     AppGetInfo: "app:get-info",
     AppOpenExternal: "app:open-external",
     AppCopyText: "app:copy-text",
+    AppCopyImage: "app:copy-image",
     SettingsGet: "settings:get",
     SettingsSaveGeneral: "settings:save-general",
     SettingsSaveSupplier: "settings:save-supplier",
@@ -390,12 +452,19 @@ export const IpcChannel = {
     ProjectOpen: "project:open",
     ProjectSave: "project:save",
     CsvOpen: "csv:open",
+    ListCreate: "list:create",
+    ListSave: "list:save",
+    ListAddBoms: "list:add-boms",
+    ListChooseHistory: "list:choose-history",
+    ListSaveBoms: "list:save-boms",
+    ListShowBackup: "list:show-backup",
     KicadOpen: "kicad:open",
     KicadPlanUpdate: "kicad:plan-update",
     KicadApplyUpdate: "kicad:apply-update",
     KicadRestoreBackup: "kicad:restore-backup",
     KicadShowBackup: "kicad:show-backup",
     ExportSave: "export:save",
+    ExportSaveImage: "export:save-image",
     ExportShowInFolder: "export:show-in-folder",
     DialogAskSaveChanges: "dialog:ask-save-changes",
     DialogConfirm: "dialog:confirm",
