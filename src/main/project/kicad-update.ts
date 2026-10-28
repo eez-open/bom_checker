@@ -1,5 +1,13 @@
 import { copyFile, mkdir, readFile } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, relative } from "node:path";
+import {
+    basename,
+    dirname,
+    isAbsolute,
+    join,
+    relative,
+    resolve,
+    sep
+} from "node:path";
 import { shell, type BrowserWindow } from "electron";
 import { z } from "zod";
 import type {
@@ -65,6 +73,10 @@ export async function planKicadProjectUpdate(
     return plan;
 }
 
+function toPortable(path: string): string {
+    return path.split(sep).join("/");
+}
+
 /** Copies the project file and all its schematics; returns the folder. */
 async function backUp(design: KicadDesign): Promise<string> {
     const projectFolder = dirname(design.path);
@@ -78,13 +90,14 @@ async function backUp(design: KicadDesign): Promise<string> {
                 : inside;
         await mkdir(dirname(join(folder, copy)), { recursive: true });
         await copyFile(original, join(folder, copy));
-        files.push({ original, copy });
+        // Relative to the backup folder, so it holds no absolute paths (#34).
+        files.push({ original: toPortable(relative(folder, original)), copy });
     }
     await writeFileAtomic(
         join(folder, MANIFEST),
         JSON.stringify(
             {
-                project: design.path,
+                project: toPortable(relative(folder, design.path)),
                 createdAt: new Date().toISOString(),
                 files
             },
@@ -160,7 +173,11 @@ export async function restoreKicadBackup(
         return false;
     }
     for (const { original, copy } of manifest.files) {
-        await writeFileAtomic(original, await readFile(join(folder, copy)));
+        // Backups from before 0.8.0 have absolute paths.
+        await writeFileAtomic(
+            resolve(folder, original),
+            await readFile(join(folder, copy))
+        );
     }
     log.info("Restored KiCad project from", folder);
     return true;

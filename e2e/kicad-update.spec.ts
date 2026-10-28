@@ -83,8 +83,13 @@ test("writes changed part numbers back into the KiCad project", async () => {
         const [backup] = await readdir(backups);
         const manifest = JSON.parse(
             await readFile(join(backups, backup!, "backup.json"), "utf8")
-        ) as { files: { copy: string }[] };
+        ) as { project: string; files: { original: string; copy: string }[] };
         expect(manifest.files).toHaveLength(before.size + 1);
+        // No absolute paths (#34).
+        expect(manifest.project).toMatch(/^\.\.\/\.\.\/[^/]+\.kicad_pro$/);
+        for (const { original } of manifest.files) {
+            expect(original).toMatch(/^\.\.\/\.\.\//);
+        }
         for (const [name, text] of before) {
             expect(await readFile(join(backups, backup!, name), "utf8")).toBe(
                 text

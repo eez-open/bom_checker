@@ -276,11 +276,18 @@ describe("export", () => {
     });
 
     it("describes the export on an Info sheet", () => {
-        const project = sampleProject();
+        const project = {
+            ...sampleProject(),
+            source: {
+                kind: "kicad" as const,
+                path: "C:\\Work\\Board\\kicad\\Board.kicad_pro"
+            }
+        };
         const selection = preset(project, "All data");
         const bom = buildBomSheet(project, PREFERENCE, selection);
         const info = buildInfoSheet(project, bom, {
             documentName: "Board",
+            documentPath: "C:\\Work\\Board\\Board.eezbom",
             exportedAt: AT,
             presetName: "All data",
             selection,
@@ -293,6 +300,8 @@ describe("export", () => {
         );
         expect(entries).toMatchObject({
             BOM: "Board",
+            // Relative to the BOM: no absolute paths in exports (#34).
+            Source: "kicad/Board.kicad_pro",
             Filter: "All data",
             "Exported rows": 3,
             Exported: formatDateTime(AT),

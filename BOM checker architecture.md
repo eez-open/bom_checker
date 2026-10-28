@@ -141,10 +141,12 @@ src/
 
 The project file is a versioned JSON document. 1,000 rows with three suppliers' results come to well under a few MB, and the file can be committed to git next to the KiCad project.
 
+No file the app writes holds absolute paths (#34). `source.path` is stored relative to the `.eezbom`'s folder with `/` separators, and made absolute when read (`main/project/source-paths.ts`), so the app works with absolute paths. Older files with absolute paths open as before and are saved with relative ones; a source on another Windows drive stays absolute, as there's no relative path. Exports show the source relative to the BOM (`shared/paths.ts`), and backup manifests list files relative to the backup folder.
+
 ```ts
 interface Project {
   schemaVersion: 5;                     // 2 added `collected`, 3 `buildQuantity`, 4 `source.kicadValues`, 5 decimal `qty` and `manualSuppliers`
-  source: { kind: 'manual' | 'csv' | 'kicad'; path?: string; variant?: string; importedAt?: string };
+  source: { kind: 'manual' | 'csv' | 'kicad'; path?: string; variant?: string; importedAt?: string };  // path: relative to the file (#34)
   suppliers: SupplierId[];              // suppliers that have a part-number column in this BOM
   customColumns: ColumnDef[];           // user-defined columns, plus unmapped imported ones
   manualSuppliers: { id: string; name: string }[];  // suppliers without an API (#20); rows' `manual[id]` holds what's typed
@@ -556,7 +558,7 @@ The `kicad-cli sch export bom --variant` alternative was rejected. It requires K
   "Mouser" in these presets can be any supplier.
 
 - **Typed cells:** numbers and prices are written as numeric cells, not text.
-- **Info sheet** (xlsx/ods only): BOM, source file, KiCad variant, export filter, how prices and the best price were chosen, the preferred supplier order, collection dates per supplier, and total prices.
+- **Info sheet** (xlsx/ods only): BOM, source file (relative to the BOM), KiCad variant, export filter, how prices and the best price were chosen, the preferred supplier order, collection dates per supplier, and total prices.
 - **No colours:** SheetJS Community Edition can't write cell styles, so status colours don't appear in exported files. If coloured `.xlsx` output is wanted, ExcelJS could be added for xlsx only.
 
 ---

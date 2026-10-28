@@ -95,6 +95,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
             sheets.push(
                 buildInfoSheet(project, bom, {
                     documentName: name,
+                    documentPath: useDocument.getState().filePath,
                     exportedAt: new Date().toISOString(),
                     presetName: current?.preset.name ?? null,
                     selection,

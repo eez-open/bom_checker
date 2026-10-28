@@ -1,8 +1,10 @@
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { readFile } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
 import { expect, test } from "@playwright/test";
+import { parseProjectFile } from "../src/shared/project-file";
 import {
     answerOpenDialog,
+    clickMenuItem,
     closeApp,
     launchApp,
     unpackExample
@@ -44,7 +46,10 @@ test("imports a design variant of a KiCad 10 project", async () => {
         await expect(page).toHaveTitle("*Untitled - EEZ BOM checker");
 
         // Saving suggests the project and variant name.
-        const savePath = join(tmpdir(), `eez-kicad-${Date.now()}.eezbom`);
+        const savePath = join(
+            dirname(projectPath),
+            `eez-kicad-${Date.now()}.eezbom`
+        );
         await app.evaluate(({ dialog: electronDialog }, filePath) => {
             electronDialog.showSaveDialog = ((
                 _window: unknown,
@@ -61,6 +66,17 @@ test("imports a design variant of a KiCad 10 project", async () => {
             () => (globalThis as Record<string, unknown>).suggestedSavePath
         );
         expect(suggested).toBe("EEZ DIB DCP405plus (Basic).eezbom");
+
+        // The file has the project's path relative to it (#34)…
+        const saved = parseProjectFile(await readFile(savePath, "utf8"));
+        expect(saved.source.path).toBe(basename(projectPath));
+        // …and opened again, Sync KiCad… finds the project.
+        await answerOpenDialog(app, savePath);
+        await clickMenuItem(app, "close");
+        await page.getByRole("button", { name: "Open BOM…" }).click();
+        await page.getByRole("button", { name: "Sync KiCad…" }).click();
+        const sync = page.getByRole("dialog", { name: /Sync/ });
+        await expect(sync).toContainText(projectPath);
     } finally {
         await closeApp(app);
     }

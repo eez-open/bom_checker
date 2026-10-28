@@ -12,6 +12,7 @@ import { showError } from "../dialogs";
 import { writeFileAtomic } from "../files";
 import { log } from "../logging";
 import { addRecent } from "../recent";
+import { withAbsoluteSource, withRelativeSource } from "./source-paths";
 
 const FILTERS = [
     { name: "EEZ BOM checker project", extensions: [PROJECT_FILE_EXTENSION] },
@@ -52,7 +53,10 @@ export async function readProject(
     filePath: string
 ): Promise<OpenedProject | null> {
     try {
-        const project = parseProjectFile(await readFile(filePath, "utf8"));
+        const project = withAbsoluteSource(
+            parseProjectFile(await readFile(filePath, "utf8")),
+            filePath
+        );
         knownPaths.add(filePath);
         addRecent(filePath);
         log.info("Opened", filePath);
@@ -90,7 +94,10 @@ export async function saveProject(
                 : result.filePath;
     }
     try {
-        await writeFileAtomic(target, serializeProject(project));
+        await writeFileAtomic(
+            target,
+            serializeProject(withRelativeSource(project, target))
+        );
         knownPaths.add(target);
         if (recent) {
             addRecent(target);

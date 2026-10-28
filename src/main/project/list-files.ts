@@ -32,6 +32,7 @@ import { showError } from "../dialogs";
 import { isFileNotFound, writeFileAtomic } from "../files";
 import { log } from "../logging";
 import { addRecent } from "../recent";
+import { withAbsoluteSource, withRelativeSource } from "./source-paths";
 import {
     isKnownProjectPath,
     pickProjectFiles,
@@ -67,7 +68,10 @@ function errorText(error: unknown): string {
 async function readMember(path: string): Promise<OpenedListBom> {
     listEntries.add(path);
     try {
-        const project = parseProjectFile(await readFile(path, "utf8"));
+        const project = withAbsoluteSource(
+            parseProjectFile(await readFile(path, "utf8")),
+            path
+        );
         rememberProjectPath(path);
         return { path, project };
     } catch (error) {
@@ -257,10 +261,20 @@ export async function saveBomsWithBackup(
         await copyFile(filePath, join(folder, copy));
         files.push({ original: filePath, copy });
     }
+    // Paths relative to the backup folder (#34).
+    const inBackup = (path: string) =>
+        relative(folder, path).split(sep).join("/");
     await writeFileAtomic(
         join(folder, MANIFEST),
         JSON.stringify(
-            { list: listPath, createdAt: new Date().toISOString(), files },
+            {
+                list: inBackup(listPath),
+                createdAt: new Date().toISOString(),
+                files: files.map(({ original, copy }) => ({
+                    original: inBackup(original),
+                    copy
+                }))
+            },
             null,
             2
         )
@@ -269,7 +283,10 @@ export async function saveBomsWithBackup(
     const written: typeof files = [];
     try {
         for (const [index, { filePath, project }] of boms.entries()) {
-            await writeFileAtomic(filePath, serializeProject(project));
+            await writeFileAtomic(
+                filePath,
+                serializeProject(withRelativeSource(project, filePath))
+            );
             written.push(files[index]!);
         }
     } catch (error) {

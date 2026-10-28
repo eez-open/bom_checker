@@ -240,6 +240,7 @@ The history BOM isn't changed by Unify, but gets the new part numbers. BOMs impo
 
 - **Save** (Ctrl+S) stores the BOM with all collected data in an `.eezbom` file. The app asks before closing, or before opening another BOM, if there are unsaved changes. Dropping a file on the window opens it too.
 - **BOM lists** (`.eezbom-list`) only name their BOMs and history BOM; the data is in those `.eezbom` files.
+- **No absolute paths:** a BOM keeps the path of the CSV file or KiCad project it came from relative to its own folder, and lists keep their BOMs' paths relative to theirs, so a folder can be moved or shared, e.g. in git, as long as the files keep their places in it. Exports show the source relative to the BOM, or only its name when the BOM wasn't saved yet. BOMs saved by older versions open as before and get relative paths when saved again. Only a source on another drive than the BOM (Windows) keeps its full path.
 - **Settings and credentials** are kept in the app's data folder: `%APPDATA%\EEZ BOM checker` on Windows, `~/.config/EEZ BOM checker` on Linux. Credentials are encrypted with your password (scrypt and AES-256-GCM); the password itself isn't stored.
 - **Supplier settings** always ask for the password, even while the credentials are unlocked for collecting. **Tools → Lock Credentials** locks them until you enter the password again.
 - **Change the password** in **Settings → General**, with the current one.
