@@ -12,7 +12,8 @@ import {
     fillEditor,
     launchApp,
     menuItemChecked,
-    setUpCredentials
+    setUpCredentials,
+    tooltipOf
 } from "./helpers";
 
 const BOM = join(__dirname, "fixtures/calc-bom.csv");
@@ -142,8 +143,11 @@ test("calculates order quantities, prices and the best supplier", async () => {
         );
         await expect(cell(page, R1, "best:totalPrice")).toHaveText("0.80");
         // Stock of the product's other packaging, in the tooltip.
-        await cell(page, R1, "data:digikey:availability").hover();
-        await expect(page.locator(".ag-tooltip")).toHaveText(
+        const tooltip = await tooltipOf(
+            page,
+            cell(page, R1, "data:digikey:availability")
+        );
+        await expect(tooltip).toHaveText(
             "Other packaging: RMCF0805FT100KTR-ND (Tape & Reel (TR)): 500000 in stock, MOQ 5000."
         );
         await expect(page.getByTestId("bom-total")).toHaveText(

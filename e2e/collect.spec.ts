@@ -6,7 +6,8 @@ import {
     answerOpenDialog,
     cell,
     closeApp,
-    launchApp
+    launchApp,
+    tooltipOf
 } from "./helpers";
 
 const PASSWORD = "correct horse";
@@ -180,9 +181,9 @@ test("collects supplier data and continues after a daily limit", async () => {
             "aria-label",
             "Not found"
         );
-        await cell(page, 0, "pn:mouser").hover();
-        await expect(page.locator(".ag-tooltip")).toContainText("Stock: 1,027");
-        await expect(page.locator(".ag-tooltip")).toContainText("2.1 EUR");
+        const tooltip = await tooltipOf(page, cell(page, 0, "pn:mouser"));
+        await expect(tooltip).toContainText("Stock: 1,027");
+        await expect(tooltip).toContainText("2.1 EUR");
         await expect(page).toHaveTitle("*Untitled - EEZ BOM checker");
         expect(userData).toBeTruthy();
 
