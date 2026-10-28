@@ -20,7 +20,7 @@ npm run dev     # start the app with hot reload
 | `npm run dev`          | Start the app in development mode with hot reload           |
 | `npm run build`        | Build into `out/`                                           |
 | `npm run preview`      | Start the built app                                         |
-| `npm run check`        | Type check, lint, format check and unit tests (CI runs this) |
+| `npm run check`        | Type check, lint, format check and unit tests              |
 | `npm test`             | Unit tests (Vitest)                                         |
 | `npm run test:e2e`     | Start the built app and run the smoke test (Playwright)     |
 | `npm run format`       | Format all files with Prettier                              |
@@ -64,11 +64,16 @@ The credential vault design is described in [BOM checker architecture.md](BOM%20
 
 If Electron prints `bad option: --remote-debugging-port` or starts as plain Node.js, the environment variable `ELECTRON_RUN_AS_NODE` is set. Processes started by VS Code extensions inherit it. Unset it, or run the command from a normal terminal.
 
-## Releases
+## Testing and releases
 
-1. Update the version in `package.json` and the `CHANGELOG.md`.
-2. Tag the commit (`git tag v0.2.0`) and push the tag.
-3. CI builds both platforms, smoke-tests the packaged apps and creates a draft GitHub release with the installers attached. Review it and publish it. Builds of branches and pull requests are smoke-tested too, but their installers aren't kept.
+GitHub Actions is disabled for this repository (since 0.10.0, to stay within the account's Actions storage), so tests and builds run locally. `.github/workflows/ci.yml` is kept for when it's enabled again.
+
+Before merging a branch: `npm run check`, then `npm run build` and `npm run test:e2e`.
+
+1. Update the version in `package.json` (and `package-lock.json`) and the `CHANGELOG.md`; merge.
+2. Windows: `npm run dist:win`, then smoke-test the installer's app with `E2E_APP_PATH=release/win-unpacked/eez-bom-checker.exe npx playwright test`.
+3. Linux, on a Linux machine: `npm ci`, `npm run dist:linux`, then `xvfb-run --auto-servernum npx playwright test` with `E2E_APP_PATH=release/linux-unpacked/eez-bom-checker`.
+4. Tag the merge commit (`git tag v0.2.0`), push the tag, and create the release with the installers: `gh release create v0.2.0 --draft --title "EEZ BOM checker 0.2.0"`, then `gh release upload v0.2.0` with the files from `release/` on each machine (`*.exe`; `*.AppImage` and `*.deb`). Review the draft and publish it.
 
 Upgrading Electron and other major dependencies: [docs/upgrade-checklist.md](docs/upgrade-checklist.md).
 
