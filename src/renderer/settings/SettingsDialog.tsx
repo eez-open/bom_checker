@@ -162,7 +162,11 @@ function GeneralPanel({
                 ))}
             </ol>
             <h3 className="section-gap">Numbers</h3>
-            <div role="radiogroup" aria-label="Decimal separator">
+            <div
+                role="radiogroup"
+                aria-label="Decimal separator"
+                className="checkbox-list"
+            >
                 {DECIMAL_SEPARATORS.map(separator => (
                     <label key={separator} className="checkbox">
                         <input
