@@ -70,7 +70,9 @@ const api: Api = {
             ),
         reset: () => invoke(IpcChannel.VaultReset),
         lock: () => invoke(IpcChannel.VaultLock),
-        unlock: password => invoke(IpcChannel.VaultUnlock, password)
+        unlock: password => invoke(IpcChannel.VaultUnlock, password),
+        checkPassword: password =>
+            invoke(IpcChannel.VaultCheckPassword, password)
     },
     collect: {
         prepare: () => invoke(IpcChannel.CollectPrepare),
@@ -90,8 +92,7 @@ const api: Api = {
     },
     list: {
         create: () => invoke(IpcChannel.ListCreate),
-        save: (filePath, boms, history) =>
-            invoke(IpcChannel.ListSave, filePath, boms, history),
+        save: list => invoke(IpcChannel.ListSave, list),
         addBoms: () => invoke(IpcChannel.ListAddBoms),
         chooseHistory: () => invoke(IpcChannel.ListChooseHistory),
         saveBoms: (listPath, boms) =>

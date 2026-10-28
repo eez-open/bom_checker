@@ -120,6 +120,8 @@ To update only some parts, select their rows in the table first (the checkboxes 
 
 The summary shows how long it took, how many part numbers were found, not found or matched several items, and how many have enough stock for the order quantity.
 
+To remove what was collected for some rows, e.g. to start over with them, select the rows and click **Forget data…** on the toolbar (or **Tools → Forget Supplier Data of Selected Rows…**). The data of every supplier is removed for their part numbers, and for their Values if those were looked up. Data is kept per part number, so other rows with the same part numbers lose it too. This can't be undone; collect again to get the data back. In a BOM list's *Combined* BOM, the data is removed from the list's BOMs.
+
 ### Finding part numbers from the Value
 
 Tick **Look up the Value where a part number is missing** to search for rows whose part-number cell is empty. The Value is searched as a manufacturer part number at each selected supplier (e.g. *TPS54331DDA* or *1N4007*), so the supplier needs a part-number column (add one with **Columns…**).
@@ -128,11 +130,11 @@ Tick **Look up the Value where a part number is missing** to search for rows who
 - When several items match, typically different packagings, the cell gets the Value, and the supplier's *Availability* column shows a list to choose the item from.
 - When nothing matches, the cell stays empty.
 
-Generic values such as *100n*, *4u7* or *10k*, names like *LED* or *Conn_01x04*, and cells with "-" are skipped: a value alone can't pick one capacitor out of thousands. The summary says how many part numbers were filled in, are left to choose, or weren't found. A Value looked up in an earlier run fills in an empty cell too. Filling in is one step that **Ctrl+Z** undoes. The option is remembered for next time. While it's off, each supplier says how many rows it could look up by their Value.
+Generic values such as *100n*, *4u7* or *10k*, names like *LED* or *Conn_01x04*, and cells with "-" are skipped: a value alone can't pick one capacitor out of thousands. Part numbers of digits only, as many connectors have (Molex *22-01-3037*, Würth *61300311121*), are looked up when they have at least 7 digits. The summary says how many part numbers were filled in, are left to choose, or weren't found. A Value looked up in an earlier run fills in an empty cell too. Filling in is one step that **Ctrl+Z** undoes. The option is remembered for next time. While it's off, each supplier says how many rows it could look up by their Value.
 
 ## Building several units
 
-To check prices and stock for a production batch, enter the number of units in **Build qty** on the toolbar and press Enter. Every row's Qty is multiplied by it: a part used 10 times per board needs 250 for 25 boards. Order quantities, price breaks, availability and the best price follow at once, without collecting again, since the collected data has every price break. A *Total Qty* column shows the multiplied quantity, and the status bar shows the parts per unit and in total. Total prices show the price per unit in parentheses, e.g. *62.50 (2.50)* for 25 units, in the table, the Total row and the status bar's best-price total. The build quantity is saved with the BOM, Ctrl+Z undoes a change, and exports include it.
+To check prices and stock for a production batch, enter the number of units in **Build qty** on the toolbar and press Enter. Every row's Qty is multiplied by it: a part used 10 times per board needs 250 for 25 boards. Order quantities, price breaks, availability and the best price follow at once, without collecting again, since the collected data has every price break. A *Total Qty* column shows the multiplied quantity. Total prices show the price per unit in parentheses, e.g. *62.50 (2.50)* for 25 units, in the table, the Total row and the status bar's best-price total. The build quantity is saved with the BOM, Ctrl+Z undoes a change, and exports include it.
 
 **Qty can be a decimal** for parts used in fractions of their unit, e.g. 0.004 (m) of adhesive tape sold in 5 m rolls (type 0.004 or 0,004). The order quantity is still rounded up to whole packages: one 5 m roll covers up to 1,250 devices, and the 1,251st needs a second one.
 
@@ -143,6 +145,8 @@ Each supplier has a group of columns. Click the arrow in the group header to sho
 **Searching and filtering:** above the table, **Search** (Ctrl+F, or Edit → Find…) shows only the rows that contain the text in any column, e.g. a reference, a value or a part number; Escape clears it. Once supplier data has been collected, **Rows** shows only the rows where one supplier has the best price, or *Best price: None in stock* for the parts no supplier can deliver. While a filter is on, the Total row adds up the shown rows, and **Show all** turns the filters off. The Row column keeps each row's number in the BOM.
 
 To hide all columns of a supplier, or the Best price columns, uncheck them under **Columns** at the right of the bar above the table. Suppliers with an API and Best price are also in the **View** menu (Ctrl+1 to Ctrl+5). Hiding only changes the view: the data stays, still counts for the best price, and can still be exported. The status bar lists hidden groups, with **Show all** to bring them back. The app remembers hidden groups for next time.
+
+**Tabs:** to see one supplier at a time, tick **Tabs** at the right of the bar (or **View → Suppliers as Tabs**). Each supplier, and Best price, then has a tab above the table; the tab shows its columns with the BOM's own columns, and your own columns stay at the right. Ctrl+1 to Ctrl+5 choose the tab. The app remembers the layout and the tab.
 
 | Column | Meaning |
 |---|---|
@@ -157,13 +161,15 @@ To hide all columns of a supplier, or the Best price columns, uncheck them under
 
 **Best price** (shown when two or more suppliers have data): the supplier with the lowest total price that has the whole order quantity in stock. Equal totals go to your preferred supplier (*Settings → General*). *None in stock* means no supplier can deliver the full quantity. The status bar shows the best-price total of the BOM.
 
-The **Total** row at the top adds up the Qty column and each *Total price* column, for every supplier and for Best price. Its tooltip says how many rows have a price.
+The **Total** row at the top adds up each *Total price* column, for every supplier and for Best price. Its tooltip says how many rows have a price. Quantities aren't added up: they're of different parts.
 
 **Most expensive parts** (**Top 10** in the Best price header, *Most expensive parts* in the status bar, or **View → Most Expensive Parts…**) shows where the money goes: a ring chart of the 10 rows with the highest best-price totals, each in its own colour and numbered by rank, the rest of the BOM as one gray *Other* slice, and a table with each row's supplier, total and share of the best-price total. Point at a slice or a table row to find its match. Totals are for the build quantity; rows without a supplier that has enough stock aren't included. **Copy picture** puts the chart with its legend on the clipboard, e.g. for a document or an email; **Save as PNG…** saves it as an image.
 
 **Several items match:** for example, a DigiKey part comes as cut tape and as a reel. Pick one in the list that the supplier's *Availability* column shows instead of a status; each entry has the item's part number, packaging, stock, MOQ and first price. For a side-by-side comparison, choose *Compare the items…* or click the **?** badge. The chosen item's part number replaces the old one in every row that used it, its data is shown at once, and Ctrl+Z undoes the choice.
 
 Prices are compared in EUR. If a supplier returns another currency, a yellow bar says so; those prices aren't included in totals and the best price.
+
+**Numbers** look as in the system's regional settings, e.g. *1.234,56* where decimals follow a comma. **Settings → General → Numbers** can choose a decimal point (*1,234.56*) or a decimal comma (*1.234,56*) instead. When typing a number in a cell, either "." or "," works before the decimals.
 
 Changing Qty updates all calculations at once, without collecting again.
 
@@ -174,9 +180,11 @@ Changing Qty updates all calculations at once, without collecting again.
 - **Preset**: e.g. *All data*, *Basic data only* (Row, Reference, Value, Qty, Footprint and the part numbers), *All Mouser data*, *Best price from Mouser*, *Not available anywhere*.
 - **Columns**: which suppliers' part numbers and data, the Best price columns, and your own columns. Row, Reference, Value, Qty and Footprint are always included. **Part numbers only** leaves out the suppliers' data columns.
 - **Rows**: all rows, rows with a supplier's part number, rows where a supplier has the best price, or rows that no supplier can deliver.
-- **Format**: Excel (.xlsx), LibreOffice (.ods) or CSV. Excel and LibreOffice files also get an *Info* sheet with the source, the filter, when data was collected and the totals.
+- **Format**: Excel (.xlsx), LibreOffice (.ods) or CSV. Excel and LibreOffice files also get an *Info* sheet with the source, the filter, when data was collected and the totals. CSV files write numbers as the app shows them (*Settings → General → Numbers*): with a decimal comma, ";" separates the values, as spreadsheet programs expect in those regions.
 
 To keep a combination, type a name and click **Save as preset**.
+
+**Supplier data in exports:** an export with the suppliers' data columns or the Best price columns contains data collected through their APIs, which their terms don't allow passing on. Before such an export, the app says so and asks for your password (the one for the supplier settings) to confirm. Keep the file to yourself; to share a BOM, export *Basic data only*, which doesn't ask.
 
 Column names follow the pattern `Supplier_Column`, e.g. `Mouser_Stock Qty`, `Mouser_Total price`, `Best_Supplier`.
 
@@ -219,7 +227,9 @@ The modules of one device often have their own BOMs, made at different times, an
 
 **Working with the BOMs:** the list is on the left and the selected BOM on the right, where everything works as with a single BOM: editing, Collect, Export, Update KiCad… and so on. While another BOM is shown, a BOM keeps its unsaved changes (marked with •) and its Ctrl+Z history. **Save** saves the BOM shown; **File → Save All** (Ctrl+Alt+S) saves every BOM of the list. **Remove** takes the selected BOM off the list; its file stays. File → Close closes the list, asking about unsaved BOMs.
 
-**Combined** shows the rows of all BOMs, for ordering them together. Rows with the same supplier part numbers are one row, with the quantities added up (each BOM's build quantity included); rows without part numbers are merged by Value and Footprint. *Reference* lists the references by BOM, and *Source BOM* the BOMs a row comes from. Combined can't be edited, but it can be collected, which also gives the BOMs the new data (they then have unsaved changes), and exported like any BOM.
+**Combined** shows the rows of all BOMs, for ordering them together. Rows with the same supplier part numbers are one row, with the quantities added up; rows without part numbers are merged by Value and Footprint. *Reference* lists the references by BOM, and *Source BOM* the BOMs a row comes from. Combined can't be edited, but it can be collected, which also gives the BOMs the new data (they then have unsaved changes), and exported like any BOM.
+
+**Quantities for a number of devices:** the number next to each BOM in the list (**×**) says how many of it one device has, e.g. 2 for a module that's in the device twice; Combined's Qty is for one device. **Build qty** on the toolbar, while Combined is shown, is the number of devices: for 25 devices with two modules each, set the module's × to 2 and Build qty to 25, and the module's parts are ordered for 50. Order quantities, prices and Unify's quantities follow. The list saves both at once. A BOM's own Build qty counts only when it's shown by itself.
 
 **The history BOM** remembers every component (Value and Footprint) with each combination of supplier part numbers used in the list's BOMs, also ones they no longer use, so they can be offered again. It gets new combinations when a BOM is added, after Unify's Apply, and whenever a BOM of the list is saved; *Used in* names the BOMs. It isn't unified itself. **Choose…** uses another `.eezbom` as the history.
 
@@ -227,7 +237,7 @@ The modules of one device often have their own BOMs, made at different times, an
 
 **Unify part numbers…** (in the list, or **Tools → Unify Part Numbers…**) first saves unsaved BOMs, then lists every component whose rows have different part numbers for a supplier, or different Values. Rows are the same component when Value and Footprint are equal: *10k* and *10K* are the same, but *10m* and *10M* aren't. Rows that already share a part number are too, so *10k* and *10K 1%* with the same DigiKey number are one component. Untick **Same footprint** to match by Value alone. An empty cell counts as different, so Unify can fill it in.
 
-For each component, it shows the rows and BOMs it's used in, and the total quantity. For each supplier, every part number used for it is offered, also those from the history, with availability, stock, order quantity, unit price and total price **for the quantity of all rows**. The cheapest in stock is marked *Best price*.
+For each component, it shows the rows and BOMs it's used in, and the total quantity for the list's number of devices. For each supplier, every part number used for it is offered, also those from the history, with availability, stock, order quantity, unit price and total price **for the quantity of all rows**. The cheapest in stock is marked *Best price*.
 
 - Choose a part number per supplier, type another one under **Other**, or **Keep as is**. For the Value, choose one, type another, or keep the rows' Values.
 - The cheapest in stock is chosen at first. Without data, it's the most used part number, unless the supplier reported it as not found. **Choose suggestions** chooses them again, e.g. after collecting.

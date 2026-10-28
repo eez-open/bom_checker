@@ -9,6 +9,7 @@ import {
     withNewerResults,
     type ListMember
 } from "../shared/bom-list";
+import { withoutResults, type ResultKeys } from "../shared/collection";
 import { combineBoms } from "../shared/combined-bom";
 import type { OpenedList } from "../shared/ipc";
 import type {
@@ -82,7 +83,14 @@ export function listMembers(): ListMember[] {
     return (list?.boms ?? []).flatMap(path => {
         const document = errors[path] ? undefined : documentOf(path);
         return document
-            ? [{ path, name: fileTitle(path), project: document.project }]
+            ? [
+                  {
+                      path,
+                      name: fileTitle(path),
+                      project: document.project,
+                      perDevice: list?.perDevice[path] ?? 1
+                  }
+              ]
             : [];
     });
 }
@@ -110,7 +118,9 @@ export function loadList(opened: OpenedList): void {
         list: {
             filePath: opened.filePath,
             boms: opened.boms.map(bom => bom.path),
-            history: opened.history?.path ?? null
+            perDevice: opened.perDevice,
+            history: opened.history?.path ?? null,
+            buildQuantity: opened.buildQuantity
         },
         documents,
         errors,
@@ -164,11 +174,40 @@ export function selectInList(target: string | null): void {
 
 /** Shows the Combined BOM of the BOMs as they are now. */
 function showCombined(): void {
-    useDocument.getState().load(combineBoms(listMembers()), {
+    const buildQuantity = useWorkspace.getState().list?.buildQuantity ?? 1;
+    useDocument.getState().load(combineBoms(listMembers(), buildQuantity), {
         filePath: null,
         saved: true,
         readOnly: true
     });
+}
+
+/** Changes how many of a BOM one device has, or how many devices the
+ *  Combined BOM is for (#39); the list is saved at once. */
+export async function setListQuantities(change: {
+    perDevice?: [path: string, count: number];
+    buildQuantity?: number;
+}): Promise<void> {
+    const { list, selected } = useWorkspace.getState();
+    if (!list) {
+        return;
+    }
+    const perDevice = { ...list.perDevice };
+    if (change.perDevice) {
+        const [path, count] = change.perDevice;
+        perDevice[path] = count;
+    }
+    useWorkspace.setState({
+        list: {
+            ...list,
+            perDevice,
+            buildQuantity: change.buildQuantity ?? list.buildQuantity
+        }
+    });
+    if (selected === COMBINED) {
+        showCombined();
+    }
+    await saveListFile();
 }
 
 /** Data collected in the Combined BOM goes to the BOMs that use the part
@@ -198,6 +237,30 @@ function shareCollected(collected: CollectedData): void {
     if (changed) {
         useWorkspace.setState({ documents: next });
     }
+}
+
+/** Results forgotten in the Combined BOM (#40) are forgotten in the BOMs
+ *  too, since Combined shows theirs; they then have unsaved changes. */
+export function forgetInList(keys: ResultKeys): void {
+    const { list, documents } = useWorkspace.getState();
+    if (!list) {
+        return;
+    }
+    const next = { ...documents };
+    for (const path of list.boms) {
+        const document = documents[path];
+        if (!document) {
+            continue;
+        }
+        const collected = withoutResults(document.project.collected, keys);
+        if (collected !== document.project.collected) {
+            next[path] = {
+                ...document,
+                project: { ...document.project, collected }
+            };
+        }
+    }
+    useWorkspace.setState({ documents: next });
 }
 
 /** The results of `next` that `before` doesn't have. */
@@ -242,7 +305,7 @@ async function saveListFile(): Promise<void> {
         return;
     }
     try {
-        await window.api.list.save(list.filePath, list.boms, list.history);
+        await window.api.list.save(list);
     } catch (error) {
         showMessage(`The list couldn't be saved: ${errorMessage(error)}`);
     }
@@ -397,11 +460,16 @@ export async function removeFromList(path: string): Promise<void> {
     }
     const index = list.boms.indexOf(path);
     const boms = list.boms.filter(bom => bom !== path);
+    const perDevice = { ...list.perDevice };
+    delete perDevice[path];
     if (useWorkspace.getState().selected === path) {
         selectInList(boms[Math.min(index, boms.length - 1)] ?? null);
     }
     forget(path);
-    useWorkspace.setState({ list: { ...list, boms }, message: null });
+    useWorkspace.setState({
+        list: { ...list, boms, perDevice },
+        message: null
+    });
     await saveListFile();
 }
 

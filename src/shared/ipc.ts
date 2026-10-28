@@ -24,6 +24,8 @@ export interface AppInfo {
     };
     platform: string;
     logFile: string;
+    /** The regional settings' locale, for numbers (#37), e.g. "hr-HR". */
+    systemLocale: string;
 }
 
 /** Table columns that can be hidden together (View menu). */
@@ -38,11 +40,16 @@ export interface MenuState {
     listOpen: boolean;
     /** False for a view that can't be edited, e.g. a list's Combined. */
     editable: boolean;
+    /** The open BOM has rows, to collect and export (#38). */
+    hasRows: boolean;
     /** The open BOM was imported from a KiCad project. */
     fromKicad: boolean;
     /** Column groups the table has now. */
     availableColumns: ColumnGroup[];
     hiddenColumns: ColumnGroup[];
+    /** Column groups are on tabs (#41); then hiddenColumns are the tabs
+     *  that aren't shown. */
+    tabs: boolean;
 }
 
 /** Commands sent from the application menu (and the close prompt). */
@@ -70,9 +77,11 @@ export type MenuCommand =
     | "edit-columns"
     | `toggle-columns:${ColumnGroup}`
     | "show-all-columns"
+    | "toggle-tabs"
     | "settings"
     | "lock"
     | "collect"
+    | "forget-data"
     | "save-and-close";
 
 export interface OpenedProject {
@@ -111,6 +120,22 @@ export interface OpenedList {
     boms: OpenedListBom[];
     /** The BOM with the parts used before; null if the list has none. */
     history: OpenedListBom | null;
+    /** As in `ListState`. */
+    perDevice: Record<string, number>;
+    buildQuantity: number;
+}
+
+/** A BOM list as the renderer keeps and saves it (#35). */
+export interface ListState {
+    filePath: string;
+    /** The BOMs' files, in the list's order. */
+    boms: string[];
+    /** How many of each BOM one device has, by file (#39); 1 if missing. */
+    perDevice: Record<string, number>;
+    /** The history BOM's file; null if the list has none. */
+    history: string | null;
+    /** How many devices the Combined BOM is for (#39). */
+    buildQuantity: number;
 }
 
 /** A file opened by path: a BOM or a list, or a file to import. */
@@ -214,6 +239,9 @@ export interface ExportRequest {
     /** File name offered in the Save dialog, without extension. */
     suggestedName: string;
     sheets: ExportSheet[];
+    /** CSV: numbers with a decimal comma, and ";" between the values
+     *  (#37). */
+    decimalComma: boolean;
 }
 
 export type SaveChangesChoice = "save" | "discard" | "cancel";
@@ -336,6 +364,9 @@ export interface Api {
         /** Unlocks the credentials for this session; false if the password
          *  is wrong. */
         unlock(password: string): Promise<boolean>;
+        /** Whether the password is right, without unlocking anything, e.g.
+         *  to confirm exporting supplier data (#44). */
+        checkPassword(password: string): Promise<boolean>;
     };
     collect: {
         prepare(): Promise<Record<SupplierId, SupplierReadiness>>;
@@ -369,11 +400,7 @@ export interface Api {
          *  history BOM next to it (or the one already there). */
         create(): Promise<OpenedList | null>;
         /** Writes the list file. Every path must be a BOM main has read. */
-        save(
-            filePath: string,
-            boms: string[],
-            history: string | null
-        ): Promise<void>;
+        save(list: ListState): Promise<void>;
         /** Lets the user pick BOMs to add; the ones that could be read. */
         addBoms(): Promise<OpenedProject[]>;
         /** Lets the user pick another history BOM. */
@@ -449,6 +476,7 @@ export const IpcChannel = {
     VaultReset: "vault:reset",
     VaultLock: "vault:lock",
     VaultUnlock: "vault:unlock",
+    VaultCheckPassword: "vault:check-password",
     CollectPrepare: "collect:prepare",
     CollectStart: "collect:start",
     CollectCancel: "collect:cancel",

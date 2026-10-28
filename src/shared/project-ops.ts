@@ -18,6 +18,7 @@ import {
     type ManualSupplier,
     type SupplierId
 } from "./model";
+import { parseDecimal } from "./numbers";
 import { ALL_SUPPLIERS, sortSuppliers } from "./suppliers";
 
 export function createProject(): Project {
@@ -211,11 +212,8 @@ function toOptionalNumber(raw: unknown): number | "" | undefined {
         return Number.isFinite(raw) ? raw : undefined;
     }
     const text = toText(raw);
-    if (text === "") {
-        return "";
-    }
-    const value = Number(text);
-    return Number.isFinite(value) ? value : undefined;
+    // "." or "," before the decimals, whatever numbers look like (#37).
+    return text === "" ? "" : parseDecimal(text);
 }
 
 // --- Supplier part-number columns -------------------------------------------
@@ -500,9 +498,4 @@ export function suppliersWithData(project: Project): SupplierId[] {
     return project.suppliers.filter(
         s => Object.keys(project.collected.results[s] ?? {}).length > 0
     );
-}
-
-/** Total number of parts (sum of Qty). */
-export function totalQuantity(project: Project): number {
-    return project.rows.reduce((sum, row) => sum + row.qty, 0);
 }

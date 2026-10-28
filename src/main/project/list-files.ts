@@ -16,6 +16,7 @@ import {
     serializeBomList
 } from "../../shared/bom-list-file";
 import type {
+    ListState,
     OpenedList,
     OpenedListBom,
     OpenedProject
@@ -92,14 +93,25 @@ export async function readBomList(
         const list = parseBomListFile(await readFile(path, "utf8"));
         knownLists.add(path);
         const boms = await Promise.all(
-            list.boms.map(entry => readMember(fromEntry(path, entry)))
+            list.boms.map(entry => readMember(fromEntry(path, entry.path)))
         );
         const history = list.history
             ? await readMember(fromEntry(path, list.history))
             : null;
         addRecent(path);
         log.info("Opened list", path);
-        return { filePath: path, boms, history };
+        return {
+            filePath: path,
+            boms,
+            history,
+            perDevice: Object.fromEntries(
+                list.boms.map(entry => [
+                    fromEntry(path, entry.path),
+                    entry.perDevice
+                ])
+            ),
+            buildQuantity: list.buildQuantity
+        };
     } catch (error) {
         log.warn("Can't open", path, error);
         await showError(window, `Can't open "${basename(path)}"`, error);
@@ -107,17 +119,18 @@ export async function readBomList(
     }
 }
 
-async function writeList(
-    path: string,
-    boms: readonly string[],
-    history: string | null
-): Promise<void> {
+async function writeList(list: ListState): Promise<void> {
+    const path = list.filePath;
     await writeFileAtomic(
         path,
         serializeBomList({
             schemaVersion: BOM_LIST_SCHEMA_VERSION,
-            boms: boms.map(bom => toEntry(path, bom)),
-            history: history && toEntry(path, history)
+            boms: list.boms.map(bom => ({
+                path: toEntry(path, bom),
+                perDevice: list.perDevice[bom] ?? 1
+            })),
+            history: list.history && toEntry(path, list.history),
+            buildQuantity: list.buildQuantity
         })
     );
 }
@@ -154,11 +167,23 @@ export async function createBomList(
             );
         }
         const history = await readMember(historyPath);
-        await writeList(path, [], historyPath);
+        await writeList({
+            filePath: path,
+            boms: [],
+            perDevice: {},
+            history: historyPath,
+            buildQuantity: 1
+        });
         knownLists.add(path);
         addRecent(path);
         log.info("Created list", path);
-        return { filePath: path, boms: [], history };
+        return {
+            filePath: path,
+            boms: [],
+            history,
+            perDevice: {},
+            buildQuantity: 1
+        };
     } catch (error) {
         log.warn("Can't create", path, error);
         await showError(window, `Can't create "${basename(path)}"`, error);
@@ -178,17 +203,16 @@ function checkBom(path: string): void {
     }
 }
 
-export async function saveBomList(
-    listPath: string,
-    boms: readonly string[],
-    history: string | null
-): Promise<void> {
-    checkList(listPath);
-    for (const path of [...boms, ...(history ? [history] : [])]) {
+export async function saveBomList(list: ListState): Promise<void> {
+    checkList(list.filePath);
+    for (const path of [
+        ...list.boms,
+        ...(list.history ? [list.history] : [])
+    ]) {
         checkBom(path);
     }
-    await writeList(listPath, boms, history);
-    log.info("Saved list", listPath);
+    await writeList(list);
+    log.info("Saved list", list.filePath);
 }
 
 async function readPicked(

@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+    collectedKeysOf,
     formatDateTime,
     lastCollectedAt,
     partNumbersToCollect,
     summarizeRun,
     supplierWork,
-    valueMatches
+    valueMatches,
+    withoutResults
 } from "./collection";
 import { digikeyLifecycle, mouserLifecycle, tmeLifecycle } from "./lifecycle";
 import type { LookupResult, Project, SupplierOffer } from "./model";
@@ -329,5 +331,50 @@ describe("looking up Values", () => {
             ambiguous: 0,
             notFound: 0
         });
+    });
+});
+
+describe("forgetting the data of rows (#40)", () => {
+    const result = (fetchedAt = AT): LookupResult => ({
+        status: "notFound",
+        runId: "r1",
+        fetchedAt
+    });
+    const project = withResults(
+        [
+            createRow({ value: "TPS54331DDA" }), // looked up by Value
+            createRow({ value: "10k", partNumbers: { mouser: " a-1 " } }),
+            createRow({ value: "100n", partNumbers: { mouser: "B-2" } }),
+            createRow({ value: "1u", partNumbers: { mouser: "A-1" } })
+        ].reduce(addRow, { ...createProject(), suppliers: ["mouser"] }),
+        {
+            TPS54331DDA: result(),
+            "A-1": result(),
+            "B-2": result()
+        }
+    );
+    const ids = (...indexes: number[]) =>
+        new Set(indexes.map(index => project.rows[index]!.id));
+
+    it("finds the results of the rows' part numbers and Values", () => {
+        const { keys, rows } = collectedKeysOf(project, ids(0, 1));
+        expect(rows).toBe(2);
+        expect(keys).toEqual({ mouser: new Set(["TPS54331DDA", "A-1"]) });
+        expect(collectedKeysOf(project, new Set())).toEqual({
+            keys: {},
+            rows: 0
+        });
+    });
+
+    it("removes them, also for other rows with the same part numbers", () => {
+        const { keys } = collectedKeysOf(project, ids(1));
+        const collected = withoutResults(project.collected, keys);
+        expect(Object.keys(collected.results.mouser!)).toEqual([
+            "TPS54331DDA",
+            "B-2"
+        ]);
+        // Row 3 has the same part number as row 1.
+        expect(collectedKeysOf({ ...project, collected }, ids(3)).rows).toBe(0);
+        expect(withoutResults(collected, keys)).toBe(collected);
     });
 });

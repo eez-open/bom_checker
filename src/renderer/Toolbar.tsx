@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { MAX_BUILD_QUANTITY } from "../shared/model";
 import { setBuildQuantity } from "../shared/project-ops";
 import {
     addRow,
     deleteSelectedRows,
     editColumns,
+    forgetSelectedData,
     importCsv,
     importKicad,
     newDocument,
@@ -14,53 +15,27 @@ import {
     openSettings,
     redo,
     saveDocument,
+    selectedRowsData,
     syncKicad,
     undo,
     updateKicad
 } from "./commands";
 import { RedoIcon, UndoIcon } from "./icons";
+import { setListQuantities } from "./list-commands";
+import { QuantityInput } from "./QuantityInput";
 import { useDocument } from "./store/document";
 import { useUi } from "./store/ui";
+import { COMBINED, useWorkspace } from "./store/workspace";
 
 const BUILD_QUANTITY_HELP =
     "How many units (e.g. boards) to build. Qty of every row is multiplied by it for order quantities, prices and availability.";
 
-/** Applied on Enter or when leaving the field, as one undo step. */
-function BuildQuantityInput({ value }: { value: number }) {
-    const [text, setText] = useState(String(value));
-    const parsed = Number(text.trim());
-    const valid =
-        /^\d+$/.test(text.trim()) &&
-        parsed >= 1 &&
-        parsed <= MAX_BUILD_QUANTITY;
+const DEVICES_HELP =
+    "How many devices to build. Each BOM counts as many times per device as the × next to it in the list says.";
 
-    const apply = () => {
-        if (valid) {
-            useDocument
-                .getState()
-                .edit(project => setBuildQuantity(project, parsed));
-        } else {
-            setText(String(value));
-        }
-    };
-
-    return (
-        <input
-            className="number build-quantity"
-            inputMode="numeric"
-            value={text}
-            aria-invalid={!valid}
-            onChange={event => setText(event.target.value)}
-            onBlur={apply}
-            onKeyDown={event => {
-                if (event.key === "Enter") {
-                    apply();
-                } else if (event.key === "Escape") {
-                    setText(String(value));
-                }
-            }}
-        />
-    );
+/** A change is one undo step. */
+function setBuildQuantityOfBom(quantity: number): void {
+    useDocument.getState().edit(project => setBuildQuantity(project, quantity));
 }
 
 export function Toolbar() {
@@ -71,6 +46,13 @@ export function Toolbar() {
         const ids = new Set(rows.map(row => row.id));
         return selectedIds.filter(id => ids.has(id)).length;
     }, [rows, selectedIds]);
+    // Selected rows with collected data (#40).
+    const collected = useDocument(state => state.project.collected);
+    const forgettable = useMemo(
+        () => (selectedIds.length > 0 ? selectedRowsData().rows : 0),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [rows, collected, selectedIds]
+    );
     const buildQuantity = useDocument(state => state.project.buildQuantity);
     const open = useDocument(state => state.open);
     // E.g. a list's Combined BOM: it can be collected and exported only.
@@ -80,6 +62,9 @@ export function Toolbar() {
     const fromKicad = useDocument(
         state => state.project.source.kind === "kicad"
     );
+    // A list's Combined BOM is for its number of devices (#39).
+    const combined = useWorkspace(state => state.selected === COMBINED);
+    const devices = useWorkspace(state => state.list?.buildQuantity ?? 1);
 
     return (
         <div className="toolbar" role="toolbar" aria-label="BOM">
@@ -185,9 +170,31 @@ export function Toolbar() {
                         Build qty
                         {/* A new key resets the text after undo, redo or
                             opening a BOM. */}
-                        <BuildQuantityInput
+                        <QuantityInput
                             key={buildQuantity}
                             value={buildQuantity}
+                            max={MAX_BUILD_QUANTITY}
+                            className="build-quantity"
+                            onApply={setBuildQuantityOfBom}
+                        />
+                    </label>
+                </>
+            )}
+            {open && combined && (
+                <>
+                    <span className="toolbar-separator" />
+                    <label className="toolbar-field" title={DEVICES_HELP}>
+                        Build qty
+                        <QuantityInput
+                            key={devices}
+                            value={devices}
+                            max={MAX_BUILD_QUANTITY}
+                            className="build-quantity"
+                            onApply={quantity =>
+                                void setListQuantities({
+                                    buildQuantity: quantity
+                                })
+                            }
                         />
                     </label>
                 </>
@@ -198,11 +205,25 @@ export function Toolbar() {
                     <button
                         type="button"
                         className="primary"
+                        disabled={rows.length === 0}
                         onClick={openCollect}
                     >
                         Collect…
                     </button>
-                    <button type="button" title="Ctrl+E" onClick={openExport}>
+                    <button
+                        type="button"
+                        title="Remove the supplier data collected for the selected rows"
+                        disabled={forgettable === 0}
+                        onClick={() => void forgetSelectedData()}
+                    >
+                        Forget data…
+                    </button>
+                    <button
+                        type="button"
+                        title="Ctrl+E"
+                        disabled={rows.length === 0}
+                        onClick={openExport}
+                    >
                         Export…
                     </button>
                     {fromKicad && (

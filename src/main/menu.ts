@@ -48,9 +48,11 @@ let state: MenuState = {
     documentOpen: false,
     listOpen: false,
     editable: false,
+    hasRows: false,
     fromKicad: false,
     availableColumns: [],
-    hiddenColumns: []
+    hiddenColumns: [],
+    tabs: false
 };
 
 /** A command that needs an open BOM. */
@@ -70,6 +72,18 @@ function editCommand(
 ): MenuItemConstructorOptions {
     return command(label, name, {
         enabled: state.documentOpen && state.editable,
+        ...options
+    });
+}
+
+/** A command that needs rows in the open BOM (#38). */
+function rowsCommand(
+    label: string,
+    name: MenuCommand,
+    options: MenuItemConstructorOptions = {}
+): MenuItemConstructorOptions {
+    return command(label, name, {
+        enabled: state.documentOpen && state.hasRows,
         ...options
     });
 }
@@ -104,17 +118,25 @@ function recentItems(): MenuItemConstructorOptions[] {
 }
 
 function columnItems(): MenuItemConstructorOptions[] {
-    const { availableColumns, hiddenColumns } = state;
+    const { availableColumns, hiddenColumns, tabs } = state;
     const name = (group: ColumnGroup) =>
         group === "best" ? "Best Price" : SUPPLIERS[group].name;
     const hidden = hiddenColumns.filter(group =>
         availableColumns.includes(group)
     );
     return [
+        command("Suppliers as &Tabs", "toggle-tabs", {
+            id: "tabs",
+            type: "checkbox",
+            checked: tabs,
+            enabled: state.documentOpen
+        }),
+        { type: "separator" },
+        // With tabs, they choose the tab.
         ...COLUMN_GROUPS.map((group, index) =>
             command(`&${name(group)} Columns`, `toggle-columns:${group}`, {
                 id: `columns:${group}`,
-                type: "checkbox",
+                type: tabs ? "radio" : "checkbox",
                 checked: !hiddenColumns.includes(group),
                 enabled: availableColumns.includes(group),
                 accelerator: `CmdOrCtrl+${index + 1}`
@@ -122,7 +144,7 @@ function columnItems(): MenuItemConstructorOptions[] {
         ),
         command("Show &All Columns", "show-all-columns", {
             id: "columns:all",
-            enabled: hidden.length > 0
+            enabled: !tabs && hidden.length > 0
         })
     ];
 }
@@ -131,9 +153,11 @@ const menuStateSchema = z.object({
     documentOpen: z.boolean(),
     listOpen: z.boolean(),
     editable: z.boolean(),
+    hasRows: z.boolean(),
     fromKicad: z.boolean(),
     availableColumns: z.array(z.enum(COLUMN_GROUPS)),
-    hiddenColumns: z.array(z.enum(COLUMN_GROUPS))
+    hiddenColumns: z.array(z.enum(COLUMN_GROUPS)),
+    tabs: z.boolean()
 });
 
 // The menu is rebuilt on changes: changing items in place doesn't show on
@@ -203,7 +227,7 @@ export function createMenu(): Menu {
                     enabled: state.documentOpen && state.fromKicad
                 }),
                 { type: "separator" },
-                documentCommand("&Export…", "export", {
+                rowsCommand("&Export…", "export", {
                     accelerator: "CmdOrCtrl+E"
                 }),
                 command("&Update KiCad Project…", "update-kicad", {
@@ -261,7 +285,12 @@ export function createMenu(): Menu {
         {
             label: "&Tools",
             submenu: [
-                documentCommand("C&ollect Supplier Data…", "collect"),
+                rowsCommand("C&ollect Supplier Data…", "collect"),
+                rowsCommand(
+                    "&Forget Supplier Data of Selected Rows…",
+                    "forget-data",
+                    { id: "forget-data" }
+                ),
                 listCommand("&Unify Part Numbers…", "unify", { id: "unify" }),
                 { type: "separator" },
                 command("&Settings…", "settings", {

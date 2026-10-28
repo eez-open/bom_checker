@@ -5,8 +5,7 @@ import { BASE_CURRENCY, bomTotals, foreignCurrencies } from "../shared/pricing";
 import {
     manualSuppliersWithPrices,
     setCell,
-    suppliersWithData,
-    totalQuantity
+    suppliersWithData
 } from "../shared/project-ops";
 import { fileTitle } from "../shared/bom-list";
 import { SUPPLIERS } from "../shared/suppliers";
@@ -33,25 +32,18 @@ import { KicadUpdateDialog } from "./dialogs/KicadUpdateDialog";
 import { UnifyDialog } from "./dialogs/UnifyDialog";
 import { SettingsDialog } from "./settings/SettingsDialog";
 import { StartPage } from "./StartPage";
-import { FilterBar, rowViews, tableGroups } from "./FilterBar";
+import { FilterBar, rowViews, TableTabs, tableGroups } from "./FilterBar";
 import { addBomsToList, removeFromList } from "./list-commands";
 import { ListPane } from "./ListPane";
 import { documentName, isDirty, useDocument } from "./store/document";
-import { loadAppSettings, useAppSettings } from "./store/settings";
-import { useUi } from "./store/ui";
+import { loadAppSettings, useAppSettings, useNumbers } from "./store/settings";
+import { shownTab, useUi, type TableGroup } from "./store/ui";
 import { COMBINED, useWorkspace } from "./store/workspace";
 import { BomTable } from "./table/BomTable";
 import { Toolbar } from "./Toolbar";
 
-const MONEY = new Intl.NumberFormat("en", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-});
-
-const AMOUNT = new Intl.NumberFormat("en", { maximumFractionDigits: 6 });
-
 function count(n: number, noun: string): string {
-    return `${AMOUNT.format(n)} ${noun}${n === 1 ? "" : "s"}`;
+    return `${n} ${noun}${n === 1 ? "" : "s"}`;
 }
 
 function hasFiles(event: DragEvent): boolean {
@@ -118,6 +110,7 @@ export function App() {
     const preference = useAppSettings(
         state => state.settings.general.supplierOrder
     );
+    const numbers = useNumbers();
     const editRowId = useUi(state => state.editRowId);
     const dialog = useUi(state => state.dialog);
     const hiddenColumns = useUi(state => state.hiddenColumns);
@@ -142,13 +135,24 @@ export function App() {
     const priced = withData.length + manualSuppliersWithPrices(project).length;
     const hasData = priced > 0;
     const groups = tableGroups(project);
-    const hidden = groups.filter(group => hiddenColumns.includes(group.id));
+    // With tabs (#41), the groups of the other tabs are hidden.
+    const tableLayout = useUi(state => state.tableLayout);
+    const chosenTab = useUi(state => state.tableTab);
+    const tabs = tableLayout === "tabs" && groups.length > 0;
+    const tab = shownTab(groups, chosenTab);
+    const shownHidden: TableGroup[] = tabs
+        ? groups.map(group => group.id).filter(id => id !== tab)
+        : hiddenColumns;
+    const hidden = tabs
+        ? []
+        : groups.filter(group => hiddenColumns.includes(group.id));
     // The View menu has the groups of suppliers with an API and Best price.
     const availableKey = groups
         .map(group => group.id)
         .filter(id => !id.startsWith("manual:"))
         .join(",");
     const fromKicad = project.source.kind === "kicad" && !!project.source.path;
+    const hasRows = project.rows.length > 0;
 
     useEffect(() => {
         loadAppSettings();
@@ -188,16 +192,30 @@ export function App() {
             documentOpen: open,
             listOpen: list !== null,
             editable: open && !readOnly,
+            hasRows: open && hasRows,
             fromKicad: open && fromKicad,
             availableColumns:
                 open && availableKey
                     ? (availableKey.split(",") as ColumnGroup[])
                     : [],
-            hiddenColumns: hiddenColumns.filter(
+            hiddenColumns: shownHidden.filter(
                 (group): group is ColumnGroup => !group.startsWith("manual:")
-            )
+            ),
+            tabs: tableLayout === "tabs"
         });
-    }, [open, list, readOnly, fromKicad, availableKey, hiddenColumns]);
+        // shownHidden follows from the others.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        open,
+        list,
+        readOnly,
+        hasRows,
+        fromKicad,
+        availableKey,
+        hiddenColumns,
+        tableLayout,
+        tab
+    ]);
 
     const listName = list ? fileTitle(list.filePath) : null;
     useEffect(() => {
@@ -293,12 +311,14 @@ export function App() {
                         {open && (
                             <FilterBar project={project} rows={shownRows} />
                         )}
+                        {open && tabs && <TableTabs project={project} />}
                         {open && (
                             <main className="app-table">
                                 <BomTable
                                     project={project}
                                     preference={preference}
-                                    hiddenColumns={hiddenColumns}
+                                    numbers={numbers}
+                                    hiddenColumns={shownHidden}
                                     editRowId={editRowId}
                                     onEditStarted={() =>
                                         useUi.setState({ editRowId: null })
@@ -327,10 +347,7 @@ export function App() {
                 <span>
                     {open && (
                         <span data-testid="bom-summary">
-                            {count(project.rows.length, "row")} ·{" "}
-                            {count(totalQuantity(project), "part")}
-                            {project.buildQuantity > 1 &&
-                                ` per unit × ${project.buildQuantity} = ${count(totalQuantity(project) * project.buildQuantity, "part")}`}
+                            {count(project.rows.length, "row")}
                         </span>
                     )}
                     {open && hidden.length > 0 && (
@@ -351,10 +368,10 @@ export function App() {
                 {open && hasData && (
                     <span>
                         <span data-testid="bom-total">
-                            Best price total: {MONEY.format(totals.total)}{" "}
+                            Best price total: {numbers.money(totals.total)}{" "}
                             {BASE_CURRENCY}
                             {project.buildQuantity > 1 &&
-                                ` (${MONEY.format(totals.total / project.buildQuantity)} ${BASE_CURRENCY} per unit)`}
+                                ` (${numbers.money(totals.total / project.buildQuantity)} ${BASE_CURRENCY} per unit)`}
                             {totals.uncovered > 0 &&
                                 ` · ${count(totals.uncovered, "row")} without a supplier that has enough stock`}
                         </span>{" "}

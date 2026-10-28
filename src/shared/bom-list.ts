@@ -20,6 +20,8 @@ export interface ListMember {
     path: string;
     name: string;
     project: Project;
+    /** How many of this BOM one device has (#39). */
+    perDevice: number;
 }
 
 /** File name without folder and the extension of a BOM or a list. */

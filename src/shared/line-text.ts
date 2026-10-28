@@ -3,16 +3,16 @@
 
 import { LIFECYCLE_LABELS } from "./lifecycle";
 import type { SupplierOffer } from "./model";
+import type { Numbers } from "./numbers";
 import type { SupplierLine } from "./pricing";
-
-const QUANTITY = new Intl.NumberFormat("en");
 
 /** Notes that start with this tell of other packagings of the same product
  *  with stock, e.g. a box when cut tape is out of stock. */
 export const OTHER_PACKAGING = "Other packaging: ";
 
-/** "Other packaging: 495-4874-3-ND (Tape & Box (TB)): 1,930 in stock,
- *  MOQ 2,000." */
+/** "Other packaging: 495-4874-3-ND (Tape & Box (TB)): 1930 in stock,
+ *  MOQ 2000." Kept with the collected data, so without grouping, which
+ *  would read as decimals with a decimal comma (#37). */
 export function otherPackagingNote(offer: {
     supplierPartNumber: string;
     packaging?: string;
@@ -22,13 +22,16 @@ export function otherPackagingNote(offer: {
     return (
         `${OTHER_PACKAGING}${offer.supplierPartNumber}` +
         (offer.packaging ? ` (${offer.packaging})` : "") +
-        `: ${QUANTITY.format(offer.stockQty)} in stock` +
-        (offer.moq > 1 ? `, MOQ ${QUANTITY.format(offer.moq)}.` : ".")
+        `: ${offer.stockQty} in stock` +
+        (offer.moq > 1 ? `, MOQ ${offer.moq}.` : ".")
     );
 }
 
 /** The Availability text, including lookups that found nothing usable. */
-export function availabilityText(line: SupplierLine | null): string {
+export function availabilityText(
+    line: SupplierLine | null,
+    numbers: Numbers
+): string {
     if (!line) {
         return "";
     }
@@ -47,7 +50,7 @@ export function availabilityText(line: SupplierLine | null): string {
         case "in-stock":
             return "In stock";
         case "partial":
-            return `Partial: ${QUANTITY.format(availability.stock)}`;
+            return `Partial: ${numbers.quantity(availability.stock)}`;
         case "out-of-stock":
             return "Out of stock";
         case "not-orderable":

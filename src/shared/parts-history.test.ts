@@ -40,13 +40,37 @@ function usedIn(history: Project): (string | number | undefined)[] {
 }
 
 describe("BOM list file", () => {
-    it("round-trips a list", () => {
+    it("round-trips a list, with how many of each BOM a device has", () => {
         const list = {
-            schemaVersion: 1 as const,
-            boms: ["psu/psu.eezbom", "mcu.eezbom"],
-            history: "parts history.eezbom"
+            schemaVersion: 2 as const,
+            boms: [
+                { path: "psu/psu.eezbom", perDevice: 2 },
+                { path: "mcu.eezbom", perDevice: 1 }
+            ],
+            history: "parts history.eezbom",
+            buildQuantity: 25
         };
         expect(parseBomListFile(serializeBomList(list))).toEqual(list);
+    });
+
+    it("reads format 1: one of each BOM, one device (#39)", () => {
+        expect(
+            parseBomListFile(
+                JSON.stringify({
+                    schemaVersion: 1,
+                    boms: ["a.eezbom", "b.eezbom"],
+                    history: null
+                })
+            )
+        ).toEqual({
+            schemaVersion: 2,
+            boms: [
+                { path: "a.eezbom", perDevice: 1 },
+                { path: "b.eezbom", perDevice: 1 }
+            ],
+            history: null,
+            buildQuantity: 1
+        });
     });
 
     it("rejects other files and newer formats", () => {
@@ -55,7 +79,17 @@ describe("BOM list file", () => {
             parseBomListFile(JSON.stringify({ schemaVersion: 1, boms: [1] }))
         ).toThrow(/damaged/);
         expect(() =>
-            parseBomListFile(JSON.stringify({ schemaVersion: 2 }))
+            parseBomListFile(
+                JSON.stringify({
+                    schemaVersion: 2,
+                    boms: [{ path: "a.eezbom", perDevice: 0 }],
+                    history: null,
+                    buildQuantity: 1
+                })
+            )
+        ).toThrow(/damaged/);
+        expect(() =>
+            parseBomListFile(JSON.stringify({ schemaVersion: 3 }))
         ).toThrow(/newer version/);
     });
 

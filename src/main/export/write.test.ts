@@ -64,4 +64,15 @@ describe("export files", () => {
         ]);
         expect(text).not.toContain("Board");
     });
+
+    it("writes CSV with decimal commas and semicolons (#37)", () => {
+        const text = new TextDecoder().decode(
+            exportFile("csv", [BOM], { decimalComma: true })
+        );
+        expect(text.split("\n").slice(0, 3)).toEqual([
+            "Reference;Qty;Mouser;Mouser_Unit price;Mouser_Availability",
+            "C1,C2;2;81-GRT1885C2A102JA2D;0,1234;In stock",
+            "Ž1;1;-;;Not found"
+        ]);
+    });
 });

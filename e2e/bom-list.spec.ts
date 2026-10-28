@@ -11,6 +11,7 @@ import type { CollectedData, Project } from "../src/shared/model";
 import { parseProjectFile, serializeProject } from "../src/shared/project-file";
 import { addRow, createProject, createRow } from "../src/shared/project-ops";
 import {
+    answerMessageBox,
     answerOpenDialog,
     answerSaveDialog,
     cell,
@@ -102,14 +103,18 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
         await expect(page).toHaveTitle("device · psu - EEZ BOM checker");
 
         // The list names the BOMs relative to its folder.
-        expect(
+        const listFile = async () =>
             parseBomListFile(
                 await readFile(join(folder, "device.eezbom-list"), "utf8")
-            )
-        ).toEqual({
-            schemaVersion: 1,
-            boms: ["psu.eezbom", "mcu.eezbom"],
-            history: "device history.eezbom"
+            );
+        expect(await listFile()).toEqual({
+            schemaVersion: 2,
+            boms: [
+                { path: "psu.eezbom", perDevice: 1 },
+                { path: "mcu.eezbom", perDevice: 1 }
+            ],
+            history: "device history.eezbom",
+            buildQuantity: 1
         });
         // The history has each component and part number once.
         const history = await readBom(join(folder, "device history.eezbom"));
@@ -142,6 +147,23 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
             "R1, R2 (psu); R1 (mcu)"
         );
         await expect(cell(page, 0, "qty")).toHaveText("3");
+        // Two mcu boards per device, and 10 devices (#39); the list keeps
+        // both.
+        const perDevice = pane.getByLabel("mcu per device");
+        await perDevice.fill("2");
+        await perDevice.press("Enter");
+        await expect(cell(page, 0, "qty")).toHaveText("4");
+        const devices = page.getByLabel("Build qty");
+        await devices.fill("10");
+        await devices.press("Enter");
+        await expect(cell(page, 0, "totalQty")).toHaveText("40");
+        await expect
+            .poll(async () => (await listFile()).buildQuantity)
+            .toBe(10);
+        expect((await listFile()).boms[1]).toEqual({
+            path: "mcu.eezbom",
+            perDevice: 2
+        });
         await expect(
             page
                 .locator('.ag-row[row-index="0"] .ag-cell[col-id^="custom:"]')
@@ -160,22 +182,27 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
         await expect(psuItem.getByLabel("unsaved")).toHaveCount(0);
         expect((await readBom(psu)).rows[1]?.value).toBe("220n");
 
+        // Forgetting data in Combined forgets it in the BOMs too (#40).
+        const d1Badge = cell(page, 0, "pn:digikey").locator(".pn-badge");
+        await expect(d1Badge).toHaveAttribute("aria-label", "Not found");
+        await page
+            .locator('.ag-row[row-index="0"] .ag-selection-checkbox input')
+            .first()
+            .check();
+        await answerMessageBox(app, 0);
+        await page.getByRole("button", { name: "Forget data…" }).click();
+        await expect(d1Badge).toHaveCount(0);
+        await expect(psuItem.getByLabel("unsaved")).toBeVisible();
+        await expect(mcuItem.getByLabel("unsaved")).toBeVisible();
+
         // Removed from the list, the file stays.
         await mcuItem.click();
         await pane.getByRole("button", { name: "Remove" }).click();
         await expect(mcuItem).toHaveCount(0);
         // The list is saved right after it shows the change.
         await expect
-            .poll(
-                async () =>
-                    parseBomListFile(
-                        await readFile(
-                            join(folder, "device.eezbom-list"),
-                            "utf8"
-                        )
-                    ).boms
-            )
-            .toEqual(["psu.eezbom"]);
+            .poll(async () => (await listFile()).boms)
+            .toEqual([{ path: "psu.eezbom", perDevice: 1 }]);
         expect((await readBom(mcu)).rows).toHaveLength(2);
     } finally {
         await closeApp(app);

@@ -435,7 +435,7 @@ Files in the app-data folder (`%APPDATA%\EEZ BOM checker\` on Windows, `~/.confi
 - API calls used and remaining today.
 
 **Looking up Values** (optional, GitHub #10)
-- **Work list:** with the option on, rows whose cell for the supplier is empty (not "-") add their Value to the work list when it looks like a manufacturer part number (`valueAsPartNumber`: letters and digits, no spaces). Generic passive values (100n, 4u7, 10k, 0R010) are skipped; SI prefixes are case-sensitive, so 1N4148 isn't read as "1n". The plugins already resolve manufacturer part numbers (6.2), so nothing supplier-specific is added.
+- **Work list:** with the option on, rows whose cell for the supplier is empty (not "-") add their Value to the work list when it looks like a manufacturer part number (`valueAsPartNumber`: letters and digits, no spaces; or digits only with dashes and at least 7 digits, as many connectors have, e.g. Molex 22-01-3037 or Würth 61300311121). Generic passive values (100n, 4u7, 10k, 0R010) are skipped; SI prefixes are case-sensitive, so 1N4148 isn't read as "1n". The plugins already resolve manufacturer part numbers (6.2), so nothing supplier-specific is added.
 - **Filling in:** when the run ends, one match puts the supplier's part number in the cell (its result is copied under that number); several matches put the Value in the cell, so the user chooses the item; no match leaves the cell empty. This is one undo step.
 - **Not done:** turning a generic value plus footprint into one part. The APIs can only return candidates for that, and choosing one needs defaults for dielectric, voltage, tolerance and packaging.
 
@@ -517,12 +517,12 @@ The `kicad-cli sch export bom --variant` alternative was rejected. It requires K
 
 ### 9.5 BOM lists (GitHub #35)
 
-- **File** (`shared/bom-list-file.ts`): `.eezbom-list` is JSON, `{ schemaVersion: 1, boms: [...], history }`, with paths relative to the list's folder and `/` separators. It holds no BOM data.
+- **File** (`shared/bom-list-file.ts`): `.eezbom-list` is JSON, `{ schemaVersion: 2, boms: [{ path, perDevice }], history, buildQuantity }`, with paths relative to the list's folder and `/` separators. `perDevice` is how many of the BOM one device has, `buildQuantity` the number of devices (#39); format 1 had paths only and is read as one of each, one device. It holds no BOM data.
 - **Main** (`main/project/list-files.ts`) reads the list and every BOM, reporting unreadable ones per BOM, not as an error of the list. The renderer may only save lists main read or created, naming BOMs main read, and saves BOMs to known paths as usual. Saving several BOMs (Unify's Apply) first copies them to `bom-checker-backups/<time>/` next to the list (`main/backups.ts`, shared with 9.4), and puts back those written if one fails.
 - **Renderer:** the selected BOM is in the document store like a single BOM, so every feature works on it unchanged. The others wait in the workspace store (`store/workspace.ts`) as snapshots with their undo history (`list-commands.ts`); switching swaps them. Unsaved changes of any of them count for the close prompt and Save All.
 - **Same component** (`shared/bom-list.ts`): equal Value (spaces tidied; case ignored except m/M, for milli and mega) and Footprint.
 - **History** (`shared/parts-history.ts`): a plain `.eezbom` with a *Used in* column. A BOM row is known when a history row of the same component has all its defined part numbers; otherwise it's added. It also takes newer collected data of its part numbers. Updated when BOMs are added or saved, and after Apply; saved unless it has other unsaved changes.
-- **Combined** (`shared/combined-bom.ts`): computed, read-only (`readOnly` in the document store: edits are ignored, the table can't edit). Rows merge by their set of defined supplier part numbers, or by component without any; Qty = Σ qty × build quantity. Collected data is the newest of all BOMs; data collected there goes to the BOMs that use the part numbers.
+- **Combined** (`shared/combined-bom.ts`): computed, read-only (`readOnly` in the document store: edits are ignored, the table can't edit). Rows merge by their set of defined supplier part numbers, or by component without any; Qty = Σ qty × per device, for one device, and Combined's build quantity is the list's number of devices (#39). The BOMs' own build quantities don't count; Unify uses the same quantities. Collected data is the newest of all BOMs; data collected there goes to the BOMs that use the part numbers.
 - **Unify** (`shared/unify.ts`): rows are joined (union-find) by component, or by a shared supplier part number. A group is offered when, for a supplier, its cells differ (an empty one included) or its Values do. Candidates: the cells' part numbers by use, then the history's for the same component. Prices are those of a row with the group's total quantity. The dialog collects candidates with the Collect dialog on its own data (`CollectTarget`), and Apply writes the decisions as one undo step per BOM, with the chosen part numbers' data.
 - **Not covered yet:** suppliers without an API (their ids are per BOM) are left out of Combined, the history and Unify.
 
@@ -547,6 +547,7 @@ The `kicad-cli sch export bom --variant` alternative was rejected. It requires K
 ## 11. Export
 
 - **Formats:** `.xlsx`, `.ods`, `.csv` (UTF-8 with BOM, so Excel opens it correctly).
+- **Numbers (#37)** look as Settings → General → Numbers says: the system's regional settings (`app.getSystemLocale()`, which on Windows is the regional format, not the UI language), a decimal point or a decimal comma. `shared/numbers.ts` formats them for the table, the dialogs and text in exports; xlsx and ods hold real numbers, which the spreadsheet program shows its way. CSV with a decimal comma writes "0,5" and separates values with ";". Number cells are edited as text and accept "." or ",".
 - **Dialog:** pick **columns**, **rows** and **format**. Combinations can be saved as presets.
 
 | Preset | Columns | Rows |
@@ -608,6 +609,10 @@ These points couldn't be settled from documentation and should be the first thin
 ---
 
 ## 15. Status
+
+### Version 0.10.0
+
+Numbers as the region writes them, or with a chosen decimal separator, also in CSV exports (#37, section 11). Build qty for a list's Combined BOM, with how many of each BOM a device has; list format 2 (#39, section 9.5). Forget the supplier data of selected rows (#40). Suppliers and Best price on tabs (#41). Exports with supplier data are confirmed with the password (#44). The Total row and status bar add up no quantities (#42), Collect and Export need rows (#38), and the Value lookup takes part numbers of digits only. Unit tests: 234; end-to-end tests: 22.
 
 ### Version 0.9.0
 

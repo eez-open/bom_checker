@@ -1,7 +1,8 @@
 // The Combined BOM of a list (#35): the rows of all its BOMs for ordering
 // them together, e.g. the PCBA of a device's modules. Rows with the same
-// supplier part numbers are merged and their quantities added up, with
-// each BOM's build quantity.
+// supplier part numbers are merged and their quantities added up, for one
+// device: with how many of each BOM it has. Its build quantity is the
+// number of devices (#39); the BOMs' own build quantities don't count.
 
 import {
     componentKey,
@@ -41,7 +42,10 @@ function referencesText(references: Map<string, string[]>): string {
               .join("; ");
 }
 
-export function combineBoms(members: readonly ListMember[]): Project {
+export function combineBoms(
+    members: readonly ListMember[],
+    buildQuantity = 1
+): Project {
     const { project: base, column } = addCustomColumn(
         createProject(),
         SOURCE_BOM_COLUMN,
@@ -50,13 +54,13 @@ export function combineBoms(members: readonly ListMember[]): Project {
     let project = base;
     const merged = new Map<string, Merged>();
 
-    for (const { name, project: bom } of members) {
+    for (const { name, project: bom, perDevice } of members) {
         for (const supplier of bom.suppliers) {
             project = addSupplier(project, supplier);
         }
         for (const row of bom.rows) {
             const key = mergeKey(row);
-            const qty = row.qty * bom.buildQuantity;
+            const qty = row.qty * perDevice;
             const reference = row.reference.trim();
             let entry = merged.get(key);
             if (!entry) {
@@ -85,6 +89,7 @@ export function combineBoms(members: readonly ListMember[]): Project {
 
     return {
         ...project,
+        buildQuantity,
         rows: [...merged.values()].map(({ row, references }) => ({
             ...row,
             // Floating-point sums such as 0.1 + 0.2.

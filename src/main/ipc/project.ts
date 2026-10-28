@@ -2,7 +2,8 @@ import { isAbsolute } from "node:path";
 import { BrowserWindow } from "electron";
 import { z } from "zod";
 import { IpcChannel } from "../../shared/ipc";
-import { SUPPLIER_IDS } from "../../shared/model";
+import { MAX_PER_DEVICE } from "../../shared/bom-list-file";
+import { MAX_BUILD_QUANTITY, SUPPLIER_IDS } from "../../shared/model";
 import { validateProject } from "../../shared/project-file";
 import { openCsvFile } from "../project/csv-files";
 import { EXPORT_FORMATS } from "../../shared/export";
@@ -46,10 +47,22 @@ const exportRequestSchema = z.object({
             })
         )
         .min(1)
-        .max(2)
+        .max(2),
+    decimalComma: z.boolean()
 });
 
 const absolutePath = z.string().refine(isAbsolute, "Not an absolute path");
+
+const listStateSchema = z.object({
+    filePath: absolutePath,
+    boms: z.array(absolutePath).max(1000),
+    perDevice: z.record(
+        z.string(),
+        z.number().int().min(1).max(MAX_PER_DEVICE)
+    ),
+    history: absolutePath.nullable(),
+    buildQuantity: z.number().int().min(1).max(MAX_BUILD_QUANTITY)
+});
 
 const kicadUpdateSchema = z.object({
     projectPath: absolutePath.refine(
@@ -95,12 +108,8 @@ export function registerProjectHandlers(): void {
     );
     handle(IpcChannel.CsvOpen, ({ window }) => openCsvFile(window));
     handle(IpcChannel.ListCreate, ({ window }) => createBomList(window));
-    handle(IpcChannel.ListSave, (_context, filePath, boms, history) =>
-        saveBomList(
-            absolutePath.parse(filePath),
-            z.array(absolutePath).max(1000).parse(boms),
-            absolutePath.nullable().parse(history)
-        )
+    handle(IpcChannel.ListSave, (_context, list) =>
+        saveBomList(listStateSchema.parse(list))
     );
     handle(IpcChannel.ListAddBoms, ({ window }) => addBomsDialog(window));
     handle(IpcChannel.ListChooseHistory, ({ window }) =>
@@ -156,9 +165,11 @@ export function registerProjectHandlers(): void {
         showKicadBackup(z.string().parse(folder))
     );
     handle(IpcChannel.ExportSave, ({ window }, request) => {
-        const { format, suggestedName, sheets } =
+        const { format, suggestedName, sheets, decimalComma } =
             exportRequestSchema.parse(request);
-        return saveExport(window, format, suggestedName, sheets);
+        return saveExport(window, format, suggestedName, sheets, {
+            decimalComma
+        });
     });
     handle(IpcChannel.ExportSaveImage, ({ window }, png, suggestedName) =>
         saveImage(

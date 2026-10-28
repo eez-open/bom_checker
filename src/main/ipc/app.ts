@@ -16,7 +16,11 @@ export function registerAppHandlers(): void {
             node: process.versions.node
         },
         platform: process.platform,
-        logFile: log.transports.file.getFile().path
+        logFile: log.transports.file.getFile().path,
+        // End-to-end tests set it, so numbers look the same on every
+        // machine.
+        systemLocale:
+            process.env.EEZ_BOM_CHECKER_SYSTEM_LOCALE || app.getSystemLocale()
     }));
 
     handle(IpcChannel.AppOpenExternal, async (_context, url) => {

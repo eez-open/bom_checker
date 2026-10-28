@@ -21,6 +21,7 @@ import {
     deleteRows,
     replacePartNumber
 } from "../shared/project-ops";
+import { collectedKeysOf, withoutResults } from "../shared/collection";
 import { importedKicadValues } from "../shared/kicad-sync";
 import { PROJECT_FILE_EXTENSION } from "../shared/project-file";
 import {
@@ -28,6 +29,7 @@ import {
     afterListSave,
     closeList,
     confirmDiscardList,
+    forgetInList,
     isListOpen,
     loadList,
     saveAllInList,
@@ -37,9 +39,12 @@ import { documentName, isDirty, useDocument } from "./store/document";
 import {
     resetTableView,
     setHiddenColumns,
+    setTableLayout,
+    setTableTab,
     useUi,
     type TableGroup
 } from "./store/ui";
+import { COMBINED, useWorkspace } from "./store/workspace";
 
 export async function saveDocument(saveAs = false): Promise<boolean> {
     const { project, filePath, markSaved, readOnly } = useDocument.getState();
@@ -261,6 +266,43 @@ export function deleteSelectedRows(): void {
     }
 }
 
+/** The collected data of the selected rows (#40), for every supplier. */
+export function selectedRowsData(): ReturnType<typeof collectedKeysOf> {
+    const { project } = useDocument.getState();
+    return collectedKeysOf(project, new Set(useUi.getState().selectedRowIds));
+}
+
+/**
+ * Forgets the data collected for the selected rows, after asking: e.g. to
+ * collect them again from scratch. It isn't an undo step, like collecting.
+ */
+export async function forgetSelectedData(): Promise<void> {
+    const { keys, rows } = selectedRowsData();
+    if (rows === 0) {
+        return;
+    }
+    const confirmed = await window.api.dialog.confirm({
+        message:
+            rows === 1
+                ? "Forget the supplier data of the selected row?"
+                : `Forget the supplier data of ${rows} selected rows?`,
+        detail:
+            "Stock, prices and the rest collected for their part numbers are " +
+            "removed, also from other rows with the same part numbers. This " +
+            "can't be undone; collect them again to get the data back.",
+        confirmLabel: "Forget"
+    });
+    if (!confirmed) {
+        return;
+    }
+    useDocument
+        .getState()
+        .applyCollected(collected => withoutResults(collected, keys));
+    if (useWorkspace.getState().selected === COMBINED) {
+        forgetInList(keys);
+    }
+}
+
 /** Brings changes made in KiCad since the import into the BOM. */
 export function syncKicad(): void {
     const { source } = useDocument.getState().project;
@@ -333,8 +375,13 @@ export function editColumns(): void {
     useUi.setState({ dialog: { kind: "columns" } });
 }
 
+/** Shows or hides a column group; with tabs (#41), shows its tab. */
 export function toggleColumns(group: TableGroup): void {
-    const hidden = useUi.getState().hiddenColumns;
+    const { hiddenColumns: hidden, tableLayout } = useUi.getState();
+    if (tableLayout === "tabs") {
+        setTableTab(group);
+        return;
+    }
     setHiddenColumns(
         hidden.includes(group)
             ? hidden.filter(g => g !== group)
@@ -342,12 +389,26 @@ export function toggleColumns(group: TableGroup): void {
     );
 }
 
+/** Every column group side by side, or each on a tab of its own (#41). */
+export function toggleTableLayout(): void {
+    setTableLayout(
+        useUi.getState().tableLayout === "tabs" ? "columns" : "tabs"
+    );
+}
+
 export function showAllColumns(): void {
     setHiddenColumns([]);
 }
 
+/** Collecting and exporting need rows (#38); also for the shortcuts. */
+function hasRows(): boolean {
+    return useDocument.getState().project.rows.length > 0;
+}
+
 export function openExport(): void {
-    useUi.setState({ dialog: { kind: "export" } });
+    if (hasRows()) {
+        useUi.setState({ dialog: { kind: "export" } });
+    }
 }
 
 export function openCostChart(): void {
@@ -355,7 +416,9 @@ export function openCostChart(): void {
 }
 
 export function openCollect(): void {
-    useUi.setState({ dialog: { kind: "collect" } });
+    if (hasRows()) {
+        useUi.setState({ dialog: { kind: "collect" } });
+    }
 }
 
 /** Tools → Unify Part Numbers… of a BOM list (#35). It changes the BOM
@@ -449,8 +512,10 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
         ])
     ) as Record<`toggle-columns:${ColumnGroup}`, () => void>),
     "show-all-columns": showAllColumns,
+    "toggle-tabs": toggleTableLayout,
     settings: openSettings,
     collect: openCollect,
+    "forget-data": forgetSelectedData,
     lock: lockCredentials,
     "save-and-close": saveAndClose
 };

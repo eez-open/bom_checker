@@ -2,9 +2,8 @@ import type { SupplierId, SupplierOffer } from "../../shared/model";
 import { SUPPLIERS } from "../../shared/suppliers";
 import { chooseItem } from "../commands";
 import { useDocument } from "../store/document";
+import { useNumbers } from "../store/settings";
 import { Modal } from "./Modal";
-
-const QUANTITY = new Intl.NumberFormat("en");
 
 interface ChooseItemDialogProps {
     supplier: SupplierId;
@@ -24,6 +23,7 @@ export function ChooseItemDialog({
         state => state.project.collected.results[supplier]?.[key]
     );
     const name = SUPPLIERS[supplier].name;
+    const numbers = useNumbers();
 
     const choose = (offer: SupplierOffer) => {
         chooseItem(supplier, key, offer);
@@ -75,12 +75,12 @@ export function ChooseItemDialog({
                                             {offer.manufacturerPartNumber}
                                         </td>
                                         <td>
-                                            {QUANTITY.format(offer.stockQty)}
+                                            {numbers.quantity(offer.stockQty)}
                                         </td>
-                                        <td>{QUANTITY.format(offer.moq)}</td>
+                                        <td>{numbers.quantity(offer.moq)}</td>
                                         <td>
                                             {first
-                                                ? `${first.unitPrice} ${offer.currency}`
+                                                ? `${numbers.price(first.unitPrice)} ${offer.currency}`
                                                 : ""}
                                         </td>
                                         <td>

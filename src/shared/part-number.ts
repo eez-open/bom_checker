@@ -28,20 +28,29 @@ const COMPONENT_VALUE =
     /^\d+([.,]\d+)?\s*([pnuµmkKMGR]\d*)?\s*(F|H|Ω|ohms?)?([\s/,]+\d+([.,]\d+)?\s*(%|V|W|A|mA))*$/;
 
 /**
+ * Part numbers of digits only, as many connectors have: Molex 22-01-3037,
+ * TE 1-640456-0, Phoenix Contact 1757242, Würth 61300311121. At least 7
+ * digits, so values such as 4700 or 100000 aren't taken for them.
+ */
+const DIGITS_PART_NUMBER = /^(?=(?:\D*\d){7})\d+(?:-\d+)*$/;
+
+/**
  * The Value, when it may be a manufacturer part number to look up
- * (TPS54331DDA, 1N4007, ESP32-S3-WROOM-1); null for generic values (100n,
- * 10k), names of KiCad symbols (Conn_01x04, LED) and text with spaces.
+ * (TPS54331DDA, 1N4007, ESP32-S3-WROOM-1, 22-01-3037); null for generic
+ * values (100n, 10k), names of KiCad symbols (Conn_01x04, LED) and text
+ * with spaces.
  */
 export function valueAsPartNumber(
     raw: string | null | undefined
 ): string | null {
     const value = normalizeCell(raw);
     const looksLikePartNumber =
-        value.length >= 3 &&
         value.length <= 40 &&
-        !/[\s_]/.test(value) &&
-        /[A-Za-z]/.test(value) &&
-        /\d/.test(value) &&
-        !COMPONENT_VALUE.test(value);
+        (DIGITS_PART_NUMBER.test(value) ||
+            (value.length >= 3 &&
+                !/[\s_]/.test(value) &&
+                /[A-Za-z]/.test(value) &&
+                /\d/.test(value) &&
+                !COMPONENT_VALUE.test(value)));
     return looksLikePartNumber ? value : null;
 }

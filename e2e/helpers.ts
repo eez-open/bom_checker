@@ -7,6 +7,7 @@ import { FAKE_CREDENTIALS } from "./fake-suppliers";
 import {
     _electron as electron,
     type ElectronApplication,
+    type Locator,
     type Page
 } from "@playwright/test";
 
@@ -40,6 +41,8 @@ export async function launchApp(
         ...(executablePath ? { executablePath } : { args: ["."] }),
         env: {
             ...electronEnv(),
+            // Numbers with a decimal point, whatever this machine's region.
+            EEZ_BOM_CHECKER_SYSTEM_LOCALE: "en-US",
             ...options.env,
             EEZ_BOM_CHECKER_USER_DATA: userData
         }
@@ -120,6 +123,20 @@ export function cell(page: Page, rowIndex: number | string, columnId: string) {
     return page.locator(
         `.ag-row[row-index="${rowIndex}"] .ag-cell[col-id="${columnId}"]`
     );
+}
+
+/**
+ * The grid's tooltip for `target`. It hovers again until the tooltip shows:
+ * on a busy machine the grid sometimes misses a hover.
+ */
+export async function tooltipOf(page: Page, target: Locator): Promise<Locator> {
+    const tooltip = page.locator(".ag-tooltip");
+    await expect(async () => {
+        await page.mouse.move(0, 0);
+        await target.hover();
+        await expect(tooltip).toBeVisible({ timeout: 2000 });
+    }).toPass();
+    return tooltip;
 }
 
 /** Sets a password and saves the fake suppliers' credentials. */

@@ -25,7 +25,8 @@ export interface UnifyRow {
     rowId: string;
     reference: string;
     value: string;
-    /** Qty × the BOM's build quantity. */
+    /** For all devices: Qty × how many of the BOM one device has × the
+     *  list's build quantity (#39). */
     qty: number;
     /** The supplier cells, trimmed ("" for an empty one). */
     cells: Partial<Record<SupplierId, string>>;
@@ -97,7 +98,7 @@ function byCount<T>(counts: Map<T, number>): T[] {
 export function findUnifyGroups(
     members: readonly ListMember[],
     history: Project | null,
-    { matchFootprint = true } = {}
+    { matchFootprint = true, buildQuantity = 1 } = {}
 ): UnifyGroup[] {
     const rows: { member: ListMember; row: BomRow }[] = [];
     const sets = new UnionFind();
@@ -142,7 +143,8 @@ export function findUnifyGroups(
             entries,
             history,
             suppliers,
-            matchFootprint
+            matchFootprint,
+            buildQuantity
         );
         if (group) {
             groups.push(group);
@@ -155,7 +157,8 @@ function describeGroup(
     entries: { member: ListMember; row: BomRow }[],
     history: Project | null,
     suppliers: readonly SupplierId[],
-    matchFootprint: boolean
+    matchFootprint: boolean,
+    buildQuantity: number
 ): UnifyGroup | null {
     const rows: UnifyRow[] = entries.map(({ member, row }) => ({
         bom: member.path,
@@ -163,7 +166,7 @@ function describeGroup(
         rowId: row.id,
         reference: row.reference.trim(),
         value: tidy(row.value),
-        qty: row.qty * member.project.buildQuantity,
+        qty: row.qty * member.perDevice * buildQuantity,
         cells: Object.fromEntries(
             suppliers.map(supplier => [
                 supplier,

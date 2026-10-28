@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-28
+
+### Added
+
+- Numbers are shown as in the system's regional settings, e.g. 1.234,56; Settings → General → Numbers can choose a decimal point or a decimal comma instead. CSV exports follow it, with ";" between the values for a decimal comma. Numbers can be typed in cells with "." or "," (#37).
+- Build qty for a list's Combined BOM, and how many of each BOM one device has (× next to it in the list), e.g. 25 devices with 2 of a module order the module's parts for 50. Unify uses the same quantities; the BOMs' own Build qty counts only when they're shown alone (#39). Lists are now format 2; earlier versions can't open lists saved by this one.
+- **Forget data…** (toolbar, or Tools → Forget Supplier Data of Selected Rows…) removes the data collected for the selected rows, from every supplier (#40).
+- **Tabs** (at the right of the bar above the table, or View → Suppliers as Tabs): each supplier, and Best price, on a tab of its own, with the BOM's columns and your own columns at the right (#41).
+- Exports with supplier data (the suppliers' data columns or Best price) first say that the suppliers' API terms don't allow passing it on, and ask for the password of the supplier settings to confirm (#44).
+
+### Changed
+
+- The Total row and the status bar no longer add up the quantities of different parts (#42).
+- Collect… and Export… are disabled while the BOM has no rows (#38).
+
+### Fixed
+
+- Look up the Value where a part number is missing skipped part numbers without letters, as many connectors have, e.g. Molex 22-01-3037 or Würth 61300311121. Values of digits, with or without dashes, are now looked up when they have at least 7 digits.
+
 ## [0.9.0] - 2026-10-28
 
 ### Changed

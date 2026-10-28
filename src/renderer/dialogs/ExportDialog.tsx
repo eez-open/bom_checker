@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import {
+    apiDataInExport,
     buildBomSheet,
     buildInfoSheet,
     builtInPresets,
@@ -9,12 +10,14 @@ import {
     type ExportSelection,
     type RowFilter
 } from "../../shared/export";
+import type { VaultState } from "../../shared/ipc";
+import type { SupplierId } from "../../shared/model";
 import { SUPPLIERS } from "../../shared/suppliers";
 import { errorMessage } from "../errors";
 import { fileTitle } from "../../shared/bom-list";
 import { documentName, useDocument } from "../store/document";
 import { useWorkspace } from "../store/workspace";
-import { setAppSettings, useAppSettings } from "../store/settings";
+import { setAppSettings, useAppSettings, useNumbers } from "../store/settings";
 import { Modal } from "./Modal";
 
 const FORMATS: { id: ExportFormat; label: string }[] = [
@@ -31,6 +34,141 @@ function sameSelection(a: ExportSelection, b: ExportSelection): boolean {
     return JSON.stringify(a) === JSON.stringify(b);
 }
 
+/** "DigiKey", "DigiKey and Mouser", "DigiKey, Mouser and TME". */
+function namesText(suppliers: readonly SupplierId[]): string {
+    const names = suppliers.map(supplier => SUPPLIERS[supplier].name);
+    return names.length > 1
+        ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
+        : (names[0] ?? "");
+}
+
+/**
+ * Before an export with supplier data (#44): the suppliers' API terms
+ * don't allow passing it on, so the user confirms with the password of
+ * the supplier settings that they know. Without a password, a checkbox.
+ */
+function ConfirmExport({
+    suppliers,
+    onBack,
+    onConfirmed,
+    onClose
+}: {
+    suppliers: readonly SupplierId[];
+    onBack: () => void;
+    onConfirmed: () => void;
+    onClose: () => void;
+}) {
+    const formId = useId();
+    const passwordId = useId();
+    const [state, setState] = useState<VaultState | null>(null);
+    const [password, setPassword] = useState("");
+    const [understood, setUnderstood] = useState(false);
+    const [checking, setChecking] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        window.api.vault
+            .getState()
+            .then(setState)
+            .catch((caught: unknown) => setError(errorMessage(caught)));
+    }, []);
+
+    const confirm = async () => {
+        if (state === "none") {
+            onConfirmed();
+            return;
+        }
+        setChecking(true);
+        try {
+            if (await window.api.vault.checkPassword(password)) {
+                onConfirmed();
+                return;
+            }
+            setError("Wrong password.");
+        } catch (caught) {
+            setError(errorMessage(caught));
+        }
+        setChecking(false);
+    };
+
+    return (
+        <Modal
+            title="Export supplier data?"
+            onClose={onClose}
+            footer={
+                <>
+                    <button type="button" onClick={onBack}>
+                        Back
+                    </button>
+                    <button
+                        type="submit"
+                        form={formId}
+                        className="primary"
+                        disabled={
+                            state === null ||
+                            checking ||
+                            (state === "none" ? !understood : password === "")
+                        }
+                    >
+                        Export…
+                    </button>
+                </>
+            }
+        >
+            <form
+                id={formId}
+                className="settings-form"
+                onSubmit={event => {
+                    event.preventDefault();
+                    void confirm();
+                }}
+            >
+                <p role="alert">
+                    The export contains data from {namesText(suppliers)}: stock,
+                    prices and the rest collected through their APIs. Their
+                    terms don&apos;t allow passing it on, so keep the file to
+                    yourself; don&apos;t publish or share it. To share the BOM,
+                    export <em>Basic data only</em>.
+                </p>
+                {state === "none" ? (
+                    <label className="checkbox">
+                        <input
+                            type="checkbox"
+                            checked={understood}
+                            onChange={event =>
+                                setUnderstood(event.target.checked)
+                            }
+                        />
+                        I&apos;ll keep the file to myself
+                    </label>
+                ) : (
+                    <div className="form-row">
+                        <label htmlFor={passwordId}>Password</label>
+                        <input
+                            id={passwordId}
+                            type="password"
+                            autoComplete="off"
+                            autoFocus
+                            value={password}
+                            onChange={event => {
+                                setPassword(event.target.value);
+                                setError(null);
+                            }}
+                        />
+                    </div>
+                )}
+                {state !== "none" && (
+                    <p className="muted">
+                        The password of the supplier settings confirms the
+                        export.
+                    </p>
+                )}
+                {error && <p className="field-error">{error}</p>}
+            </form>
+        </Modal>
+    );
+}
+
 export function ExportDialog({ onClose }: { onClose: () => void }) {
     const project = useDocument(state => state.project);
     const listName = useWorkspace(state =>
@@ -44,6 +182,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
     const settings = useAppSettings(state => state.settings);
     const preference = settings.general.supplierOrder;
     const savedPresets = settings.general.exportPresets;
+    const numbers = useNumbers();
     const presets: { preset: ExportPreset; saved: boolean }[] = [
         ...builtInPresets(project).map(preset => ({ preset, saved: false })),
         ...savedPresets.map(preset => ({ preset, saved: true }))
@@ -56,14 +195,17 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
     const [presetName, setPresetName] = useState("");
     const [error, setError] = useState<string | null>(null);
     const [exportedTo, setExportedTo] = useState<string | null>(null);
+    // Supplier data in the export, to confirm first (#44).
+    const apiData = apiDataInExport(project, selection);
+    const [confirming, setConfirming] = useState(false);
 
     // The preset the current selection matches, if any.
     const current = presets.find(p =>
         sameSelection(p.preset.selection, selection)
     );
     const bom = useMemo(
-        () => buildBomSheet(project, preference, selection),
-        [project, preference, selection]
+        () => buildBomSheet(project, preference, selection, numbers),
+        [project, preference, selection, numbers]
     );
 
     const rowOptions: RowFilter[] = [
@@ -109,7 +251,8 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                 suggestedName: current
                     ? `${name} - ${current.preset.name}`
                     : name,
-                sheets
+                sheets,
+                decimalComma: numbers.decimalComma
             });
             if (path) {
                 setExportedTo(path);
@@ -118,6 +261,20 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
             setError(errorMessage(caught));
         }
     };
+
+    if (confirming) {
+        return (
+            <ConfirmExport
+                suppliers={apiData}
+                onBack={() => setConfirming(false)}
+                onConfirmed={() => {
+                    setConfirming(false);
+                    void runExport();
+                }}
+                onClose={onClose}
+            />
+        );
+    }
 
     if (exportedTo) {
         return (
@@ -170,7 +327,11 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                         type="button"
                         className="primary"
                         disabled={bom.rows.length < 2}
-                        onClick={() => void runExport()}
+                        onClick={() =>
+                            apiData.length > 0
+                                ? setConfirming(true)
+                                : void runExport()
+                        }
                     >
                         Export…
                     </button>

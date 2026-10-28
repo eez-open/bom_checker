@@ -3,6 +3,7 @@
 
 import {
     partNumberKey,
+    SUPPLIER_IDS,
     type BomRow,
     type CollectedData,
     type LookupResult,
@@ -244,6 +245,67 @@ export function summarizeRun(
         }
     }
     return summary;
+}
+
+/** Keys of collected results by supplier. */
+export type ResultKeys = Partial<Record<SupplierId, Set<string>>>;
+
+/**
+ * The collected results of the rows `rowIds` (#40), for every supplier:
+ * of their part numbers, and of their Values when they were looked up.
+ * Only keys that have a result; `rows` counts the rows with any.
+ */
+export function collectedKeysOf(
+    project: Project,
+    rowIds: ReadonlySet<string>
+): { keys: ResultKeys; rows: number } {
+    const keys: ResultKeys = {};
+    let rows = 0;
+    for (const row of rowsIn(project, { rowIds })) {
+        let found = false;
+        for (const supplier of SUPPLIER_IDS) {
+            const results = project.collected.results[supplier] ?? {};
+            const cell = row.partNumbers[supplier];
+            const value = valueAsPartNumber(row.value);
+            for (const text of [
+                isPartNumberDefined(cell) && !hasAlternatives(cell)
+                    ? cell!
+                    : null,
+                value
+            ]) {
+                const key = text === null ? null : partNumberKey(text);
+                if (key !== null && results[key]) {
+                    (keys[supplier] ??= new Set()).add(key);
+                    found = true;
+                }
+            }
+        }
+        rows += found ? 1 : 0;
+    }
+    return { keys, rows };
+}
+
+/** `collected` without the results `keys`; the same object if it has none
+ *  of them. Data is kept per part number, so rows with the same part
+ *  numbers lose it too. */
+export function withoutResults(
+    collected: CollectedData,
+    keys: ResultKeys
+): CollectedData {
+    const results = { ...collected.results };
+    let changed = false;
+    for (const [supplier, forgotten] of Object.entries(keys) as [
+        SupplierId,
+        Set<string>
+    ][]) {
+        const theirs = Object.entries(results[supplier] ?? {});
+        const kept = theirs.filter(([key]) => !forgotten.has(key));
+        if (kept.length < theirs.length) {
+            results[supplier] = Object.fromEntries(kept);
+            changed = true;
+        }
+    }
+    return changed ? { ...collected, results } : collected;
 }
 
 export interface ValueMatches {

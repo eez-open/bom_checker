@@ -6,7 +6,6 @@ import {
     SUPPLIER_DATA_FOLDER,
     readSupplierData
 } from "../src/main/project/supplier-data";
-import { serializeBomList } from "../src/shared/bom-list-file";
 import type { Project } from "../src/shared/model";
 import { createHistoryProject } from "../src/shared/parts-history";
 import { parseProjectFile, serializeProject } from "../src/shared/project-file";
@@ -54,7 +53,8 @@ async function writeList() {
     await writeFile(files.history, serializeProject(createHistoryProject()));
     await writeFile(
         files.list,
-        serializeBomList({
+        // A list saved before 0.10.0 (format 1).
+        JSON.stringify({
             schemaVersion: 1,
             boms: ["psu.eezbom", "mcu.eezbom"],
             history: "device history.eezbom"

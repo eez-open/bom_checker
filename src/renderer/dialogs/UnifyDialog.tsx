@@ -26,19 +26,10 @@ import {
     listMembers,
     type UnifyResult
 } from "../list-commands";
+import { useNumbers } from "../store/settings";
 import { useWorkspace } from "../store/workspace";
 import { CollectDialog, type CollectTarget } from "./CollectDialog";
 import { Modal } from "./Modal";
-
-const QUANTITY = new Intl.NumberFormat("en", { maximumFractionDigits: 6 });
-const UNIT_PRICE = new Intl.NumberFormat("en", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 5
-});
-const MONEY = new Intl.NumberFormat("en", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-});
 
 /** A choice in the dialog: keep the cells, use a part number (or Value)
  *  offered, or one typed in. */
@@ -175,6 +166,7 @@ function SupplierRows({
     collected: CollectedData;
     onChoose: (choice: Choice) => void;
 }) {
+    const numbers = useNumbers();
     const candidates = group.suppliers[supplier] ?? [];
     const name = `${group.id}|${supplier}`;
     const lines = candidates.map(candidate =>
@@ -247,25 +239,25 @@ function SupplierRows({
                             {candidate.partNumber === "-"
                                 ? ""
                                 : line
-                                  ? availabilityText(line)
+                                  ? availabilityText(line, numbers)
                                   : "Not collected"}
                         </td>
                         <td className="number">
-                            {offer ? QUANTITY.format(offer.stockQty) : ""}
+                            {offer ? numbers.quantity(offer.stockQty) : ""}
                         </td>
                         <td className="number">
                             {line?.orderQty != null
-                                ? QUANTITY.format(line.orderQty)
+                                ? numbers.quantity(line.orderQty)
                                 : ""}
                         </td>
                         <td className="number">
                             {line?.unitPrice != null
-                                ? `${UNIT_PRICE.format(line.unitPrice)}${line.inBaseCurrency ? "" : ` ${offer?.currency}`}`
+                                ? `${numbers.price(line.unitPrice)}${line.inBaseCurrency ? "" : ` ${offer?.currency}`}`
                                 : ""}
                         </td>
                         <td className="number">
                             {line?.total != null
-                                ? MONEY.format(line.total)
+                                ? numbers.money(line.total)
                                 : ""}
                         </td>
                         <td>{candidate.usedIn.join(", ")}</td>
@@ -329,6 +321,7 @@ function GroupSection({
     collected: CollectedData;
     onChoose: (key: string, choice: Choice) => void;
 }) {
+    const numbers = useNumbers();
     const valueKey = choiceKey(group, VALUE);
     const valueChoice = choices[valueKey];
     const otherValue = valueChoice?.kind === "other" ? valueChoice.text : "";
@@ -344,8 +337,8 @@ function GroupSection({
                     <span className="unify-footprint">{group.footprint}</span>
                 )}
                 <span className="unify-qty">
-                    {QUANTITY.format(group.totalQty)} pcs in {group.rows.length}{" "}
-                    rows
+                    {numbers.quantity(group.totalQty)} pcs in{" "}
+                    {group.rows.length} rows
                 </span>
             </h3>
             <p className="muted unify-used-in">{usedInText(group)}</p>
@@ -486,6 +479,8 @@ function Done({ result }: { result: UnifyResult }) {
  */
 export function UnifyDialog({ onClose }: { onClose: () => void }) {
     const historyPath = useWorkspace(state => state.list?.history ?? null);
+    // Quantities for all devices (#39).
+    const buildQuantity = useWorkspace(state => state.list?.buildQuantity ?? 1);
     // The BOMs as they were when the dialog opened (they were saved).
     const [members] = useState(listMembers);
     const [history] = useState(
@@ -514,8 +509,12 @@ export function UnifyDialog({ onClose }: { onClose: () => void }) {
     const collected = useStore(session, state => state.project.collected);
     const [matchFootprint, setMatchFootprint] = useState(true);
     const groups = useMemo(
-        () => findUnifyGroups(members, history, { matchFootprint }),
-        [members, history, matchFootprint]
+        () =>
+            findUnifyGroups(members, history, {
+                matchFootprint,
+                buildQuantity
+            }),
+        [members, history, matchFootprint, buildQuantity]
     );
     const [choices, setChoices] = useState<Choices>(() =>
         suggestedChoices(groups, session.getState().project.collected)
@@ -633,7 +632,8 @@ export function UnifyDialog({ onClose }: { onClose: () => void }) {
                                     setChoices(
                                         suggestedChoices(
                                             findUnifyGroups(members, history, {
-                                                matchFootprint: match
+                                                matchFootprint: match,
+                                                buildQuantity
                                             }),
                                             collected
                                         )

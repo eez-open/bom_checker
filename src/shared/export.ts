@@ -12,7 +12,9 @@ import {
     type Project,
     type SupplierId
 } from "./model";
+import type { Numbers } from "./numbers";
 import { isPartNumberDefined } from "./part-number";
+import { suppliersWithData } from "./project-ops";
 import {
     BASE_CURRENCY,
     bestSupplier,
@@ -130,6 +132,23 @@ export function builtInPresets(project: Project): ExportPreset[] {
     ];
 }
 
+/**
+ * Suppliers whose API data the export would contain (#44): the data
+ * columns of the chosen suppliers, and the Best price columns, which come
+ * from every supplier's prices. Their terms don't allow passing it on.
+ */
+export function apiDataInExport(
+    project: Project,
+    selection: ExportSelection
+): SupplierId[] {
+    return suppliersWithData(project).filter(
+        supplier =>
+            selection.best ||
+            (!selection.partNumbersOnly &&
+                selection.suppliers.includes(supplier))
+    );
+}
+
 /** A plain description of a row filter, for the dialog and the Info sheet. */
 export function describeRowFilter(filter: RowFilter): string {
     switch (filter.kind) {
@@ -160,7 +179,8 @@ const TOTAL_FORMAT = "0.00";
 function columns(
     project: Project,
     preference: readonly SupplierId[],
-    selection: ExportSelection
+    selection: ExportSelection,
+    numbers: Numbers
 ): Column[] {
     const { collected } = project;
     const { buildQuantity } = project;
@@ -183,7 +203,7 @@ function columns(
         // mistaken for EUR.
         return l.inBaseCurrency
             ? l.unitPrice
-            : `${l.unitPrice} ${l.offer.currency}`;
+            : `${numbers.price(l.unitPrice)} ${l.offer.currency}`;
     };
 
     const result: Column[] = [
@@ -266,7 +286,8 @@ function columns(
             {
                 header: `${name}_Availability`,
                 width: 16,
-                value: row => availabilityText(line(row, supplier)) || null
+                value: row =>
+                    availabilityText(line(row, supplier), numbers) || null
             },
             {
                 header: `${name}_Status`,
@@ -329,7 +350,7 @@ function columns(
                 {
                     header: `${name}_Availability`,
                     width: 16,
-                    value: row => availabilityText(manual(row)) || null
+                    value: row => availabilityText(manual(row), numbers) || null
                 }
             );
         }
@@ -417,13 +438,15 @@ function matches(
     }
 }
 
-/** The BOM sheet: headers, then one line per matching row. */
+/** The BOM sheet: headers, then one line per matching row. Numbers in
+ *  text, e.g. "Partial: 1,234", are formatted with `numbers` (#37). */
 export function buildBomSheet(
     project: Project,
     preference: readonly SupplierId[],
-    selection: ExportSelection
+    selection: ExportSelection,
+    numbers: Numbers
 ): ExportSheet {
-    const included = columns(project, preference, selection);
+    const included = columns(project, preference, selection, numbers);
     const rows = project.rows
         .map((row, index) => ({ row, index }))
         .filter(({ row }) => matches(project, preference, row, selection.rows))

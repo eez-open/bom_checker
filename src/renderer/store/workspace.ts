@@ -1,16 +1,11 @@
 import { create } from "zustand";
+import type { ListState } from "../../shared/ipc";
 import type { DocumentSnapshot } from "./document";
 
 /** Selection of the list's Combined BOM (#35), instead of a BOM's path. */
 export const COMBINED = "combined";
 
-export interface OpenList {
-    filePath: string;
-    /** The BOMs' files, in the list's order. */
-    boms: string[];
-    /** The history BOM's file; null if the list has none. */
-    history: string | null;
-}
+export type OpenList = ListState;
 
 /** A BOM list (#35): the BOMs on the left, the selected one on the right. */
 interface WorkspaceStore {

@@ -55,7 +55,12 @@ describe("valueAsPartNumber", () => {
             "2N7002",
             "LM358",
             "ESP32-S3-WROOM-1",
-            " STM32F103C8T6 "
+            " STM32F103C8T6 ",
+            "22-01-3037",
+            "08-50-0114",
+            "1-640456-0",
+            "1757242",
+            "61300311121"
         ]) {
             expect(valueAsPartNumber(value)).toBe(value.trim());
         }
@@ -74,6 +79,10 @@ describe("valueAsPartNumber", () => {
             "47pF",
             "1M",
             "100",
+            "4700",
+            "100000",
+            "5-12",
+            "2.5-3.3",
             "LED",
             "DNP",
             "Conn_01x04",

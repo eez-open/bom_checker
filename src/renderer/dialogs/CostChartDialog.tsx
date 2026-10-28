@@ -13,19 +13,10 @@ import {
 } from "../cost-chart";
 import { errorMessage } from "../errors";
 import { documentName, useDocument } from "../store/document";
-import { useAppSettings } from "../store/settings";
+import { useAppSettings, useNumbers } from "../store/settings";
 import { useWorkspace } from "../store/workspace";
+import type { Numbers } from "../../shared/numbers";
 import { Modal } from "./Modal";
-
-const MONEY = new Intl.NumberFormat("en", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-});
-const PERCENT = new Intl.NumberFormat("en", {
-    style: "percent",
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1
-});
 
 // The ring, in SVG units.
 const SIZE = 240;
@@ -33,12 +24,13 @@ const RING: Ring = { cx: SIZE / 2, cy: SIZE / 2, outer: 116, inner: 70 };
 
 function summaryOf(
     { items, other, total }: CostBreakdown,
-    buildQuantity: number
+    buildQuantity: number,
+    { money, percent }: Numbers
 ): string {
     const units = buildQuantity > 1 ? ` for ${buildQuantity} units` : "";
     return other
-        ? `The ${items.length} most expensive rows make up ${PERCENT.format(1 - other.share)} of the best price total, ${MONEY.format(total)} ${BASE_CURRENCY}${units}.`
-        : `Best price total: ${MONEY.format(total)} ${BASE_CURRENCY}${units}, from ${items.length} ${items.length === 1 ? "row" : "rows"} with a price.`;
+        ? `The ${items.length} most expensive rows make up ${percent(1 - other.share)} of the best price total, ${money(total)} ${BASE_CURRENCY}${units}.`
+        : `Best price total: ${money(total)} ${BASE_CURRENCY}${units}, from ${items.length} ${items.length === 1 ? "row" : "rows"} with a price.`;
 }
 
 /**
@@ -60,6 +52,8 @@ export function CostChartDialog({ onClose }: { onClose: () => void }) {
     const preference = useAppSettings(
         state => state.settings.general.supplierOrder
     );
+    const numbers = useNumbers();
+    const { money, percent } = numbers;
     const breakdown = useMemo(
         () => costBreakdown(project, preference),
         [project, preference]
@@ -69,7 +63,7 @@ export function CostChartDialog({ onClose }: { onClose: () => void }) {
     const [message, setMessage] = useState<string | null>(null);
     const { items, other, total } = breakdown;
     const slices = slicesOf(breakdown);
-    const summary = summaryOf(breakdown, project.buildQuantity);
+    const summary = summaryOf(breakdown, project.buildQuantity, numbers);
 
     const hover = (key: string) => ({
         onMouseEnter: () => setActive(key),
@@ -78,13 +72,18 @@ export function CostChartDialog({ onClose }: { onClose: () => void }) {
     const title = (index: number) => {
         const item = items[index];
         return item
-            ? `${index + 1}. ${describeItem(item)}: ${MONEY.format(item.total)} ${BASE_CURRENCY} (${PERCENT.format(item.share)})`
-            : `Other ${other!.rows} ${other!.rows === 1 ? "row" : "rows"}: ${MONEY.format(other!.total)} ${BASE_CURRENCY} (${PERCENT.format(other!.share)})`;
+            ? `${index + 1}. ${describeItem(item)}: ${money(item.total)} ${BASE_CURRENCY} (${percent(item.share)})`
+            : `Other ${other!.rows} ${other!.rows === 1 ? "row" : "rows"}: ${money(other!.total)} ${BASE_CURRENCY} (${percent(other!.share)})`;
     };
 
     const png = () =>
         pictureToPng(
-            chartPicture(breakdown, `${name}: most expensive parts`, summary)
+            chartPicture(
+                breakdown,
+                `${name}: most expensive parts`,
+                summary,
+                numbers
+            )
         );
     const copy = async () => {
         try {
@@ -211,7 +210,7 @@ export function CostChartDialog({ onClose }: { onClose: () => void }) {
                                 x={RING.cx}
                                 y={RING.cy - 4}
                             >
-                                {MONEY.format(total)}
+                                {money(total)}
                             </text>
                             <text
                                 className="cost-center-unit"
@@ -269,10 +268,10 @@ export function CostChartDialog({ onClose }: { onClose: () => void }) {
                                         </td>
                                         <td>{item.supplier}</td>
                                         <td className="number">
-                                            {MONEY.format(item.total)}
+                                            {money(item.total)}
                                         </td>
                                         <td className="number">
-                                            {PERCENT.format(item.share)}
+                                            {percent(item.share)}
                                         </td>
                                     </tr>
                                 ))}
@@ -293,10 +292,10 @@ export function CostChartDialog({ onClose }: { onClose: () => void }) {
                                             {other.rows === 1 ? "row" : "rows"}
                                         </td>
                                         <td className="number">
-                                            {MONEY.format(other.total)}
+                                            {money(other.total)}
                                         </td>
                                         <td className="number">
-                                            {PERCENT.format(other.share)}
+                                            {percent(other.share)}
                                         </td>
                                     </tr>
                                 )}

@@ -32,9 +32,7 @@ test("imports BOM example.csv", async () => {
 
         await dialog.getByRole("button", { name: "Import" }).click();
         await expect(dialog).toBeHidden();
-        await expect(page.getByTestId("bom-summary")).toHaveText(
-            "125 rows · 367 parts"
-        );
+        await expect(page.getByTestId("bom-summary")).toHaveText("125 rows");
         await expect(page).toHaveTitle("*Untitled - EEZ BOM checker");
         await expect(cell(page, 0, "pn:digikey")).toHaveText("732-7858-1-ND");
     } finally {
