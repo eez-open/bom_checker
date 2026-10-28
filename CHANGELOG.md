@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Changed
 
 - The Total row and the status bar no longer add up the quantities of different parts (#42).
+- Collect… and Export… are disabled while the BOM has no rows (#38).
 
 ### Fixed
 

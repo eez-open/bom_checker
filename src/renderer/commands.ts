@@ -346,8 +346,15 @@ export function showAllColumns(): void {
     setHiddenColumns([]);
 }
 
+/** Collecting and exporting need rows (#38); also for the shortcuts. */
+function hasRows(): boolean {
+    return useDocument.getState().project.rows.length > 0;
+}
+
 export function openExport(): void {
-    useUi.setState({ dialog: { kind: "export" } });
+    if (hasRows()) {
+        useUi.setState({ dialog: { kind: "export" } });
+    }
 }
 
 export function openCostChart(): void {
@@ -355,7 +362,9 @@ export function openCostChart(): void {
 }
 
 export function openCollect(): void {
-    useUi.setState({ dialog: { kind: "collect" } });
+    if (hasRows()) {
+        useUi.setState({ dialog: { kind: "collect" } });
+    }
 }
 
 /** Tools → Unify Part Numbers… of a BOM list (#35). It changes the BOM

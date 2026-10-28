@@ -35,6 +35,9 @@ test("builds a BOM from scratch, saves, undoes and reopens it", async () => {
         await expect(cell(page, 0, "value")).toHaveText("100n");
         await expect(cell(page, 0, "footprint")).toHaveText("0603");
         await expect(page.getByTestId("bom-summary")).toHaveText("1 row");
+        await expect(
+            page.getByRole("button", { name: "Export…" })
+        ).toBeEnabled();
         await expect(page).toHaveTitle("*Untitled - EEZ BOM checker");
 
         // Add a Mouser part-number column and a custom column.

@@ -38,6 +38,8 @@ export interface MenuState {
     listOpen: boolean;
     /** False for a view that can't be edited, e.g. a list's Combined. */
     editable: boolean;
+    /** The open BOM has rows, to collect and export (#38). */
+    hasRows: boolean;
     /** The open BOM was imported from a KiCad project. */
     fromKicad: boolean;
     /** Column groups the table has now. */

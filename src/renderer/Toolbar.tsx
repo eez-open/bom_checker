@@ -198,11 +198,17 @@ export function Toolbar() {
                     <button
                         type="button"
                         className="primary"
+                        disabled={rows.length === 0}
                         onClick={openCollect}
                     >
                         Collect…
                     </button>
-                    <button type="button" title="Ctrl+E" onClick={openExport}>
+                    <button
+                        type="button"
+                        title="Ctrl+E"
+                        disabled={rows.length === 0}
+                        onClick={openExport}
+                    >
                         Export…
                     </button>
                     {fromKicad && (

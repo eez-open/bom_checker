@@ -48,6 +48,7 @@ let state: MenuState = {
     documentOpen: false,
     listOpen: false,
     editable: false,
+    hasRows: false,
     fromKicad: false,
     availableColumns: [],
     hiddenColumns: []
@@ -70,6 +71,18 @@ function editCommand(
 ): MenuItemConstructorOptions {
     return command(label, name, {
         enabled: state.documentOpen && state.editable,
+        ...options
+    });
+}
+
+/** A command that needs rows in the open BOM (#38). */
+function rowsCommand(
+    label: string,
+    name: MenuCommand,
+    options: MenuItemConstructorOptions = {}
+): MenuItemConstructorOptions {
+    return command(label, name, {
+        enabled: state.documentOpen && state.hasRows,
         ...options
     });
 }
@@ -131,6 +144,7 @@ const menuStateSchema = z.object({
     documentOpen: z.boolean(),
     listOpen: z.boolean(),
     editable: z.boolean(),
+    hasRows: z.boolean(),
     fromKicad: z.boolean(),
     availableColumns: z.array(z.enum(COLUMN_GROUPS)),
     hiddenColumns: z.array(z.enum(COLUMN_GROUPS))
@@ -203,7 +217,7 @@ export function createMenu(): Menu {
                     enabled: state.documentOpen && state.fromKicad
                 }),
                 { type: "separator" },
-                documentCommand("&Export…", "export", {
+                rowsCommand("&Export…", "export", {
                     accelerator: "CmdOrCtrl+E"
                 }),
                 command("&Update KiCad Project…", "update-kicad", {
@@ -261,7 +275,7 @@ export function createMenu(): Menu {
         {
             label: "&Tools",
             submenu: [
-                documentCommand("C&ollect Supplier Data…", "collect"),
+                rowsCommand("C&ollect Supplier Data…", "collect"),
                 listCommand("&Unify Part Numbers…", "unify", { id: "unify" }),
                 { type: "separator" },
                 command("&Settings…", "settings", {

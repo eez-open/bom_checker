@@ -148,6 +148,7 @@ export function App() {
         .filter(id => !id.startsWith("manual:"))
         .join(",");
     const fromKicad = project.source.kind === "kicad" && !!project.source.path;
+    const hasRows = project.rows.length > 0;
 
     useEffect(() => {
         loadAppSettings();
@@ -187,6 +188,7 @@ export function App() {
             documentOpen: open,
             listOpen: list !== null,
             editable: open && !readOnly,
+            hasRows: open && hasRows,
             fromKicad: open && fromKicad,
             availableColumns:
                 open && availableKey
@@ -196,7 +198,7 @@ export function App() {
                 (group): group is ColumnGroup => !group.startsWith("manual:")
             )
         });
-    }, [open, list, readOnly, fromKicad, availableKey, hiddenColumns]);
+    }, [open, list, readOnly, hasRows, fromKicad, availableKey, hiddenColumns]);
 
     const listName = list ? fileTitle(list.filePath) : null;
     useEffect(() => {

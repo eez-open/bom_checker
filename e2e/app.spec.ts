@@ -29,6 +29,13 @@ test("starts on the start page, then shows an empty BOM", async () => {
         }
         await expect(page.getByText("No components yet.")).toBeVisible();
         await expect(page.getByTestId("bom-summary")).toHaveText("0 rows");
+        // Nothing to collect or export yet (#38).
+        await expect(
+            page.getByRole("button", { name: "Collect…" })
+        ).toBeDisabled();
+        await expect(
+            page.getByRole("button", { name: "Export…" })
+        ).toBeDisabled();
         await expect(page.getByTestId("app-version")).toHaveText(
             /^v\d+\.\d+\.\d+/
         );
