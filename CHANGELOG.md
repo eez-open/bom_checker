@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- The Best price header turns red with a warning sign when rows have no supplier with enough stock, which the best-price total leaves out; its tooltip says how many. The chart of the most expensive parts, and its picture, say so too (#49).
+
 ### Changed
 
 - Settings → General → Numbers has its options one per line (#47).

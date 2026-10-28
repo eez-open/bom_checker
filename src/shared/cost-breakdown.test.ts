@@ -58,7 +58,20 @@ describe("cost breakdown", () => {
         expect(costBreakdown(bom([null]), [])).toEqual({
             items: [],
             other: null,
-            total: 0
+            total: 0,
+            uncovered: 0
         });
+    });
+
+    it("counts rows that no supplier has enough stock for (#49)", () => {
+        const project = bom([1, 2, null]);
+        const shop = project.manualSuppliers[0]!.id;
+        // R2's shop has 3 of the 4 needed (2 per unit × 2 units).
+        project.rows[1]!.manual![shop]!.stock = 3;
+        project.buildQuantity = 2;
+        const breakdown = costBreakdown(project, []);
+        expect(breakdown.items.map(item => item.reference)).toEqual(["R1"]);
+        expect(breakdown.uncovered).toBe(1);
+        expect(breakdown.uncovered).toBe(bomTotals(project, []).uncovered);
     });
 });

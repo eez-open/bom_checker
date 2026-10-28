@@ -19,6 +19,20 @@ function Icon({ children }: { children: ReactNode }) {
     );
 }
 
+/** The warning sign's lines, also drawn in chart pictures. */
+export const WARNING_SIGN = ["M8 1.8 14.8 13.8H1.2Z", "M8 6v3.6", "M8 11.6v.1"];
+
+/** A warning sign (#49); it takes the text colour. */
+export function WarningIcon() {
+    return (
+        <Icon>
+            {WARNING_SIGN.map(d => (
+                <path key={d} d={d} />
+            ))}
+        </Icon>
+    );
+}
+
 export function EyeIcon() {
     return (
         <Icon>

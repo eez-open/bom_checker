@@ -84,6 +84,21 @@ test("calculates order quantities, prices and the best supplier", async () => {
         await expect(page.getByTestId("bom-total")).toHaveText(
             "Best price total: 30.92 EUR · 1 row without a supplier that has enough stock"
         );
+        // The Best price header and the chart warn of it (#49).
+        const leftOut =
+            "1 row has no supplier with enough stock, so the best price leaves it out.";
+        const bestHeader = page.locator(".group-header", {
+            hasText: "Best price"
+        });
+        await expect(bestHeader).toHaveClass(/group-header-warning/);
+        await expect(bestHeader).toHaveAttribute("title", leftOut);
+        await page.getByRole("button", { name: "Top 10" }).click();
+        const costChart = page.getByRole("dialog", {
+            name: "Most expensive parts"
+        });
+        await expect(costChart.getByTestId("cost-warning")).toHaveText(leftOut);
+        await page.keyboard.press("Escape");
+        await expect(costChart).toHaveCount(0);
 
         // Search (Ctrl+F, #29): rows with the text in any column.
         await clickMenuItem(app, "find");
@@ -111,9 +126,12 @@ test("calculates order quantities, prices and the best supplier", async () => {
             "Total of shown rows"
         );
         await expect(cell(page, TOTAL, "best:totalPrice")).toHaveText("24.00");
+        // Like the Total row, the warning is about the shown rows.
+        await expect(bestHeader).not.toHaveClass(/group-header-warning/);
         await page.getByRole("button", { name: "Show all" }).click();
         await expect(cell(page, TOTAL, "reference")).toHaveText("Total");
         await expect(cell(page, R1, "reference")).toHaveText("R1");
+        await expect(bestHeader).toHaveClass(/group-header-warning/);
 
         // The Total row adds up each price column, but not the quantities
         // of different parts (#42).
@@ -153,6 +171,7 @@ test("calculates order quantities, prices and the best supplier", async () => {
         await expect(page.getByTestId("bom-total")).toHaveText(
             "Best price total: 31.72 EUR"
         );
+        await expect(bestHeader).not.toHaveClass(/group-header-warning/);
         await expect(cell(page, TOTAL, "data:digikey:totalPrice")).toHaveText(
             "24.80"
         );
@@ -271,6 +290,7 @@ test("calculates order quantities, prices and the best supplier", async () => {
         await expect(chart.getByTestId("cost-summary")).toHaveText(
             "Best price total: 31.72 EUR, from 4 rows with a price."
         );
+        await expect(chart.getByTestId("cost-warning")).toHaveCount(0);
         await expect(chart.locator("tbody tr")).toHaveText([
             /^1C1100nDigiKey24\.0075\.7%$/,
             /^2U1TPS54331Mouser6\.3019\.9%$/,

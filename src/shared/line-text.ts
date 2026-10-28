@@ -10,6 +10,14 @@ import type { SupplierLine } from "./pricing";
  *  with stock, e.g. a box when cut tape is out of stock. */
 export const OTHER_PACKAGING = "Other packaging: ";
 
+/** Rows the best price leaves out, since no supplier has enough stock
+ *  (#49). */
+export function uncoveredText(uncovered: number): string {
+    return uncovered === 1
+        ? "1 row has no supplier with enough stock, so the best price leaves it out."
+        : `${uncovered} rows have no supplier with enough stock, so the best price leaves them out.`;
+}
+
 /** "Other packaging: 495-4874-3-ND (Tape & Box (TB)): 1930 in stock,
  *  MOQ 2000." Kept with the collected data, so without grouping, which
  *  would read as decimals with a decimal comma (#37). */

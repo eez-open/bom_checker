@@ -2,8 +2,10 @@
 // geometry, and the picture that is copied or saved as PNG.
 
 import type { CostBreakdown, CostItem } from "../shared/cost-breakdown";
+import { uncoveredText } from "../shared/line-text";
 import type { Numbers } from "../shared/numbers";
 import { BASE_CURRENCY } from "../shared/pricing";
+import { WARNING_SIGN } from "./icons";
 
 /**
  * One colour per rank. The reference palette's eight hues plus raspberry
@@ -28,6 +30,9 @@ export const CHART_COLORS: readonly { fill: string; label: string }[] = [
 
 /** The rest of the BOM: de-emphasised gray. */
 export const OTHER_COLOR = "#c3c2b7";
+
+/** Rows left out of the total (#49), as the app's error colour. */
+const WARNING_COLOR = "#cf222e";
 
 export interface Slice {
     key: string;
@@ -138,8 +143,12 @@ export function chartPicture(
     { money, percent }: Numbers
 ): { svg: string; width: number; height: number } {
     const width = 780;
-    const ring: Ring = { cx: 154, cy: 226, outer: 120, inner: 72 };
-    const top = 96;
+    // A line under the summary for rows the total leaves out (#49).
+    const warning =
+        breakdown.uncovered > 0 ? uncoveredText(breakdown.uncovered) : null;
+    const shift = warning ? 24 : 0;
+    const ring: Ring = { cx: 154, cy: 226 + shift, outer: 120, inner: 72 };
+    const top = 96 + shift;
     const rowHeight = 24;
     const rows = breakdown.items.length + (breakdown.other ? 1 : 0);
     const height = Math.max(
@@ -155,6 +164,18 @@ export function chartPicture(
         text(24, 38, title, 'font-size="18" font-weight="600" fill="#1f2328"'),
         text(24, 62, summary, 'font-size="13" fill="#59636e"')
     ];
+    if (warning) {
+        const signs = WARNING_SIGN.map(d => `<path d="${d}"/>`).join("");
+        parts.push(
+            `<g transform="translate(24 74)" fill="none" stroke="${WARNING_COLOR}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${signs}</g>`,
+            text(
+                46,
+                86,
+                warning,
+                `font-size="13" font-weight="600" fill="${WARNING_COLOR}"`
+            )
+        );
+    }
     for (const slice of slices) {
         parts.push(
             slice.share > 0.9999

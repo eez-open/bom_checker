@@ -174,12 +174,18 @@ export function BomTable({
         api.autoSizeColumns(totals);
     }, []);
 
+    // The Best price header warns of rows without enough stock (#49).
+    const uncovered = useRef(totals.best.uncovered);
     useEffect(() => {
         totalsRef.current = totals;
         const api = apiRef.current;
         const totalsRow = api?.getPinnedTopRow(0);
         if (api && totalsRow) {
             api.refreshCells({ rowNodes: [totalsRow], force: true });
+        }
+        if (api && uncovered.current !== totals.best.uncovered) {
+            uncovered.current = totals.best.uncovered;
+            api.refreshHeader();
         }
     }, [totals]);
 

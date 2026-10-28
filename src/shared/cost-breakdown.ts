@@ -2,7 +2,7 @@
 // most expensive parts (#28).
 
 import type { Project, SupplierId } from "./model";
-import { bestSupplier } from "./pricing";
+import { bestSupplier, hasSupplierData } from "./pricing";
 import { supplierName } from "./suppliers";
 
 export const COST_CHART_LIMIT = 10;
@@ -26,6 +26,9 @@ export interface CostBreakdown {
     other: { rows: number; total: number; share: number } | null;
     /** The BOM's best price total (as in the status bar). */
     total: number;
+    /** Rows with supplier data but no supplier that has enough stock, which
+     *  the total leaves out (#49). */
+    uncovered: number;
 }
 
 export function costBreakdown(
@@ -33,6 +36,7 @@ export function costBreakdown(
     preference: readonly SupplierId[],
     limit = COST_CHART_LIMIT
 ): CostBreakdown {
+    let uncovered = 0;
     const priced = project.rows.flatMap(row => {
         const best = bestSupplier(
             row,
@@ -42,6 +46,9 @@ export function costBreakdown(
             project.buildQuantity,
             project.manualSuppliers
         );
+        if (!best && hasSupplierData(row, project)) {
+            uncovered++;
+        }
         return best && best.line.total > 0 ? [{ row, best }] : [];
     });
     const total = priced.reduce((sum, { best }) => sum + best.line.total, 0);
@@ -69,6 +76,7 @@ export function costBreakdown(
                       share: share(otherTotal)
                   }
                 : null,
-        total
+        total,
+        uncovered
     };
 }

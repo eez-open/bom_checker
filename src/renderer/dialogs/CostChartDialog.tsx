@@ -12,6 +12,8 @@ import {
     type Ring
 } from "../cost-chart";
 import { errorMessage } from "../errors";
+import { WarningIcon } from "../icons";
+import { uncoveredText } from "../../shared/line-text";
 import { documentName, useDocument } from "../store/document";
 import { useAppSettings, useNumbers } from "../store/settings";
 import { useWorkspace } from "../store/workspace";
@@ -64,6 +66,13 @@ export function CostChartDialog({ onClose }: { onClose: () => void }) {
     const { items, other, total } = breakdown;
     const slices = slicesOf(breakdown);
     const summary = summaryOf(breakdown, project.buildQuantity, numbers);
+    // Rows the total leaves out (#49), as in the Best price header.
+    const warning = breakdown.uncovered > 0 && (
+        <p className="cost-warning" data-testid="cost-warning">
+            <WarningIcon />
+            {uncoveredText(breakdown.uncovered)}
+        </p>
+    );
 
     const hover = (key: string) => ({
         onMouseEnter: () => setActive(key),
@@ -137,14 +146,18 @@ export function CostChartDialog({ onClose }: { onClose: () => void }) {
             }
         >
             {items.length === 0 ? (
-                <p>
-                    No prices yet. Collect supplier data, or type in the prices
-                    of a supplier without an API, to see which parts cost the
-                    most.
-                </p>
+                <>
+                    <p>
+                        No prices yet. Collect supplier data, or type in the
+                        prices of a supplier without an API, to see which parts
+                        cost the most.
+                    </p>
+                    {warning}
+                </>
             ) : (
                 <>
                     <p data-testid="cost-summary">{summary}</p>
+                    {warning}
                     <div className="cost-chart">
                         <svg
                             viewBox={`0 0 ${SIZE} ${SIZE}`}
