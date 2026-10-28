@@ -499,5 +499,3 @@ export function suppliersWithData(project: Project): SupplierId[] {
         s => Object.keys(project.collected.results[s] ?? {}).length > 0
     );
 }
-
-/** Total number of parts (sum of Qty). */
