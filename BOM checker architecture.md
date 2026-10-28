@@ -435,7 +435,7 @@ Files in the app-data folder (`%APPDATA%\EEZ BOM checker\` on Windows, `~/.confi
 - API calls used and remaining today.
 
 **Looking up Values** (optional, GitHub #10)
-- **Work list:** with the option on, rows whose cell for the supplier is empty (not "-") add their Value to the work list when it looks like a manufacturer part number (`valueAsPartNumber`: letters and digits, no spaces). Generic passive values (100n, 4u7, 10k, 0R010) are skipped; SI prefixes are case-sensitive, so 1N4148 isn't read as "1n". The plugins already resolve manufacturer part numbers (6.2), so nothing supplier-specific is added.
+- **Work list:** with the option on, rows whose cell for the supplier is empty (not "-") add their Value to the work list when it looks like a manufacturer part number (`valueAsPartNumber`: letters and digits, no spaces; or digits only with dashes and at least 7 digits, as many connectors have, e.g. Molex 22-01-3037 or Würth 61300311121). Generic passive values (100n, 4u7, 10k, 0R010) are skipped; SI prefixes are case-sensitive, so 1N4148 isn't read as "1n". The plugins already resolve manufacturer part numbers (6.2), so nothing supplier-specific is added.
 - **Filling in:** when the run ends, one match puts the supplier's part number in the cell (its result is copied under that number); several matches put the Value in the cell, so the user chooses the item; no match leaves the cell empty. This is one undo step.
 - **Not done:** turning a generic value plus footprint into one part. The APIs can only return candidates for that, and choosing one needs defaults for dielectric, voltage, tolerance and packaging.
 

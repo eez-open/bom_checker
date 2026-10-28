@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- Look up the Value where a part number is missing skipped part numbers without letters, as many connectors have, e.g. Molex 22-01-3037 or Würth 61300311121. Values of digits, with or without dashes, are now looked up when they have at least 7 digits.
+
 ## [0.9.0] - 2026-10-28
 
 ### Changed
