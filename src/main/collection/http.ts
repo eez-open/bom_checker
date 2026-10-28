@@ -20,6 +20,11 @@ export interface Http {
     request(request: HttpRequest): Promise<HttpResponse>;
 }
 
+/** Token fields of OAuth answers, which are logged before the plugin can
+ *  add the token they hold. */
+const TOKEN_FIELDS =
+    /("(?:access_token|refresh_token|id_token)"\s*:\s*")[^"]*"/g;
+
 /** Replaces secret values (API keys, tokens) with *** in logged text. */
 export class Redactor {
     private readonly values = new Set<string>();
@@ -32,7 +37,7 @@ export class Redactor {
     }
 
     redact(text: string): string {
-        let result = text;
+        let result = text.replace(TOKEN_FIELDS, '$1***"');
         for (const value of this.values) {
             result = result.split(value).join("***");
         }

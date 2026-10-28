@@ -75,6 +75,24 @@ describe("http client", () => {
         expect(logged.join("\n")).toContain("apiKey=***");
     });
 
+    it("logs OAuth answers without their tokens", async () => {
+        // As DigiKey answers; the token isn't known to the redactor yet.
+        const { http, logged } = setup(
+            [
+                new Response(
+                    '{\n "access_token":"9HDuETxADIBq",\n "refresh_token": "r-77",\n "expires_in":599\n}'
+                )
+            ],
+            true
+        );
+        await http.request({ method: "POST", url: "https://api.test/token" });
+        const log = logged.join("\n");
+        expect(log).not.toContain("9HDuETxADIBq");
+        expect(log).not.toContain("r-77");
+        expect(log).toContain('"access_token":"***"');
+        expect(log).toContain('"expires_in":599');
+    });
+
     it("retries server errors with a growing pause", async () => {
         const { http, slept, acquired } = setup([
             new Response("", { status: 503 }),
