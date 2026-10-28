@@ -68,7 +68,7 @@ If Electron prints `bad option: --remote-debugging-port` or starts as plain Node
 
 1. Update the version in `package.json` and the `CHANGELOG.md`.
 2. Tag the commit (`git tag v0.2.0`) and push the tag.
-3. CI builds both platforms, smoke-tests the packaged apps and creates a draft GitHub release with the installers attached. Review it and publish it.
+3. CI builds both platforms, smoke-tests the packaged apps and creates a draft GitHub release with the installers attached. Review it and publish it. Builds of branches and pull requests are smoke-tested too, but their installers aren't kept.
 
 Upgrading Electron and other major dependencies: [docs/upgrade-checklist.md](docs/upgrade-checklist.md).
 
