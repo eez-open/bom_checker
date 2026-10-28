@@ -610,6 +610,10 @@ These points couldn't be settled from documentation and should be the first thin
 
 ## 15. Status
 
+### Version 0.10.0
+
+Numbers as the region writes them, or with a chosen decimal separator, also in CSV exports (#37, section 11). Build qty for a list's Combined BOM, with how many of each BOM a device has; list format 2 (#39, section 9.5). Forget the supplier data of selected rows (#40). Suppliers and Best price on tabs (#41). Exports with supplier data are confirmed with the password (#44). The Total row and status bar add up no quantities (#42), Collect and Export need rows (#38), and the Value lookup takes part numbers of digits only. Unit tests: 234; end-to-end tests: 22.
+
 ### Version 0.9.0
 
 Supplier data is kept on the computer, not in the BOM file (file format 6, section 5.1), as the suppliers' API terms don't allow passing it on and BOM files get published. Showing a list's Combined BOM no longer changes the BOMs, BOMs with unsaved changes get a larger orange dot, and the selected list item stays blue on hover. Unit tests: 227; end-to-end tests: 21.
