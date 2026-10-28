@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-28
+
 ### Changed
 
 - Supplier data (stock, prices, descriptions and the rest collected from the suppliers' APIs) is no longer saved in `.eezbom` files. It's kept on your computer, in the app's data folder, so BOM files can be published, e.g. on GitHub: the suppliers' API terms don't allow passing their data on. Whoever opens a published BOM collects the data with their own credentials.

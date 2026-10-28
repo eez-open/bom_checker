@@ -609,6 +609,10 @@ These points couldn't be settled from documentation and should be the first thin
 
 ## 15. Status
 
+### Version 0.9.0
+
+Supplier data is kept on the computer, not in the BOM file (file format 6, section 5.1), as the suppliers' API terms don't allow passing it on and BOM files get published. Showing a list's Combined BOM no longer changes the BOMs, BOMs with unsaved changes get a larger orange dot, and the selected list item stays blue on hover. Unit tests: 227; end-to-end tests: 21.
+
 ### Version 0.8.0
 
 BOM lists (#35, section 9.5): a `.eezbom-list` with its BOMs side by side, a Combined BOM for ordering them together, Unify part numbers across them, and a history BOM of the part numbers used. No absolute paths in the files the app writes (#34, section 5.1). The chart of the most expensive parts gets a colour per rank, Copy picture and Save as PNG…, and a Top 10 button in the Best price header (#28). Unit tests: 221; end-to-end tests: 19.
