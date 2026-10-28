@@ -570,7 +570,7 @@ The `kicad-cli sch export bom --variant` alternative was rejected. It requires K
 **Packaging**
 - **Windows:** x64 NSIS installer, installed per user without admin rights. Without code signing, SmartScreen warns on first install; a signing certificate can be added later.
 - **Linux:** x64 AppImage (runs on Ubuntu and Mint without installing) plus a `.deb`.
-- **CI:** GitHub Actions builds Windows on `windows-latest` and Linux on `ubuntu-22.04`. Building against the older glibc lets the Linux build run on Ubuntu 22.04+ and Mint 21+. The app has no native modules, so a local Linux build on a newer Ubuntu (e.g. in WSL) packages the same prebuilt Electron.
+- **CI:** GitHub Actions builds Windows on `windows-latest` and Linux on `ubuntu-22.04`. Building against the older glibc lets the Linux build run on Ubuntu 22.04+ and Mint 21+. The app has no native modules, so a local Linux build on a newer Ubuntu packages the same prebuilt Electron.
 - **Native modules:** none, so no rebuilds per platform.
 - **Auto-update** is not in v1. electron-updater with GitHub Releases can add it later.
 

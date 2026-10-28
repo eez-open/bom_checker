@@ -72,8 +72,8 @@ Before merging a branch: `npm run check`, then `npm run build` and `npm run test
 
 1. Update the version in `package.json` (and `package-lock.json`) and the `CHANGELOG.md`; merge.
 2. Windows: `npm run dist:win`, then smoke-test the installer's app with `E2E_APP_PATH=release/win-unpacked/eez-bom-checker.exe npx playwright test`.
-3. Linux, e.g. in WSL's Ubuntu, in a clone of the repository on the Linux file system (not the Windows one, whose `node_modules` are for Windows): `npm ci`, `npm run dist:linux`, then `xvfb-run --auto-servernum npx playwright test` with `E2E_APP_PATH=release/linux-unpacked/eez-bom-checker`.
-4. Tag the merge commit (`git tag v0.2.0`), push the tag, and create the release with the installers: `gh release create v0.2.0 --draft --title "EEZ BOM checker 0.2.0"` and `gh release upload v0.2.0 release/*.exe release/*.AppImage release/*.deb` (from both machines). Review the draft and publish it.
+3. Linux, on a Linux machine: `npm ci`, `npm run dist:linux`, then `xvfb-run --auto-servernum npx playwright test` with `E2E_APP_PATH=release/linux-unpacked/eez-bom-checker`.
+4. Tag the merge commit (`git tag v0.2.0`), push the tag, and create the release with the installers: `gh release create v0.2.0 --draft --title "EEZ BOM checker 0.2.0"`, then `gh release upload v0.2.0` with the files from `release/` on each machine (`*.exe`; `*.AppImage` and `*.deb`). Review the draft and publish it.
 
 Upgrading Electron and other major dependencies: [docs/upgrade-checklist.md](docs/upgrade-checklist.md).
 
