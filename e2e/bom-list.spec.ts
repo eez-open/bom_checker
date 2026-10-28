@@ -9,7 +9,12 @@ import {
 import { parseBomListFile } from "../src/shared/bom-list-file";
 import type { CollectedData, Project } from "../src/shared/model";
 import { parseProjectFile, serializeProject } from "../src/shared/project-file";
-import { addRow, createProject, createRow } from "../src/shared/project-ops";
+import {
+    addManualSupplier,
+    addRow,
+    createProject,
+    createRow
+} from "../src/shared/project-ops";
 import {
     answerMessageBox,
     answerOpenDialog,
@@ -58,15 +63,16 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
     const folder = await mkdtemp(join(tmpdir(), "eez-bom-list-"));
     const psu = join(folder, "psu.eezbom");
     const mcu = join(folder, "mcu.eezbom");
-    await writeFile(
-        psu,
-        serializeProject(
-            bom([
-                ["R1, R2", "10k", 2, "D-1"],
-                ["C1", "100n", 1, ""]
-            ])
-        )
+    // C1 has a price from a shop without an API (#48).
+    const shop = addManualSupplier(
+        bom([
+            ["R1, R2", "10k", 2, "D-1"],
+            ["C1", "100n", 1, ""]
+        ]),
+        "Shop"
     );
+    shop.project.rows[1]!.manual = { [shop.supplier.id]: { unitPrice: 0.5 } };
+    await writeFile(psu, serializeProject(shop.project));
     await writeFile(
         mcu,
         serializeProject(
@@ -170,6 +176,12 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
                 .first()
         ).toHaveText("psu, mcu");
         await expect(cell(page, 2, "reference")).toHaveText("R5");
+        // With the BOMs' suppliers without an API and their prices (#48).
+        await expect(cell(page, 1, "best:supplier")).toHaveText("Shop");
+        // 10 devices, and the price of one.
+        await expect(cell(page, 1, "best:totalPrice")).toHaveText(
+            "5.00 (0.50)"
+        );
         // It can't be edited.
         await cell(page, 1, "value").dblclick();
         await expect(editor(page, "value")).toHaveCount(0);

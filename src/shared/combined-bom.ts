@@ -3,6 +3,7 @@
 // supplier part numbers are merged and their quantities added up, for one
 // device: with how many of each BOM it has. Its build quantity is the
 // number of devices (#39); the BOMs' own build quantities don't count.
+// Suppliers without an API come along with what was typed for them (#48).
 
 import {
     componentKey,
@@ -11,7 +12,12 @@ import {
     type ListMember
 } from "./bom-list";
 import { partNumberKey, type BomRow, type Project } from "./model";
-import { addCustomColumn, addSupplier, createProject } from "./project-ops";
+import {
+    addCustomColumn,
+    addSupplier,
+    createProject,
+    uniqueColumnName
+} from "./project-ops";
 
 /** The Combined BOM's column with the BOMs each row comes from. */
 export const SOURCE_BOM_COLUMN = "Source BOM";
@@ -42,6 +48,22 @@ function referencesText(references: Map<string, string[]>): string {
               .join("; ");
 }
 
+/** Adds `row`'s offers of suppliers without an API to `target`, by the
+ *  Combined BOM's supplier ids; values already there are kept. */
+function mergeManual(
+    target: BomRow,
+    row: BomRow,
+    combinedIds: ReadonlyMap<string, string>
+): void {
+    for (const [id, offer] of Object.entries(row.manual ?? {})) {
+        const combinedId = combinedIds.get(id);
+        if (combinedId) {
+            const manual = (target.manual ??= {});
+            manual[combinedId] = { ...offer, ...manual[combinedId] };
+        }
+    }
+}
+
 export function combineBoms(
     members: readonly ListMember[],
     buildQuantity = 1
@@ -53,10 +75,30 @@ export function combineBoms(
     );
     let project = base;
     const merged = new Map<string, Merged>();
+    // Suppliers without an API by name: the same shop in several BOMs is
+    // one supplier.
+    const manualByName = new Map<string, string>();
 
     for (const { name, project: bom, perDevice } of members) {
         for (const supplier of bom.suppliers) {
             project = addSupplier(project, supplier);
+        }
+        const combinedIds = new Map<string, string>();
+        for (const supplier of bom.manualSuppliers) {
+            const key = supplier.name.trim().toLowerCase();
+            let id = manualByName.get(key);
+            if (!id) {
+                id = `combined-manual-${manualByName.size + 1}`;
+                manualByName.set(key, id);
+                project = {
+                    ...project,
+                    manualSuppliers: [
+                        ...project.manualSuppliers,
+                        { id, name: uniqueColumnName(project, supplier.name) }
+                    ]
+                };
+            }
+            combinedIds.set(supplier.id, id);
         }
         for (const row of bom.rows) {
             const key = mergeKey(row);
@@ -79,6 +121,7 @@ export function combineBoms(
                 merged.set(key, entry);
             }
             entry.row.qty += qty;
+            mergeManual(entry.row, row, combinedIds);
             const references = entry.references.get(name) ?? [];
             if (reference) {
                 references.push(reference);

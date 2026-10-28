@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { combineBoms, SOURCE_BOM_COLUMN } from "./combined-bom";
 import type { LookupResult, Project } from "./model";
-import { addRow, createProject, createRow } from "./project-ops";
+import { bestSupplier } from "./pricing";
+import {
+    addManualSupplier,
+    addRow,
+    createProject,
+    createRow
+} from "./project-ops";
 
 function bom(
     rows: [string, string, number, Record<string, string>][]
@@ -75,5 +81,67 @@ describe("combined BOM", () => {
         expect(combined.collected.results.digikey?.["D-1"]?.fetchedAt).toBe(
             "2026-02-01"
         );
+    });
+
+    it("has the suppliers without an API and what was typed for them (#48)", () => {
+        const withShop = (project: Project, shop: string, prices: number[]) => {
+            const { project: next, supplier } = addManualSupplier(
+                project,
+                shop
+            );
+            return {
+                ...next,
+                rows: next.rows.map((row, index) => ({
+                    ...row,
+                    manual: { [supplier.id]: { unitPrice: prices[index] } }
+                }))
+            };
+        };
+        const enclosure = withShop(
+            bom([
+                ["", "Bottom plate", 1, {}],
+                ["", "Top cover", 1, {}]
+            ]),
+            "Metal shop",
+            [12, 15]
+        );
+        // The same shop, written differently, and one more.
+        const cm5 = withShop(
+            withShop(bom([["", "Top cover", 1, {}]]), "metal shop", [99]),
+            "Source BOM",
+            [3]
+        );
+        const combined = combineBoms(
+            [
+                { path: "e", name: "e", project: enclosure, perDevice: 1 },
+                { path: "c", name: "c", project: cm5, perDevice: 2 }
+            ],
+            10
+        );
+        expect(combined.manualSuppliers.map(s => s.name)).toEqual([
+            "Metal shop",
+            "Source BOM (2)"
+        ]);
+        const [shop, other] = combined.manualSuppliers.map(s => s.id);
+        expect(
+            combined.rows.map(row => [row.value, row.qty, row.manual])
+        ).toEqual([
+            ["Bottom plate", 1, { [shop!]: { unitPrice: 12 } }],
+            // The first BOM's price is kept.
+            [
+                "Top cover",
+                3,
+                { [shop!]: { unitPrice: 15 }, [other!]: { unitPrice: 3 } }
+            ]
+        ]);
+        const best = bestSupplier(
+            combined.rows[1]!,
+            combined.collected,
+            combined.suppliers,
+            [],
+            combined.buildQuantity,
+            combined.manualSuppliers
+        );
+        expect(best).toMatchObject({ supplier: other, line: { total: 90 } });
     });
 });
