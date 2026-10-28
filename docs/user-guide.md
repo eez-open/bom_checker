@@ -146,6 +146,8 @@ Each supplier has a group of columns. Click the arrow in the group header to sho
 
 To hide all columns of a supplier, or the Best price columns, uncheck them under **Columns** at the right of the bar above the table. Suppliers with an API and Best price are also in the **View** menu (Ctrl+1 to Ctrl+5). Hiding only changes the view: the data stays, still counts for the best price, and can still be exported. The status bar lists hidden groups, with **Show all** to bring them back. The app remembers hidden groups for next time.
 
+**Tabs:** to see one supplier at a time, tick **Tabs** at the right of the bar (or **View → Suppliers as Tabs**). Each supplier, and Best price, then has a tab above the table; the tab shows its columns with the BOM's own columns, and your own columns stay at the right. Ctrl+1 to Ctrl+5 choose the tab. The app remembers the layout and the tab.
+
 | Column | Meaning |
 |---|---|
 | Badge in the part-number cell | ✓ found, ✗ not found, ? several items match (click to choose one), ! couldn't check. Hover over the cell for the details the supplier returned. |

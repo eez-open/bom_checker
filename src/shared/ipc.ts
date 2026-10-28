@@ -47,6 +47,9 @@ export interface MenuState {
     /** Column groups the table has now. */
     availableColumns: ColumnGroup[];
     hiddenColumns: ColumnGroup[];
+    /** Column groups are on tabs (#41); then hiddenColumns are the tabs
+     *  that aren't shown. */
+    tabs: boolean;
 }
 
 /** Commands sent from the application menu (and the close prompt). */
@@ -74,6 +77,7 @@ export type MenuCommand =
     | "edit-columns"
     | `toggle-columns:${ColumnGroup}`
     | "show-all-columns"
+    | "toggle-tabs"
     | "settings"
     | "lock"
     | "collect"

@@ -32,12 +32,12 @@ import { KicadUpdateDialog } from "./dialogs/KicadUpdateDialog";
 import { UnifyDialog } from "./dialogs/UnifyDialog";
 import { SettingsDialog } from "./settings/SettingsDialog";
 import { StartPage } from "./StartPage";
-import { FilterBar, rowViews, tableGroups } from "./FilterBar";
+import { FilterBar, rowViews, TableTabs, tableGroups } from "./FilterBar";
 import { addBomsToList, removeFromList } from "./list-commands";
 import { ListPane } from "./ListPane";
 import { documentName, isDirty, useDocument } from "./store/document";
 import { loadAppSettings, useAppSettings, useNumbers } from "./store/settings";
-import { useUi } from "./store/ui";
+import { shownTab, useUi, type TableGroup } from "./store/ui";
 import { COMBINED, useWorkspace } from "./store/workspace";
 import { BomTable } from "./table/BomTable";
 import { Toolbar } from "./Toolbar";
@@ -135,7 +135,17 @@ export function App() {
     const priced = withData.length + manualSuppliersWithPrices(project).length;
     const hasData = priced > 0;
     const groups = tableGroups(project);
-    const hidden = groups.filter(group => hiddenColumns.includes(group.id));
+    // With tabs (#41), the groups of the other tabs are hidden.
+    const tableLayout = useUi(state => state.tableLayout);
+    const chosenTab = useUi(state => state.tableTab);
+    const tabs = tableLayout === "tabs" && groups.length > 0;
+    const tab = shownTab(groups, chosenTab);
+    const shownHidden: TableGroup[] = tabs
+        ? groups.map(group => group.id).filter(id => id !== tab)
+        : hiddenColumns;
+    const hidden = tabs
+        ? []
+        : groups.filter(group => hiddenColumns.includes(group.id));
     // The View menu has the groups of suppliers with an API and Best price.
     const availableKey = groups
         .map(group => group.id)
@@ -188,11 +198,24 @@ export function App() {
                 open && availableKey
                     ? (availableKey.split(",") as ColumnGroup[])
                     : [],
-            hiddenColumns: hiddenColumns.filter(
+            hiddenColumns: shownHidden.filter(
                 (group): group is ColumnGroup => !group.startsWith("manual:")
-            )
+            ),
+            tabs: tableLayout === "tabs"
         });
-    }, [open, list, readOnly, hasRows, fromKicad, availableKey, hiddenColumns]);
+        // shownHidden follows from the others.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        open,
+        list,
+        readOnly,
+        hasRows,
+        fromKicad,
+        availableKey,
+        hiddenColumns,
+        tableLayout,
+        tab
+    ]);
 
     const listName = list ? fileTitle(list.filePath) : null;
     useEffect(() => {
@@ -288,13 +311,14 @@ export function App() {
                         {open && (
                             <FilterBar project={project} rows={shownRows} />
                         )}
+                        {open && tabs && <TableTabs project={project} />}
                         {open && (
                             <main className="app-table">
                                 <BomTable
                                     project={project}
                                     preference={preference}
                                     numbers={numbers}
-                                    hiddenColumns={hiddenColumns}
+                                    hiddenColumns={shownHidden}
                                     editRowId={editRowId}
                                     onEditStarted={() =>
                                         useUi.setState({ editRowId: null })

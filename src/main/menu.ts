@@ -51,7 +51,8 @@ let state: MenuState = {
     hasRows: false,
     fromKicad: false,
     availableColumns: [],
-    hiddenColumns: []
+    hiddenColumns: [],
+    tabs: false
 };
 
 /** A command that needs an open BOM. */
@@ -117,17 +118,25 @@ function recentItems(): MenuItemConstructorOptions[] {
 }
 
 function columnItems(): MenuItemConstructorOptions[] {
-    const { availableColumns, hiddenColumns } = state;
+    const { availableColumns, hiddenColumns, tabs } = state;
     const name = (group: ColumnGroup) =>
         group === "best" ? "Best Price" : SUPPLIERS[group].name;
     const hidden = hiddenColumns.filter(group =>
         availableColumns.includes(group)
     );
     return [
+        command("Suppliers as &Tabs", "toggle-tabs", {
+            id: "tabs",
+            type: "checkbox",
+            checked: tabs,
+            enabled: state.documentOpen
+        }),
+        { type: "separator" },
+        // With tabs, they choose the tab.
         ...COLUMN_GROUPS.map((group, index) =>
             command(`&${name(group)} Columns`, `toggle-columns:${group}`, {
                 id: `columns:${group}`,
-                type: "checkbox",
+                type: tabs ? "radio" : "checkbox",
                 checked: !hiddenColumns.includes(group),
                 enabled: availableColumns.includes(group),
                 accelerator: `CmdOrCtrl+${index + 1}`
@@ -135,7 +144,7 @@ function columnItems(): MenuItemConstructorOptions[] {
         ),
         command("Show &All Columns", "show-all-columns", {
             id: "columns:all",
-            enabled: hidden.length > 0
+            enabled: !tabs && hidden.length > 0
         })
     ];
 }
@@ -147,7 +156,8 @@ const menuStateSchema = z.object({
     hasRows: z.boolean(),
     fromKicad: z.boolean(),
     availableColumns: z.array(z.enum(COLUMN_GROUPS)),
-    hiddenColumns: z.array(z.enum(COLUMN_GROUPS))
+    hiddenColumns: z.array(z.enum(COLUMN_GROUPS)),
+    tabs: z.boolean()
 });
 
 // The menu is rebuilt on changes: changing items in place doesn't show on

@@ -39,6 +39,8 @@ import { documentName, isDirty, useDocument } from "./store/document";
 import {
     resetTableView,
     setHiddenColumns,
+    setTableLayout,
+    setTableTab,
     useUi,
     type TableGroup
 } from "./store/ui";
@@ -373,12 +375,24 @@ export function editColumns(): void {
     useUi.setState({ dialog: { kind: "columns" } });
 }
 
+/** Shows or hides a column group; with tabs (#41), shows its tab. */
 export function toggleColumns(group: TableGroup): void {
-    const hidden = useUi.getState().hiddenColumns;
+    const { hiddenColumns: hidden, tableLayout } = useUi.getState();
+    if (tableLayout === "tabs") {
+        setTableTab(group);
+        return;
+    }
     setHiddenColumns(
         hidden.includes(group)
             ? hidden.filter(g => g !== group)
             : [...hidden, group]
+    );
+}
+
+/** Every column group side by side, or each on a tab of its own (#41). */
+export function toggleTableLayout(): void {
+    setTableLayout(
+        useUi.getState().tableLayout === "tabs" ? "columns" : "tabs"
     );
 }
 
@@ -498,6 +512,7 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
         ])
     ) as Record<`toggle-columns:${ColumnGroup}`, () => void>),
     "show-all-columns": showAllColumns,
+    "toggle-tabs": toggleTableLayout,
     settings: openSettings,
     collect: openCollect,
     "forget-data": forgetSelectedData,

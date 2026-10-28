@@ -229,6 +229,38 @@ test("calculates order quantities, prices and the best supplier", async () => {
         await expect(shown.getByLabel("Best price")).toBeChecked();
         await expect(cell(page, D1, "best:supplier")).toHaveCount(1);
 
+        // Each supplier, and Best price, on a tab of its own (#41).
+        await page.getByLabel("Tabs", { exact: true }).check();
+        const tabs = page.getByRole("tablist", { name: "Suppliers" });
+        await expect(tabs.getByRole("tab")).toHaveText([
+            "DigiKey",
+            "Mouser",
+            "TME",
+            "Best price"
+        ]);
+        await expect(
+            tabs.getByRole("tab", { name: "DigiKey" })
+        ).toHaveAttribute("aria-selected", "true");
+        await expect(cell(page, D1, "pn:digikey")).toHaveCount(1);
+        await expect(cell(page, D1, "pn:mouser")).toHaveCount(0);
+        await expect(cell(page, D1, "best:supplier")).toHaveCount(0);
+        await expect(cell(page, D1, "qty")).toHaveCount(1);
+        await expect(shown).toHaveCount(0);
+        await tabs.getByRole("tab", { name: "Best price" }).click();
+        await expect(cell(page, D1, "best:supplier")).toHaveText("TME");
+        await expect(cell(page, D1, "pn:digikey")).toHaveCount(0);
+        // Ctrl+2 (View → Mouser Columns) shows the Mouser tab.
+        await clickMenuItem(app, "columns:mouser");
+        await expect(cell(page, D1, "pn:mouser")).toHaveCount(1);
+        await expect(cell(page, D1, "best:supplier")).toHaveCount(0);
+        await expect
+            .poll(() => menuItemChecked(app, "columns:mouser"))
+            .toBe(true);
+        await clickMenuItem(app, "tabs");
+        await expect(tabs).toHaveCount(0);
+        await expect(cell(page, D1, "pn:digikey")).toHaveCount(1);
+        await expect(cell(page, D1, "best:supplier")).toHaveCount(1);
+
         // The most expensive parts (#28), from the status bar and the menu.
         await page
             .getByRole("button", { name: "Most expensive parts" })

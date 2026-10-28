@@ -331,6 +331,13 @@ input.number {
     font-weight: 600;
 }
 
+/* Column groups on tabs above the table (#41). */
+.table-tabs {
+    flex-wrap: wrap;
+    margin-bottom: 0;
+    padding: 6px 12px 0;
+}
+
 .settings-split {
     display: grid;
     grid-template-columns: 140px 1fr;
@@ -854,6 +861,13 @@ select.choose-item {
     gap: 4px 12px;
     margin-left: auto;
     color: var(--app-muted);
+}
+
+.filter-groups {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
 }
 
 .filter-columns label {
