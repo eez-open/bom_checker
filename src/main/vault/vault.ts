@@ -134,6 +134,19 @@ export async function unlock(password: string): Promise<boolean> {
     return true;
 }
 
+/**
+ * Whether `password` is the vault's, without unlocking anything: e.g. to
+ * confirm exporting supplier data (#44). False if there's no vault.
+ */
+export async function checkPassword(password: string): Promise<boolean> {
+    const vault = await loadFile();
+    if (vault && (await unlockVault(vault, password))) {
+        return true;
+    }
+    await sleep(WRONG_PASSWORD_DELAY_MS);
+    return false;
+}
+
 /** Checks the password (always) and opens a settings session. */
 export async function openSettings(password: string): Promise<string | null> {
     return (await unlock(password)) ? openSession() : null;

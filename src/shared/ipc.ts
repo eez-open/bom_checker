@@ -344,6 +344,9 @@ export interface Api {
         /** Unlocks the credentials for this session; false if the password
          *  is wrong. */
         unlock(password: string): Promise<boolean>;
+        /** Whether the password is right, without unlocking anything, e.g.
+         *  to confirm exporting supplier data (#44). */
+        checkPassword(password: string): Promise<boolean>;
     };
     collect: {
         prepare(): Promise<Record<SupplierId, SupplierReadiness>>;
@@ -457,6 +460,7 @@ export const IpcChannel = {
     VaultReset: "vault:reset",
     VaultLock: "vault:lock",
     VaultUnlock: "vault:unlock",
+    VaultCheckPassword: "vault:check-password",
     CollectPrepare: "collect:prepare",
     CollectStart: "collect:start",
     CollectCancel: "collect:cancel",

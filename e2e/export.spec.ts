@@ -60,6 +60,18 @@ test("exports filtered BOM data to xlsx and csv", async () => {
         await expect(dialog.getByText("1 row ·")).toBeVisible();
         const xlsxPath = await answerSaveDialog(app, "xlsx");
         await dialog.getByRole("button", { name: "Export…" }).click();
+        // Supplier data may not be passed on: the password confirms (#44).
+        const confirm = page.getByRole("dialog", {
+            name: "Export supplier data?"
+        });
+        await expect(confirm.getByRole("alert")).toContainText(
+            "data from DigiKey, Mouser and TME"
+        );
+        await confirm.getByLabel("Password").fill("wrong horse");
+        await confirm.getByRole("button", { name: "Export…" }).click();
+        await expect(confirm.getByText("Wrong password.")).toBeVisible();
+        await confirm.getByLabel("Password").fill("correct horse");
+        await confirm.getByRole("button", { name: "Export…" }).click();
         await expect(dialog.getByRole("status")).toHaveText(
             `Exported 1 row to ${xlsxPath}`
         );
@@ -96,6 +108,8 @@ test("exports filtered BOM data to xlsx and csv", async () => {
         await dialog.getByRole("radio", { name: "CSV (.csv)" }).check();
         const csvPath = await answerSaveDialog(app, "csv");
         await dialog.getByRole("button", { name: "Export…" }).click();
+        await confirm.getByLabel("Password").fill("correct horse");
+        await confirm.getByRole("button", { name: "Export…" }).click();
         await expect(dialog.getByRole("status")).toContainText(
             "Exported 1 row"
         );

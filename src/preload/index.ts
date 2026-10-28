@@ -70,7 +70,9 @@ const api: Api = {
             ),
         reset: () => invoke(IpcChannel.VaultReset),
         lock: () => invoke(IpcChannel.VaultLock),
-        unlock: password => invoke(IpcChannel.VaultUnlock, password)
+        unlock: password => invoke(IpcChannel.VaultUnlock, password),
+        checkPassword: password =>
+            invoke(IpcChannel.VaultCheckPassword, password)
     },
     collect: {
         prepare: () => invoke(IpcChannel.CollectPrepare),

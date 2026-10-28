@@ -182,6 +182,8 @@ Changing Qty updates all calculations at once, without collecting again.
 
 To keep a combination, type a name and click **Save as preset**.
 
+**Supplier data in exports:** an export with the suppliers' data columns or the Best price columns contains data collected through their APIs, which their terms don't allow passing on. Before such an export, the app says so and asks for your password (the one for the supplier settings) to confirm. Keep the file to yourself; to share a BOM, export *Basic data only*, which doesn't ask.
+
 Column names follow the pattern `Supplier_Column`, e.g. `Mouser_Stock Qty`, `Mouser_Total price`, `Best_Supplier`.
 
 ## Syncing with the KiCad project

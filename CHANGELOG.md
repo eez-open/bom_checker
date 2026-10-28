@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Exports with supplier data (the suppliers' data columns or Best price) first say that the suppliers' API terms don't allow passing it on, and ask for the password of the supplier settings to confirm (#44).
 - Numbers are shown as in the system's regional settings, e.g. 1.234,56; Settings → General → Numbers can choose a decimal point or a decimal comma instead. CSV exports follow it, with ";" between the values for a decimal comma. Numbers can be typed in cells with "." or "," (#37).
 - **Forget data…** (toolbar, or Tools → Forget Supplier Data of Selected Rows…) removes the data collected for the selected rows, from every supplier (#40).
 

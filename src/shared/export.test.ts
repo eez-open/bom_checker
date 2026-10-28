@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatDateTime } from "./collection";
 import {
+    apiDataInExport,
     buildBomSheet,
     buildInfoSheet,
     builtInPresets,
@@ -128,6 +129,24 @@ describe("export", () => {
             "Best price from Mouser",
             "Not available anywhere"
         ]);
+    });
+
+    it("says which suppliers' API data is exported (#44)", () => {
+        const project = sampleProject();
+        const data = (name: string) =>
+            apiDataInExport(project, preset(project, name));
+        expect(data("All data")).toEqual(["digikey", "mouser"]);
+        expect(data("Basic data only")).toEqual([]);
+        expect(data("All Mouser data")).toEqual(["mouser"]);
+        // The best price comes from every supplier's prices.
+        expect(data("Best price from Mouser")).toEqual(["digikey", "mouser"]);
+        // Nothing collected, nothing to warn about.
+        expect(
+            apiDataInExport(
+                { ...project, collected: { results: {}, runs: {} } },
+                preset(project, "All data")
+            )
+        ).toEqual([]);
     });
 
     it("exports basic data only: the base columns and part numbers", () => {

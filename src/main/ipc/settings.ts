@@ -9,6 +9,7 @@ import { confirm } from "../dialogs";
 import { updateSettings, getSettings } from "../settings/settings-store";
 import {
     changePassword,
+    checkPassword,
     closeSettings,
     createVaultWithPassword,
     getSecret,
@@ -117,5 +118,8 @@ export function registerSettingsHandlers(): void {
     handle(IpcChannel.VaultLock, () => lock());
     handle(IpcChannel.VaultUnlock, (_context, enteredPassword) =>
         unlock(password.parse(enteredPassword))
+    );
+    handle(IpcChannel.VaultCheckPassword, (_context, enteredPassword) =>
+        checkPassword(password.parse(enteredPassword))
     );
 }

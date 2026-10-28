@@ -14,6 +14,7 @@ import {
 } from "./model";
 import type { Numbers } from "./numbers";
 import { isPartNumberDefined } from "./part-number";
+import { suppliersWithData } from "./project-ops";
 import {
     BASE_CURRENCY,
     bestSupplier,
@@ -129,6 +130,23 @@ export function builtInPresets(project: Project): ExportPreset[] {
             }
         }
     ];
+}
+
+/**
+ * Suppliers whose API data the export would contain (#44): the data
+ * columns of the chosen suppliers, and the Best price columns, which come
+ * from every supplier's prices. Their terms don't allow passing it on.
+ */
+export function apiDataInExport(
+    project: Project,
+    selection: ExportSelection
+): SupplierId[] {
+    return suppliersWithData(project).filter(
+        supplier =>
+            selection.best ||
+            (!selection.partNumbersOnly &&
+                selection.suppliers.includes(supplier))
+    );
 }
 
 /** A plain description of a row filter, for the dialog and the Info sheet. */
