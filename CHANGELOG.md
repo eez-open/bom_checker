@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-29
+
 ### Added
 
 - The Best price header turns red with a warning sign when rows have no supplier with enough stock, which the best-price total leaves out; its tooltip says how many. The chart of the most expensive parts, and its picture, say so too (#49).
@@ -16,6 +18,7 @@ All notable changes to this project are documented in this file. The format is b
 
 - A list's Combined BOM left out the suppliers without an API, so their prices weren't in the best price. It now has them with what was typed for them; a supplier with the same name in several BOMs is one supplier (#48).
 - DigiKey didn't find parts that it lists under another form of their number, e.g. Molex 22-01-3037 and 08-50-0114 as 0022013037 and 0008500114. When DigiKey doesn't find a part number, the app now runs its keyword search, a second request. A manufacturer part number that differs only in dashes, other punctuation or leading zeros now counts as the same at every supplier; when none matches, the products the search found are offered to choose from.
+- With "Write supplier API responses to the log file" on, the log held DigiKey's and TME's access tokens. They're now left out.
 
 ## [0.10.0] - 2026-10-28
 

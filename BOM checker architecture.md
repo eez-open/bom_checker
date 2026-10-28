@@ -612,6 +612,10 @@ These points couldn't be settled from documentation and should be the first thin
 
 ## 15. Status
 
+### Version 0.11.0
+
+DigiKey part numbers it doesn't find go to its keyword search, and manufacturer part numbers that differ only in punctuation and leading zeros match at every supplier, e.g. Molex 22-01-3037 and 0022013037 (6.2, 6.3). A list's Combined BOM has the BOMs' suppliers without an API (#48, section 9.5). The Best price header and the chart of the most expensive parts warn of rows without enough stock (#49). Numbers options one per line (#47). OAuth tokens are kept out of logged responses. Unit tests: 242; end-to-end tests: 22.
+
 ### Version 0.10.0
 
 Numbers as the region writes them, or with a chosen decimal separator, also in CSV exports (#37, section 11). Build qty for a list's Combined BOM, with how many of each BOM a device has; list format 2 (#39, section 9.5). Forget the supplier data of selected rows (#40). Suppliers and Best price on tabs (#41). Exports with supplier data are confirmed with the password (#44). The Total row and status bar add up no quantities (#42), Collect and Export need rows (#38), and the Value lookup takes part numbers of digits only. Unit tests: 234; end-to-end tests: 22.
