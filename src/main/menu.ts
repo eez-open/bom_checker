@@ -276,6 +276,11 @@ export function createMenu(): Menu {
             label: "&Tools",
             submenu: [
                 rowsCommand("C&ollect Supplier Data…", "collect"),
+                rowsCommand(
+                    "&Forget Supplier Data of Selected Rows…",
+                    "forget-data",
+                    { id: "forget-data" }
+                ),
                 listCommand("&Unify Part Numbers…", "unify", { id: "unify" }),
                 { type: "separator" },
                 command("&Settings…", "settings", {

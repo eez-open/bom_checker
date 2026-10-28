@@ -1,7 +1,13 @@
 import { join } from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { FAKE_CREDENTIALS, startFakeSuppliers } from "./fake-suppliers";
-import { answerOpenDialog, cell, closeApp, launchApp } from "./helpers";
+import {
+    answerMessageBox,
+    answerOpenDialog,
+    cell,
+    closeApp,
+    launchApp
+} from "./helpers";
 
 const PASSWORD = "correct horse";
 const BOM = join(__dirname, "fixtures/small-bom.csv");
@@ -179,6 +185,23 @@ test("collects supplier data and continues after a daily limit", async () => {
         await expect(page.locator(".ag-tooltip")).toContainText("2.1 EUR");
         await expect(page).toHaveTitle("*Untitled - EEZ BOM checker");
         expect(userData).toBeTruthy();
+
+        // Forget the data of the first row (#40), after confirming.
+        const forget = page.getByRole("button", { name: "Forget data…" });
+        await expect(forget).toBeDisabled();
+        await page
+            .locator('.ag-row[row-index="0"] .ag-selection-checkbox input')
+            .first()
+            .check();
+        await answerMessageBox(app, 0);
+        await forget.click();
+        await expect(badge(page, 0, "pn:mouser")).toHaveCount(0);
+        await expect(badge(page, 0, "pn:lcsc")).toHaveCount(0);
+        await expect(badge(page, 1, "pn:mouser")).toHaveAttribute(
+            "aria-label",
+            "Not found"
+        );
+        await expect(forget).toBeDisabled();
     } finally {
         await closeApp(app);
         await fake.close();

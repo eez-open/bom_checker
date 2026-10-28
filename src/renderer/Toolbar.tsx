@@ -5,6 +5,7 @@ import {
     addRow,
     deleteSelectedRows,
     editColumns,
+    forgetSelectedData,
     importCsv,
     importKicad,
     newDocument,
@@ -14,6 +15,7 @@ import {
     openSettings,
     redo,
     saveDocument,
+    selectedRowsData,
     syncKicad,
     undo,
     updateKicad
@@ -71,6 +73,13 @@ export function Toolbar() {
         const ids = new Set(rows.map(row => row.id));
         return selectedIds.filter(id => ids.has(id)).length;
     }, [rows, selectedIds]);
+    // Selected rows with collected data (#40).
+    const collected = useDocument(state => state.project.collected);
+    const forgettable = useMemo(
+        () => (selectedIds.length > 0 ? selectedRowsData().rows : 0),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [rows, collected, selectedIds]
+    );
     const buildQuantity = useDocument(state => state.project.buildQuantity);
     const open = useDocument(state => state.open);
     // E.g. a list's Combined BOM: it can be collected and exported only.
@@ -202,6 +211,14 @@ export function Toolbar() {
                         onClick={openCollect}
                     >
                         Collect…
+                    </button>
+                    <button
+                        type="button"
+                        title="Remove the supplier data collected for the selected rows"
+                        disabled={forgettable === 0}
+                        onClick={() => void forgetSelectedData()}
+                    >
+                        Forget data…
                     </button>
                     <button
                         type="button"

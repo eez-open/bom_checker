@@ -11,6 +11,7 @@ import type { CollectedData, Project } from "../src/shared/model";
 import { parseProjectFile, serializeProject } from "../src/shared/project-file";
 import { addRow, createProject, createRow } from "../src/shared/project-ops";
 import {
+    answerMessageBox,
     answerOpenDialog,
     answerSaveDialog,
     cell,
@@ -159,6 +160,19 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
         await clickMenuItem(app, "save-all");
         await expect(psuItem.getByLabel("unsaved")).toHaveCount(0);
         expect((await readBom(psu)).rows[1]?.value).toBe("220n");
+
+        // Forgetting data in Combined forgets it in the BOMs too (#40).
+        const d1Badge = cell(page, 0, "pn:digikey").locator(".pn-badge");
+        await expect(d1Badge).toHaveAttribute("aria-label", "Not found");
+        await page
+            .locator('.ag-row[row-index="0"] .ag-selection-checkbox input')
+            .first()
+            .check();
+        await answerMessageBox(app, 0);
+        await page.getByRole("button", { name: "Forget data…" }).click();
+        await expect(d1Badge).toHaveCount(0);
+        await expect(psuItem.getByLabel("unsaved")).toBeVisible();
+        await expect(mcuItem.getByLabel("unsaved")).toBeVisible();
 
         // Removed from the list, the file stays.
         await mcuItem.click();

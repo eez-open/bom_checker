@@ -21,6 +21,7 @@ import {
     deleteRows,
     replacePartNumber
 } from "../shared/project-ops";
+import { collectedKeysOf, withoutResults } from "../shared/collection";
 import { importedKicadValues } from "../shared/kicad-sync";
 import { PROJECT_FILE_EXTENSION } from "../shared/project-file";
 import {
@@ -28,6 +29,7 @@ import {
     afterListSave,
     closeList,
     confirmDiscardList,
+    forgetInList,
     isListOpen,
     loadList,
     saveAllInList,
@@ -40,6 +42,7 @@ import {
     useUi,
     type TableGroup
 } from "./store/ui";
+import { COMBINED, useWorkspace } from "./store/workspace";
 
 export async function saveDocument(saveAs = false): Promise<boolean> {
     const { project, filePath, markSaved, readOnly } = useDocument.getState();
@@ -261,6 +264,43 @@ export function deleteSelectedRows(): void {
     }
 }
 
+/** The collected data of the selected rows (#40), for every supplier. */
+export function selectedRowsData(): ReturnType<typeof collectedKeysOf> {
+    const { project } = useDocument.getState();
+    return collectedKeysOf(project, new Set(useUi.getState().selectedRowIds));
+}
+
+/**
+ * Forgets the data collected for the selected rows, after asking: e.g. to
+ * collect them again from scratch. It isn't an undo step, like collecting.
+ */
+export async function forgetSelectedData(): Promise<void> {
+    const { keys, rows } = selectedRowsData();
+    if (rows === 0) {
+        return;
+    }
+    const confirmed = await window.api.dialog.confirm({
+        message:
+            rows === 1
+                ? "Forget the supplier data of the selected row?"
+                : `Forget the supplier data of ${rows} selected rows?`,
+        detail:
+            "Stock, prices and the rest collected for their part numbers are " +
+            "removed, also from other rows with the same part numbers. This " +
+            "can't be undone; collect them again to get the data back.",
+        confirmLabel: "Forget"
+    });
+    if (!confirmed) {
+        return;
+    }
+    useDocument
+        .getState()
+        .applyCollected(collected => withoutResults(collected, keys));
+    if (useWorkspace.getState().selected === COMBINED) {
+        forgetInList(keys);
+    }
+}
+
 /** Brings changes made in KiCad since the import into the BOM. */
 export function syncKicad(): void {
     const { source } = useDocument.getState().project;
@@ -460,6 +500,7 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     "show-all-columns": showAllColumns,
     settings: openSettings,
     collect: openCollect,
+    "forget-data": forgetSelectedData,
     lock: lockCredentials,
     "save-and-close": saveAndClose
 };

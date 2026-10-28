@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- **Forget data…** (toolbar, or Tools → Forget Supplier Data of Selected Rows…) removes the data collected for the selected rows, from every supplier (#40).
+
 ### Changed
 
 - The Total row and the status bar no longer add up the quantities of different parts (#42).

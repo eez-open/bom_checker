@@ -75,6 +75,7 @@ export type MenuCommand =
     | "settings"
     | "lock"
     | "collect"
+    | "forget-data"
     | "save-and-close";
 
 export interface OpenedProject {

@@ -9,6 +9,7 @@ import {
     withNewerResults,
     type ListMember
 } from "../shared/bom-list";
+import { withoutResults, type ResultKeys } from "../shared/collection";
 import { combineBoms } from "../shared/combined-bom";
 import type { OpenedList } from "../shared/ipc";
 import type {
@@ -198,6 +199,30 @@ function shareCollected(collected: CollectedData): void {
     if (changed) {
         useWorkspace.setState({ documents: next });
     }
+}
+
+/** Results forgotten in the Combined BOM (#40) are forgotten in the BOMs
+ *  too, since Combined shows theirs; they then have unsaved changes. */
+export function forgetInList(keys: ResultKeys): void {
+    const { list, documents } = useWorkspace.getState();
+    if (!list) {
+        return;
+    }
+    const next = { ...documents };
+    for (const path of list.boms) {
+        const document = documents[path];
+        if (!document) {
+            continue;
+        }
+        const collected = withoutResults(document.project.collected, keys);
+        if (collected !== document.project.collected) {
+            next[path] = {
+                ...document,
+                project: { ...document.project, collected }
+            };
+        }
+    }
+    useWorkspace.setState({ documents: next });
 }
 
 /** The results of `next` that `before` doesn't have. */

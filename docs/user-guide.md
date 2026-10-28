@@ -120,6 +120,8 @@ To update only some parts, select their rows in the table first (the checkboxes 
 
 The summary shows how long it took, how many part numbers were found, not found or matched several items, and how many have enough stock for the order quantity.
 
+To remove what was collected for some rows, e.g. to start over with them, select the rows and click **Forget data…** on the toolbar (or **Tools → Forget Supplier Data of Selected Rows…**). The data of every supplier is removed for their part numbers, and for their Values if those were looked up. Data is kept per part number, so other rows with the same part numbers lose it too. This can't be undone; collect again to get the data back. In a BOM list's *Combined* BOM, the data is removed from the list's BOMs.
+
 ### Finding part numbers from the Value
 
 Tick **Look up the Value where a part number is missing** to search for rows whose part-number cell is empty. The Value is searched as a manufacturer part number at each selected supplier (e.g. *TPS54331DDA* or *1N4007*), so the supplier needs a part-number column (add one with **Columns…**).
