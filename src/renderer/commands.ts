@@ -29,7 +29,8 @@ import {
     confirmDiscardList,
     isListOpen,
     loadList,
-    saveAllInList
+    saveAllInList,
+    unsavedPaths
 } from "./list-commands";
 import { documentName, isDirty, useDocument } from "./store/document";
 import {
@@ -342,11 +343,23 @@ export function openCollect(): void {
     useUi.setState({ dialog: { kind: "collect" } });
 }
 
-/** Tools → Unify Part Numbers… of a BOM list (#35). */
-export function openUnify(): void {
-    if (isListOpen()) {
-        useUi.setState({ dialog: { kind: "unify" } });
+/** Tools → Unify Part Numbers… of a BOM list (#35). It changes the BOM
+ *  files, so it starts from saved BOMs. */
+export async function openUnify(): Promise<void> {
+    if (!isListOpen()) {
+        return;
     }
+    if (unsavedPaths().length > 0) {
+        const save = await window.api.dialog.confirm({
+            message: "Save the changed BOMs first?",
+            detail: "Unify changes the BOM files, so it starts from the saved BOMs.",
+            confirmLabel: "Save All"
+        });
+        if (!save || !(await saveAllInList())) {
+            return;
+        }
+    }
+    useUi.setState({ dialog: { kind: "unify" } });
 }
 
 export function openSettings(): void {

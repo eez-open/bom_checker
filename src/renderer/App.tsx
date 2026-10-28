@@ -30,6 +30,7 @@ import { ExportDialog } from "./dialogs/ExportDialog";
 import { KicadImportDialog } from "./dialogs/KicadImportDialog";
 import { KicadSyncDialog } from "./dialogs/KicadSyncDialog";
 import { KicadUpdateDialog } from "./dialogs/KicadUpdateDialog";
+import { UnifyDialog } from "./dialogs/UnifyDialog";
 import { SettingsDialog } from "./settings/SettingsDialog";
 import { StartPage } from "./StartPage";
 import { FilterBar, rowViews, tableGroups } from "./FilterBar";
@@ -389,6 +390,7 @@ export function App() {
             {dialog?.kind === "cost-chart" && (
                 <CostChartDialog onClose={closeDialog} />
             )}
+            {dialog?.kind === "unify" && <UnifyDialog onClose={closeDialog} />}
             {dialog?.kind === "kicad-update" && (
                 <KicadUpdateDialog onClose={closeDialog} />
             )}

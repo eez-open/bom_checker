@@ -270,6 +270,11 @@ input[aria-invalid="true"] {
     min-height: min(560px, calc(100vh - 24px));
 }
 
+.modal-full {
+    width: calc(100vw - 48px);
+    height: calc(100vh - 48px);
+}
+
 /* Shared form pieces */
 
 .toolbar-spacer {
@@ -1063,4 +1068,102 @@ circle.cost-slice {
 
 .list-placeholder p {
     margin: 0;
+}
+
+/* Unify part numbers (#35) */
+.unify-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin-bottom: 8px;
+}
+
+.unify-header p {
+    flex: 1 1 360px;
+    margin: 0;
+}
+
+.unify-group {
+    margin: 0 0 18px;
+    padding-top: 10px;
+    border-top: 1px solid var(--app-border);
+}
+
+.unify-group h3 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 12px;
+    margin: 0;
+    font-size: 14px;
+}
+
+.unify-footprint,
+.unify-qty {
+    color: var(--app-muted);
+    font-size: 12px;
+    font-weight: 400;
+}
+
+.unify-used-in {
+    margin: 2px 0 6px;
+    font-size: 12px;
+}
+
+.unify-values {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 14px;
+    margin: 4px 0 6px;
+}
+
+.unify-choice {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.unify-table {
+    font-variant-numeric: tabular-nums;
+}
+
+.unify-table th[scope="row"] {
+    width: 80px;
+    font-weight: 600;
+}
+
+.unify-table .number {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.unify-table .unify-text {
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.unify-table tr.chosen td {
+    background: #eef4fc;
+}
+
+.unify-best {
+    margin-left: 8px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: #dafbe1;
+    color: var(--app-success);
+    font-size: 11px;
+}
+
+.unify-other-row td {
+    padding-bottom: 8px;
+}
+
+.unify-other {
+    width: 220px;
+    margin-right: 12px;
 }

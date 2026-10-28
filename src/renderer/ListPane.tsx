@@ -122,7 +122,7 @@ export function ListPane() {
                 type="button"
                 className="primary"
                 disabled={readable === 0}
-                onClick={openUnify}
+                onClick={() => void openUnify()}
             >
                 Unify part numbers…
             </button>

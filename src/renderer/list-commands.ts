@@ -13,6 +13,7 @@ import { combineBoms } from "../shared/combined-bom";
 import type { OpenedList } from "../shared/ipc";
 import type { CollectedData, Project } from "../shared/model";
 import { addToHistory } from "../shared/parts-history";
+import type { UnifyChanges } from "../shared/unify";
 import { errorMessage } from "./errors";
 import {
     isDirty,
@@ -132,22 +133,7 @@ export function selectInList(target: string | null): void {
 
     if (target === COMBINED) {
         useWorkspace.setState({ documents: waiting, selected: target });
-        const members = list.boms.flatMap(path =>
-            waiting[path]
-                ? [
-                      {
-                          path,
-                          name: fileTitle(path),
-                          project: waiting[path].project
-                      }
-                  ]
-                : []
-        );
-        useDocument.getState().load(combineBoms(members), {
-            filePath: null,
-            saved: true,
-            readOnly: true
-        });
+        showCombined();
         return;
     }
     const snapshot = target ? waiting[target] : undefined;
@@ -159,6 +145,15 @@ export function selectInList(target: string | null): void {
         useWorkspace.setState({ documents: waiting, selected: target });
         useDocument.getState().close();
     }
+}
+
+/** Shows the Combined BOM of the BOMs as they are now. */
+function showCombined(): void {
+    useDocument.getState().load(combineBoms(listMembers()), {
+        filePath: null,
+        saved: true,
+        readOnly: true
+    });
 }
 
 /** Data collected in the Combined BOM goes to the BOMs that use the part
@@ -406,4 +401,56 @@ export async function chooseHistory(): Promise<void> {
     }));
     await saveListFile();
     await updateHistory(list.boms);
+}
+
+export interface UnifyResult {
+    /** Names of the changed BOMs. */
+    boms: string[];
+    rows: number;
+    backupFolder: string;
+    /** The changed BOMs that come from a KiCad project. */
+    kicad: string[];
+}
+
+/**
+ * Saves the BOMs Unify changed, after a backup of their files, with the
+ * data collected for the chosen part numbers. Each change is an undo step
+ * of its BOM. The history gets the new part numbers.
+ */
+export async function applyUnify(
+    changes: UnifyChanges,
+    collected: CollectedData
+): Promise<UnifyResult> {
+    const { list } = useWorkspace.getState();
+    if (!list) {
+        throw new Error("No BOM list is open.");
+    }
+    const boms = [...changes.projects].map(([filePath, project]) => ({
+        filePath,
+        project: withNewerResults(project, collected, usedPartNumbers(project))
+    }));
+    const backupFolder = await window.api.list.saveBoms(list.filePath, boms);
+    for (const { filePath, project } of boms) {
+        const document = documentOf(filePath);
+        if (document) {
+            setDocument(filePath, {
+                project,
+                savedProject: project,
+                past: [...document.past, document.project],
+                future: []
+            });
+        }
+    }
+    if (useWorkspace.getState().selected === COMBINED) {
+        showCombined();
+    }
+    await updateHistory(boms.map(bom => bom.filePath));
+    return {
+        boms: boms.map(bom => fileTitle(bom.filePath)),
+        rows: [...changes.rows.values()].reduce((sum, rows) => sum + rows, 0),
+        backupFolder,
+        kicad: boms
+            .filter(bom => bom.project.source.kind === "kicad")
+            .map(bom => fileTitle(bom.filePath))
+    };
 }

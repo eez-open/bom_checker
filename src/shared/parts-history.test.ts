@@ -72,6 +72,7 @@ describe("components of a list", () => {
         expect(key(" 10k ", "R_0603")).toBe(key("10k", "R_0603 "));
         expect(key("10k", "R_0603")).not.toBe(key("10k", "R_0805"));
         expect(key("10k", "R_0603", false)).toBe(key("10k", "R_0805", false));
+        expect(key("10k", "R_0603")).toBe(key("10K", "r_0603"));
         expect(key("10m", "")).not.toBe(key("10M", ""));
     });
 

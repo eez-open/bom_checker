@@ -5,7 +5,8 @@ interface ModalProps {
     onClose: () => void;
     children: ReactNode;
     footer: ReactNode;
-    size?: "normal" | "large";
+    /** "full": nearly the whole window, for wide tables. */
+    size?: "normal" | "large" | "full";
     /** Remembers the size the user gives this dialog, under this name. */
     name?: string;
 }
@@ -83,7 +84,7 @@ export function Modal({
     return (
         <dialog
             ref={ref}
-            className={size === "large" ? "modal modal-large" : "modal"}
+            className={size === "normal" ? "modal" : `modal modal-${size}`}
             aria-labelledby={titleId}
             onCancel={event => {
                 event.preventDefault();

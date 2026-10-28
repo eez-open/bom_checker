@@ -37,18 +37,24 @@ function tidy(text: string): string {
     return text.trim().replace(/\s+/g, " ");
 }
 
+/** A Value compared: 10k is 10K and 100n is 100N, but m and M keep
+ *  their case, since 10m (milli) isn't 10M (mega). */
+function valueKey(value: string): string {
+    return tidy(value).replace(/[^mM]/g, c => c.toLowerCase());
+}
+
 /**
  * Rows are the same component when Value and Footprint are equal (spaces
- * around and inside tidied up; case counts, since 10m isn't 10M). Without
- * `matchFootprint`, the Value alone.
+ * tidied up; see `valueKey` for case). Without `matchFootprint`, the Value
+ * alone.
  */
 export function componentKey(
     row: Pick<BomRow, "value" | "footprint">,
     matchFootprint = true
 ): string {
     return matchFootprint
-        ? `${tidy(row.value)}\u0000${tidy(row.footprint)}`
-        : tidy(row.value);
+        ? `${valueKey(row.value)}\u0000${tidy(row.footprint).toLowerCase()}`
+        : valueKey(row.value);
 }
 
 /** The row's supplier part numbers that name one part: not empty, not

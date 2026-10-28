@@ -13,8 +13,9 @@ EEZ BOM checker takes a bill of materials (BOM) and checks every part at DigiKey
 7. [Exporting](#exporting)
 8. [Syncing with the KiCad project](#syncing-with-the-kicad-project)
 9. [Updating the KiCad project](#updating-the-kicad-project)
-10. [Files and security](#files-and-security)
-11. [Troubleshooting](#troubleshooting)
+10. [BOM lists: several BOMs together](#bom-lists-several-boms-together)
+11. [Files and security](#files-and-security)
+12. [Troubleshooting](#troubleshooting)
 
 ## Installing
 
@@ -210,9 +211,35 @@ What's written:
 
 **Backup and undo:** before writing, the project file and all its schematics are copied to `bom-checker-backups/<date_time>` in the project folder. **Restore the backup** in the dialog puts them back right away. Later, copy the files from that folder back into the project folder by hand.
 
+## BOM lists: several BOMs together
+
+The modules of one device often have their own BOMs, made at different times, and the same 10k resistor may have a different part number in each. Since the PCBA of all modules is ordered from one supplier at once, one part number per component means larger quantities, better prices and fewer parts to stock. A **BOM list** (`.eezbom-list`) keeps such BOMs together, finds those differences, and shows what to order for all of them.
+
+**Creating a list:** **File → New BOM List…** (or *BOM list* on the start page) asks where to save the list. Next to it, it creates the **history BOM**, *<list> history.eezbom*, or uses the one already there. Then **Add BOMs…** adds `.eezbom` files: BOMs made by hand or imported from CSV or KiCad. The list keeps their paths relative to its own folder, so the folder can be moved or shared. **File → Open…** and *Open Recent* open lists like BOMs.
+
+**Working with the BOMs:** the list is on the left and the selected BOM on the right, where everything works as with a single BOM: editing, Collect, Export, Update KiCad… and so on. While another BOM is shown, a BOM keeps its unsaved changes (marked with •) and its Ctrl+Z history. **Save** saves the BOM shown; **File → Save All** (Ctrl+Alt+S) saves every BOM of the list. **Remove** takes the selected BOM off the list; its file stays. File → Close closes the list, asking about unsaved BOMs.
+
+**Combined** shows the rows of all BOMs, for ordering them together. Rows with the same supplier part numbers are one row, with the quantities added up (each BOM's build quantity included); rows without part numbers are merged by Value and Footprint. *Reference* lists the references by BOM, and *Source BOM* the BOMs a row comes from. Combined can't be edited, but it can be collected, which also gives the BOMs the new data (they then have unsaved changes), and exported like any BOM.
+
+**The history BOM** remembers every component (Value and Footprint) with each combination of supplier part numbers used in the list's BOMs, also ones they no longer use, so they can be offered again. It gets new combinations when a BOM is added, after Unify's Apply, and whenever a BOM of the list is saved; *Used in* names the BOMs. It isn't unified itself. **Choose…** uses another `.eezbom` as the history.
+
+### Unifying part numbers
+
+**Unify part numbers…** (in the list, or **Tools → Unify Part Numbers…**) first saves unsaved BOMs, then lists every component whose rows have different part numbers for a supplier, or different Values. Rows are the same component when Value and Footprint are equal: *10k* and *10K* are the same, but *10m* and *10M* aren't. Rows that already share a part number are too, so *10k* and *10K 1%* with the same DigiKey number are one component. Untick **Same footprint** to match by Value alone. An empty cell counts as different, so Unify can fill it in.
+
+For each component, it shows the rows and BOMs it's used in, and the total quantity. For each supplier, every part number used for it is offered, also those from the history, with availability, stock, order quantity, unit price and total price **for the quantity of all rows**. The cheapest in stock is marked *Best price*.
+
+- Choose a part number per supplier, type another one under **Other**, or **Keep as is**. For the Value, choose one, type another, or keep the rows' Values.
+- The cheapest in stock is chosen at first. Without data, it's the most used part number, unless the supplier reported it as not found. **Choose suggestions** chooses them again, e.g. after collecting.
+- **Collect…** collects the part numbers offered and typed in, so prices can be compared; the data is used here and goes to the BOMs on Apply.
+- **Apply…** says how many rows of how many BOMs change, then saves those BOMs, after copying their files to `bom-checker-backups/<date_time>` next to the list. In the app, Ctrl+Z on a BOM undoes the change; save it again to keep that.
+
+The history BOM isn't changed by Unify, but gets the new part numbers. BOMs imported from a KiCad project get the new part numbers in the BOM only: select each and use **Update KiCad…** to write them into the schematic.
+
 ## Files and security
 
 - **Save** (Ctrl+S) stores the BOM with all collected data in an `.eezbom` file. The app asks before closing, or before opening another BOM, if there are unsaved changes. Dropping a file on the window opens it too.
+- **BOM lists** (`.eezbom-list`) only name their BOMs and history BOM; the data is in those `.eezbom` files.
 - **Settings and credentials** are kept in the app's data folder: `%APPDATA%\EEZ BOM checker` on Windows, `~/.config/EEZ BOM checker` on Linux. Credentials are encrypted with your password (scrypt and AES-256-GCM); the password itself isn't stored.
 - **Supplier settings** always ask for the password, even while the credentials are unlocked for collecting. **Tools → Lock Credentials** locks them until you enter the password again.
 - **Change the password** in **Settings → General**, with the current one.

@@ -143,11 +143,18 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
         await mcuItem.click();
         await pane.getByRole("button", { name: "Remove" }).click();
         await expect(mcuItem).toHaveCount(0);
-        expect(
-            parseBomListFile(
-                await readFile(join(folder, "device.eezbom-list"), "utf8")
-            ).boms
-        ).toEqual(["psu.eezbom"]);
+        // The list is saved right after it shows the change.
+        await expect
+            .poll(
+                async () =>
+                    parseBomListFile(
+                        await readFile(
+                            join(folder, "device.eezbom-list"),
+                            "utf8"
+                        )
+                    ).boms
+            )
+            .toEqual(["psu.eezbom"]);
         expect((await readBom(mcu)).rows).toHaveLength(2);
     } finally {
         await closeApp(app);
