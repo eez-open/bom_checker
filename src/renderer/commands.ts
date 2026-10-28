@@ -4,7 +4,8 @@ import {
     COLUMN_GROUPS,
     type ColumnGroup,
     type MenuCommand,
-    type OpenedDocument
+    type OpenedDocument,
+    type OpenedProject
 } from "../shared/ipc";
 import {
     partNumberKey,
@@ -99,10 +100,24 @@ export async function confirmDiscardChanges(): Promise<boolean> {
 }
 
 /** Shows a single BOM, closing an open list. */
-function loadDocument(project: Project, filePath: string | null): void {
+function loadDocument(
+    project: Project,
+    filePath: string | null,
+    saved = true
+): void {
     closeList();
-    useDocument.getState().load(project, { filePath, saved: true });
+    useDocument.getState().load(project, { filePath, saved });
     resetTableView();
+}
+
+/** A file that still has supplier data opens with unsaved changes, so
+ *  saving it removes the data. */
+function loadOpened({
+    filePath,
+    project,
+    supplierDataInFile
+}: OpenedProject): void {
+    loadDocument(project, filePath, !supplierDataInFile);
 }
 
 export async function newDocument(): Promise<void> {
@@ -128,7 +143,7 @@ function openDocumentOrList(
     if (opened.kind === "list") {
         loadList(opened.list);
     } else {
-        loadDocument(opened.opened.project, opened.opened.filePath);
+        loadOpened(opened.opened);
     }
 }
 

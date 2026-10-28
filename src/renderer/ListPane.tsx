@@ -34,9 +34,12 @@ function ListItem({
             >
                 <span className="list-item-name">{name}</span>
                 {unsaved && (
-                    <span className="list-item-mark" aria-label="unsaved">
-                        •
-                    </span>
+                    <span
+                        className="list-item-mark"
+                        role="img"
+                        aria-label="unsaved"
+                        title="Unsaved changes"
+                    />
                 )}
                 {error && (
                     <span className="list-item-error" aria-label="can't read">

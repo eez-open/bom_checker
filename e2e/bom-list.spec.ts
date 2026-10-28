@@ -2,8 +2,12 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
+import {
+    SUPPLIER_DATA_FOLDER,
+    writeSupplierData
+} from "../src/main/project/supplier-data";
 import { parseBomListFile } from "../src/shared/bom-list-file";
-import type { Project } from "../src/shared/model";
+import type { CollectedData, Project } from "../src/shared/model";
 import { parseProjectFile, serializeProject } from "../src/shared/project-file";
 import { addRow, createProject, createRow } from "../src/shared/project-ops";
 import {
@@ -35,6 +39,16 @@ function bom(rows: [string, string, number, string][]): Project {
     );
 }
 
+/** A result for D-1 fetched at `fetchedAt`. */
+function d1(fetchedAt: string): CollectedData {
+    return {
+        results: {
+            digikey: { "D-1": { status: "notFound", runId: "r", fetchedAt } }
+        },
+        runs: {}
+    };
+}
+
 async function readBom(path: string): Promise<Project> {
     return parseProjectFile(await readFile(path, "utf8"));
 }
@@ -61,7 +75,12 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
             ])
         )
     );
-    const { app, page } = await launchApp();
+    // Both BOMs were collected before, psu later.
+    const userData = await mkdtemp(join(tmpdir(), "eez-bom-list-profile-"));
+    const supplierData = join(userData, SUPPLIER_DATA_FOLDER);
+    await writeSupplierData(supplierData, psu, d1("2026-10-02T10:00:00Z"));
+    await writeSupplierData(supplierData, mcu, d1("2026-10-01T10:00:00Z"));
+    const { app, page } = await launchApp({ userData });
     try {
         // A new list gets a history BOM next to it.
         await answerSaveDialog(app, join(folder, "device.eezbom-list"));
@@ -117,6 +136,8 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
 
         // Combined: the same part numbers in one row, with the BOMs.
         await pane.getByRole("button", { name: "Combined" }).click();
+        // Showing it changes no BOM, although psu has newer data for D-1.
+        await expect(mcuItem.getByLabel("unsaved")).toHaveCount(0);
         await expect(cell(page, 0, "reference")).toHaveText(
             "R1, R2 (psu); R1 (mcu)"
         );

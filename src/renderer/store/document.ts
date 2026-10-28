@@ -9,8 +9,9 @@ const HISTORY_LIMIT = 100;
  *  that isn't shown (#35). */
 export interface DocumentSnapshot {
     project: Project;
-    /** The project as last opened or saved; null if it never was. Unsaved
-     *  changes exist when `project !== savedProject`. */
+    /** The project as last opened or saved; null if it never was, or if
+     *  its file must be saved again. Unsaved changes exist when
+     *  `project !== savedProject`. */
     savedProject: Project | null;
     past: Project[];
     future: Project[];

@@ -2,6 +2,10 @@ import { mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
+import {
+    SUPPLIER_DATA_FOLDER,
+    readSupplierData
+} from "../src/main/project/supplier-data";
 import { serializeBomList } from "../src/shared/bom-list-file";
 import type { Project } from "../src/shared/model";
 import { createHistoryProject } from "../src/shared/parts-history";
@@ -34,26 +38,74 @@ async function readBom(path: string): Promise<Project> {
     return parseProjectFile(await readFile(path, "utf8"));
 }
 
-test("unifies part numbers across the BOMs of a list", async () => {
+/** psu and mcu, with the same resistor under different part numbers, in
+ *  a list with an empty history. */
+async function writeList() {
     const folder = await mkdtemp(join(tmpdir(), "eez-unify-"));
-    const psu = join(folder, "psu.eezbom");
-    const mcu = join(folder, "mcu.eezbom");
-    const history = join(folder, "device history.eezbom");
-    const list = join(folder, "device.eezbom-list");
-    await writeFile(psu, bom("R1, R2", 2, "FAKE-PLENTY-ND"));
-    await writeFile(mcu, bom("R7", 3, "RMCF0805FT100KCT-ND"));
-    await writeFile(history, serializeProject(createHistoryProject()));
+    const files = {
+        folder,
+        psu: join(folder, "psu.eezbom"),
+        mcu: join(folder, "mcu.eezbom"),
+        history: join(folder, "device history.eezbom"),
+        list: join(folder, "device.eezbom-list")
+    };
+    await writeFile(files.psu, bom("R1, R2", 2, "FAKE-PLENTY-ND"));
+    await writeFile(files.mcu, bom("R7", 3, "RMCF0805FT100KCT-ND"));
+    await writeFile(files.history, serializeProject(createHistoryProject()));
     await writeFile(
-        list,
+        files.list,
         serializeBomList({
             schemaVersion: 1,
             boms: ["psu.eezbom", "mcu.eezbom"],
             history: "device history.eezbom"
         })
     );
+    return files;
+}
 
+test("gives the BOMs the data collected in Combined", async () => {
+    const { list } = await writeList();
     const fake = await startFakeSuppliers();
     const { app, page } = await launchApp({
+        env: { EEZ_BOM_CHECKER_API_URLS: JSON.stringify(fake.urls) }
+    });
+    try {
+        await setUpCredentials(page);
+        await answerOpenDialog(app, list);
+        await page.getByRole("button", { name: "Open BOM…" }).click();
+        const pane = page.getByRole("navigation", { name: "BOM list" });
+        const psuItem = pane.getByRole("button", { name: /^psu/ });
+        await pane.getByRole("button", { name: "Combined" }).click();
+        await expect(psuItem.getByLabel("unsaved")).toHaveCount(0);
+
+        await page.getByRole("button", { name: "Collect…" }).click();
+        const collect = page.getByRole("dialog", {
+            name: "Collect supplier data"
+        });
+        await collect.getByRole("button", { name: "Start" }).click();
+        await expect(
+            collect.getByRole("region", { name: "DigiKey summary" })
+        ).toBeVisible();
+        await collect.getByRole("button", { name: "Close" }).click();
+
+        await expect(psuItem.getByLabel("unsaved")).toBeVisible();
+        await psuItem.click();
+        await expect(
+            page.locator(
+                '.ag-row[row-index="0"] .ag-cell[col-id="data:digikey:availability"]'
+            )
+        ).toHaveText("In stock");
+    } finally {
+        await closeApp(app);
+        await fake.close();
+    }
+});
+
+test("unifies part numbers across the BOMs of a list", async () => {
+    const { folder, psu, mcu, history, list } = await writeList();
+
+    const fake = await startFakeSuppliers();
+    const { app, page, userData } = await launchApp({
         env: { EEZ_BOM_CHECKER_API_URLS: JSON.stringify(fake.urls) }
     });
     try {
@@ -110,14 +162,19 @@ test("unifies part numbers across the BOMs of a list", async () => {
         );
         await unify.getByRole("button", { name: "Close" }).click();
 
-        // psu has the cut tape now, with its data; a copy from before is
-        // in the backup folder.
+        // psu has the cut tape now, with its data kept on the computer, not
+        // in the file; a copy from before is in the backup folder.
         const saved = await readBom(psu);
         expect(saved.rows[0]?.partNumbers.digikey).toBe("RMCF0805FT100KCT-ND");
         expect(saved.rows[0]?.value).toBe("100k 1%");
         expect((await readBom(mcu)).rows[0]?.value).toBe("100k 1%");
+        expect(await readFile(psu, "utf8")).not.toContain("collected");
+        const supplierData = await readSupplierData(
+            join(userData, SUPPLIER_DATA_FOLDER),
+            psu
+        );
         expect(
-            saved.collected.results.digikey?.["RMCF0805FT100KCT-ND"]?.status
+            supplierData.results.digikey?.["RMCF0805FT100KCT-ND"]?.status
         ).toBe("found");
         const backups = await readdir(join(folder, "bom-checker-backups"));
         expect(backups).toHaveLength(1);

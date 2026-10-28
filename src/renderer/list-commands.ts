@@ -11,7 +11,12 @@ import {
 } from "../shared/bom-list";
 import { combineBoms } from "../shared/combined-bom";
 import type { OpenedList } from "../shared/ipc";
-import type { CollectedData, Project } from "../shared/model";
+import type {
+    CollectedData,
+    LookupResult,
+    Project,
+    SupplierId
+} from "../shared/model";
 import { addToHistory } from "../shared/parts-history";
 import type { UnifyChanges } from "../shared/unify";
 import { errorMessage } from "./errors";
@@ -24,8 +29,18 @@ import {
 import { resetTableView } from "./store/ui";
 import { COMBINED, useWorkspace } from "./store/workspace";
 
-function fresh(project: Project): DocumentSnapshot {
-    return { project, savedProject: project, past: [], future: [] };
+/** A BOM as read; one whose file still has supplier data has unsaved
+ *  changes, so saving it removes the data. */
+function fresh(
+    project: Project,
+    supplierDataInFile?: boolean
+): DocumentSnapshot {
+    return {
+        project,
+        savedProject: supplierDataInFile ? null : project,
+        past: [],
+        future: []
+    };
 }
 
 export function isListOpen(): boolean {
@@ -85,7 +100,7 @@ export function loadList(opened: OpenedList): void {
     const all = [...opened.boms, ...(opened.history ? [opened.history] : [])];
     for (const bom of all) {
         if (bom.project) {
-            documents[bom.path] = fresh(bom.project);
+            documents[bom.path] = fresh(bom.project, bom.supplierDataInFile);
         } else {
             errors[bom.path] = bom.error ?? "The file can't be read.";
         }
@@ -157,7 +172,7 @@ function showCombined(): void {
 }
 
 /** Data collected in the Combined BOM goes to the BOMs that use the part
- *  numbers; they then have unsaved changes. */
+ *  numbers, where it's newer; they then have unsaved changes. */
 function shareCollected(collected: CollectedData): void {
     const { list, documents } = useWorkspace.getState();
     if (!list) {
@@ -185,13 +200,35 @@ function shareCollected(collected: CollectedData): void {
     }
 }
 
+/** The results of `next` that `before` doesn't have. */
+function newResults(next: CollectedData, before: CollectedData): CollectedData {
+    const results: CollectedData["results"] = {};
+    for (const [supplier, theirs] of Object.entries(next.results) as [
+        SupplierId,
+        Record<string, LookupResult>
+    ][]) {
+        for (const [key, result] of Object.entries(theirs)) {
+            if (before.results[supplier]?.[key] !== result) {
+                (results[supplier] ??= {})[key] = result;
+            }
+        }
+    }
+    return { results, runs: {} };
+}
+
+// Only what is collected while Combined is shown: showing it, which merges
+// the BOMs' data, mustn't change them.
 useDocument.subscribe((state, previous) => {
     if (
         state.readOnly &&
+        previous.readOnly &&
+        state.project.rows === previous.project.rows &&
         state.project.collected !== previous.project.collected &&
         useWorkspace.getState().selected === COMBINED
     ) {
-        shareCollected(state.project.collected);
+        shareCollected(
+            newResults(state.project.collected, previous.project.collected)
+        );
     }
 });
 
@@ -319,7 +356,10 @@ export async function addBomsToList(): Promise<void> {
         documents: {
             ...state.documents,
             ...Object.fromEntries(
-                added.map(bom => [bom.filePath, fresh(bom.project)])
+                added.map(bom => [
+                    bom.filePath,
+                    fresh(bom.project, bom.supplierDataInFile)
+                ])
             )
         },
         message: null
@@ -395,7 +435,7 @@ export async function chooseHistory(): Promise<void> {
         list: { ...list, history: opened.filePath },
         documents: {
             ...state.documents,
-            [opened.filePath]: fresh(opened.project)
+            [opened.filePath]: fresh(opened.project, opened.supplierDataInFile)
         },
         message: null
     }));

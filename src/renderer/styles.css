@@ -1019,13 +1019,15 @@ path.cost-slice {
     text-align: left;
 }
 
-.list-item:hover {
-    background: var(--app-border);
-}
-
 .list-item.selected {
     background: var(--app-accent);
     color: #ffffff;
+}
+
+/* Darker on hover, as primary buttons; the plain button hover would put the
+   white text on light gray. */
+.list-item.selected:hover:not(:disabled) {
+    background: #0757b8;
 }
 
 .list-item-name {
@@ -1033,6 +1035,19 @@ path.cost-slice {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* Unsaved changes: a dot in the warning colour, as on editor tabs. */
+.list-item-mark {
+    flex: none;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #e8590c;
+}
+
+.list-item.selected .list-item-mark {
+    background: #ffffff;
 }
 
 .list-item-error {

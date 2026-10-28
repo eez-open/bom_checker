@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-28
+
+### Changed
+
+- Supplier data (stock, prices, descriptions and the rest collected from the suppliers' APIs) is no longer saved in `.eezbom` files. It's kept on your computer, in the app's data folder, so BOM files can be published, e.g. on GitHub: the suppliers' API terms don't allow passing their data on. Whoever opens a published BOM collects the data with their own credentials.
+  - BOMs saved by 0.8.0 or earlier still have the data in the file. They open with unsaved changes; save them to remove it.
+  - A BOM moved or renamed outside the app has to be collected again.
+  - Earlier versions can't open BOMs saved by this one (file format 6).
+- BOMs of a list with unsaved changes are marked with a larger, orange dot.
+
+### Fixed
+
+- Showing a list's Combined BOM marked BOMs as changed when another BOM had newer data for their part numbers. Now only data collected in Combined goes to the BOMs.
+- Hovering the selected item of a BOM list showed its white text on light gray. It now stays blue, a little darker.
+
 ## [0.8.0] - 2026-10-28
 
 ### Added

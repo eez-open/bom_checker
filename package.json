@@ -2,7 +2,7 @@
     "name": "eez-bom-checker",
     "productName": "EEZ BOM checker",
     "desktopName": "eez-bom-checker.desktop",
-    "version": "0.8.0",
+    "version": "0.9.0",
     "description": "Checks KiCad BOMs against DigiKey, Mouser, TME and LCSC: stock, prices, lifecycle and RoHS",
     "author": "Envox <eez@envox.hr>",
     "license": "MIT",

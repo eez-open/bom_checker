@@ -164,7 +164,11 @@ describe("suppliers without an API", () => {
             unitPrice: 12.5,
             moq: 1
         });
-        expect(parseProjectFile(serializeProject(typed))).toEqual(typed);
+        // What was typed is the user's own; only collected data stays out.
+        expect(parseProjectFile(serializeProject(typed))).toEqual({
+            ...typed,
+            collected: { results: {}, runs: {} }
+        });
 
         // Files before format 5 have none.
         const old: Record<string, unknown> = {

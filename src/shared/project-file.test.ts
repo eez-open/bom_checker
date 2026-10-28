@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { PROJECT_SCHEMA_VERSION } from "./model";
-import { parseProjectFile, serializeProject } from "./project-file";
+import {
+    hasCollectedData,
+    parseProjectFile,
+    serializeProject
+} from "./project-file";
 import {
     addCustomColumn,
     addRow,
@@ -145,50 +149,72 @@ describe("older project files", () => {
 });
 
 describe("collected data", () => {
-    it("round-trips results and runs", () => {
-        const project = {
-            ...sampleProject(),
-            collected: {
-                results: {
-                    mouser: {
-                        "81-GRT1885C2A102JA2D": {
-                            status: "found" as const,
-                            runId: "run-1",
-                            fetchedAt: "2026-10-26T10:00:00Z",
-                            matchedBy: "supplierPartNumber" as const,
-                            offer: {
-                                supplierPartNumber: "81-GRT1885C2A102JA2D",
-                                manufacturer: "Murata",
-                                manufacturerPartNumber: "GRT1885C2A102JA02D",
-                                description: "MLCC 1nF",
-                                stockQty: 12000,
-                                moq: 1,
-                                orderMultiple: 1,
-                                priceBreaks: [{ qty: 1, unitPrice: 0.1 }],
-                                priceKind: "unknown" as const,
-                                currency: "EUR",
-                                lifecycle: "active" as const,
-                                lifecycleRaw: null,
-                                rohs: "RoHS Compliant"
-                            }
-                        },
-                        "X-1": {
-                            status: "notFound" as const,
-                            runId: "run-1",
-                            fetchedAt: "2026-10-26T10:00:00Z"
+    const withCollected = () => ({
+        ...sampleProject(),
+        collected: {
+            results: {
+                mouser: {
+                    "81-GRT1885C2A102JA2D": {
+                        status: "found" as const,
+                        runId: "run-1",
+                        fetchedAt: "2026-10-26T10:00:00Z",
+                        matchedBy: "supplierPartNumber" as const,
+                        offer: {
+                            supplierPartNumber: "81-GRT1885C2A102JA2D",
+                            manufacturer: "Murata",
+                            manufacturerPartNumber: "GRT1885C2A102JA02D",
+                            description: "MLCC 1nF",
+                            stockQty: 12000,
+                            moq: 1,
+                            orderMultiple: 1,
+                            priceBreaks: [{ qty: 1, unitPrice: 0.1 }],
+                            priceKind: "unknown" as const,
+                            currency: "EUR",
+                            lifecycle: "active" as const,
+                            lifecycleRaw: null,
+                            rohs: "RoHS Compliant"
                         }
-                    }
-                },
-                runs: {
-                    mouser: {
-                        id: "run-1",
-                        startedAt: "2026-10-26T10:00:00Z",
-                        endedAt: "2026-10-26T10:00:05Z",
-                        state: "complete" as const
+                    },
+                    "X-1": {
+                        status: "notFound" as const,
+                        runId: "run-1",
+                        fetchedAt: "2026-10-26T10:00:00Z"
                     }
                 }
+            },
+            runs: {
+                mouser: {
+                    id: "run-1",
+                    startedAt: "2026-10-26T10:00:00Z",
+                    endedAt: "2026-10-26T10:00:05Z",
+                    state: "complete" as const
+                }
             }
-        };
-        expect(parseProjectFile(serializeProject(project))).toEqual(project);
+        }
+    });
+
+    it("isn't written to the file", () => {
+        const project = withCollected();
+        const text = serializeProject(project);
+        expect(text).not.toContain("collected");
+        expect(text).not.toContain("Murata");
+        expect(parseProjectFile(text)).toEqual({
+            ...project,
+            collected: { results: {}, runs: {} }
+        });
+    });
+
+    it("is read from a version 5 file, to be moved out", () => {
+        const project = withCollected();
+        const version5 = JSON.stringify({ ...project, schemaVersion: 5 });
+        expect(parseProjectFile(version5)).toEqual(project);
+    });
+
+    it("tells whether there is any", () => {
+        expect(hasCollectedData(withCollected().collected)).toBe(true);
+        expect(hasCollectedData({ results: {}, runs: {} })).toBe(false);
+        expect(hasCollectedData({ results: { mouser: {} }, runs: {} })).toBe(
+            false
+        );
     });
 });
