@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import type { HttpRequest } from "../collection/http";
 import { digikey } from "./digikey";
-import { fakeContext } from "./fake-context";
+import { fakeContext, type FakeAnswer } from "./fake-context";
 import { AuthError, QuotaExceededError } from "./types";
 
 // Field names from DigiKey's Product Information v4 OpenAPI file.
@@ -50,14 +51,48 @@ function product(
     };
 }
 
+/** A product of the keyword search, as DigiKey lists Molex connectors. */
+function connector(manufacturerPartNumber: string, digikeyNumber: string) {
+    return {
+        Manufacturer: { Id: 23, Name: "Molex" },
+        ManufacturerProductNumber: manufacturerPartNumber,
+        Description: { ProductDescription: "CONN RCPT HSG 3POS 2.54MM" },
+        QuantityAvailable: 5000,
+        ProductStatus: { Id: 0, Status: "Active" },
+        ProductVariations: [
+            {
+                DigiKeyProductNumber: digikeyNumber,
+                PackageType: { Id: 3, Name: "Bulk" },
+                StandardPricing: [{ BreakQuantity: 1, UnitPrice: 0.2 }],
+                MyPricing: [],
+                MinimumOrderQuantity: 1,
+                QuantityAvailableforPackageType: 5000
+            }
+        ]
+    };
+}
+
+function keywordAnswer(products: unknown[]): FakeAnswer {
+    return {
+        body: {
+            Products: products,
+            ProductsCount: products.length,
+            ExactMatches: [],
+            SearchLocaleUsed: { Site: "SI", Language: "en", Currency: "EUR" }
+        }
+    };
+}
+
+const NOT_FOUND: FakeAnswer = {
+    status: 404,
+    body: { title: "Not Found", status: 404 }
+};
+
 function digikeyServer(
-    detail: (partNumber: string) => {
-        status?: number;
-        body?: unknown;
-        headers?: Record<string, string>;
-    }
+    detail: (partNumber: string) => FakeAnswer,
+    keyword: (keywords: string) => FakeAnswer = () => keywordAnswer([])
 ) {
-    return (_request: unknown, url: URL) => {
+    return (request: HttpRequest, url: URL) => {
         if (url.pathname === "/v1/oauth2/token") {
             return {
                 body: {
@@ -66,6 +101,12 @@ function digikeyServer(
                     token_type: "Bearer"
                 }
             };
+        }
+        if (url.pathname === "/products/v4/search/keyword") {
+            const body = JSON.parse(request.body ?? "{}") as {
+                Keywords?: string;
+            };
+            return keyword(body.Keywords ?? "");
         }
         const match = /\/products\/v4\/search\/(.+)\/productdetails$/.exec(
             url.pathname
@@ -183,16 +224,91 @@ describe("DigiKey", () => {
         const context = fakeContext(
             "digikey",
             SECRETS,
-            digikeyServer(() => ({
-                status: 404,
-                body: { title: "Not Found", status: 404 }
-            }))
+            digikeyServer(() => NOT_FOUND)
         );
         const outcome = (
             await digikey.lookup(["MCP2221A-I/ML-ND"], context)
         ).get("MCP2221A-I/ML-ND");
         expect(outcome).toEqual({ status: "notFound" });
-        expect(context.requests.at(-1)!.url).toContain("MCP2221A-I%2FML-ND");
+        expect(context.requests.map(request => request.url)).toContain(
+            "https://api.test/products/v4/search/MCP2221A-I%2FML-ND/productdetails"
+        );
+    });
+
+    it("searches by keyword for a part listed under another form of its number", async () => {
+        // As DigiKey answered for Molex 22-01-3037: not found as such; its
+        // keyword search finds 0022013037 and similar housings.
+        const context = fakeContext(
+            "digikey",
+            SECRETS,
+            digikeyServer(
+                () => NOT_FOUND,
+                () =>
+                    keywordAnswer([
+                        connector("0022013027", "900-0022013027-ND"),
+                        connector("0022013037", "900-0022013037-ND")
+                    ])
+            )
+        );
+        const outcome = (await digikey.lookup(["22-01-3037"], context)).get(
+            "22-01-3037"
+        );
+        expect(outcome).toMatchObject({
+            status: "found",
+            matchedBy: "mpn",
+            offer: {
+                supplierPartNumber: "900-0022013037-ND",
+                manufacturerPartNumber: "0022013037",
+                currency: "EUR"
+            }
+        });
+        const search = context.requests.at(-1)!;
+        expect(search).toMatchObject({
+            method: "POST",
+            url: "https://api.test/products/v4/search/keyword",
+            headers: {
+                Authorization: "Bearer dk-token",
+                "Content-Type": "application/json",
+                "X-DIGIKEY-Account-Id": "12345"
+            }
+        });
+        expect(JSON.parse(search.body!)).toEqual({
+            Keywords: "22-01-3037",
+            Limit: 10,
+            Offset: 0
+        });
+    });
+
+    it("lets the user choose among the keyword search's products", async () => {
+        const context = fakeContext(
+            "digikey",
+            SECRETS,
+            digikeyServer(
+                () => NOT_FOUND,
+                keywords =>
+                    keywords === "22-01-3099"
+                        ? keywordAnswer([
+                              connector("0022013097", "900-0022013097-ND"),
+                              connector("0022013098", "900-0022013098-ND")
+                          ])
+                        : NOT_FOUND
+            )
+        );
+        const outcome = (await digikey.lookup(["22-01-3099"], context)).get(
+            "22-01-3099"
+        );
+        expect(outcome).toMatchObject({ status: "ambiguous" });
+        if (outcome?.status === "ambiguous") {
+            expect(outcome.candidates.map(c => c.supplierPartNumber)).toEqual([
+                "900-0022013097-ND",
+                "900-0022013098-ND"
+            ]);
+        }
+        expect(
+            (await digikey.lookup(["NOTHING-LIKE-IT"], context)).get(
+                "NOTHING-LIKE-IT"
+            )
+        ).toEqual({ status: "notFound" });
     });
 
     it("stops at the daily limit and on rejected credentials", async () => {

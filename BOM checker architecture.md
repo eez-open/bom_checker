@@ -309,13 +309,14 @@ interface SupplierContext {
 3. **MPN fallback.** The example BOM has manufacturer part numbers in some supplier columns, e.g. DigiKey `RC0805FR-071KL` and Mouser `GMR100HJBFA10L0`. If there's no exact match, the plugin tries the value as a manufacturer part number:
    - one candidate is accepted and shown as "matched by MPN";
    - several (different packaging or manufacturers) become `ambiguous`. The user picks one from a list in the cell, and the choice is written back as the real supplier part number.
+   - if no MPN is equal, one that differs only in punctuation and leading zeros counts, the same way. Manufacturers and suppliers write some numbers in more than one form: Molex 22-01-3037 is 0022013037 at DigiKey.
 4. **Packaging must match.** DigiKey returns every packaging variation for a product, and Mouser lists reels as separate part numbers. The offer always comes from the exact packaging requested, because MOQ and prices differ per packaging.
 
 ### 6.3 Per-supplier details
 
 | | DigiKey | Mouser | TME |
 |---|---|---|---|
-| API | Product Information v4: `GET /products/v4/search/{pn}/productdetails` | Search API v1: `POST /api/v1/search/partnumber` (v2 adds no part-number search) | API v2 (REST GET). v1 is retired: keys created after 14 May 2026 can't use it and it ends 30 June 2027 |
+| API | Product Information v4: `GET /products/v4/search/{pn}/productdetails`; `POST /products/v4/search/keyword` for a part number that isn't found | Search API v1: `POST /api/v1/search/partnumber` (v2 adds no part-number search) | API v2 (REST GET). v1 is retired: keys created after 14 May 2026 can't use it and it ends 30 June 2027 |
 | Auth | OAuth2 client credentials; token valid 10 min, no refresh. Optional browser sign-in (7.1) | `apiKey` query parameter. Needs the **Search** key, not the Order key | OAuth2 client credentials with a private key (token + secret); token valid 5 min, refreshable |
 | Parts per call | 1 | 10 (`a\|b\|c`) | 50 (needs `/products` + `/products/data`; `/products/files` for datasheets only on request) |
 | Calls for a 125-row BOM | ~125 | ~13 | ~6 |
@@ -332,6 +333,7 @@ interface SupplierContext {
 - **Pick the variation.** The plugin uses the `ProductVariations[]` entry whose `DigiKeyProductNumber` equals the requested number. MOQ, stock and prices are taken from that variation, not from the product as a whole.
 - **Digi-Reel numbers** need an extra `/digireelpricing` call because of the reeling fee.
 - **Encoding:** part numbers are URL-encoded before sending; some contain `/`.
+- **Keyword search:** `productdetails` finds only DigiKey numbers and manufacturer part numbers as DigiKey writes them; Molex 22-01-3037 gives 404. Then `{Keywords, Limit: 10, Offset: 0}` goes to the keyword search, which also knows other forms. Its `ExactMatches`, or else its `Products`, are matched by the rules in 6.2, and with no match the user chooses among them. A part number that isn't found costs two requests.
 - **Locale:** `SearchLocaleUsed` is always read from the response. DigiKey silently replaces invalid locale combinations, e.g. EUR on the US site falls back to USD.
 - **Quota:** the 1,000/day limit belongs to the user's own DigiKey app. The engine records `X-RateLimit-Remaining` from each response.
 - **Two error formats:** API calls return RFC 7807-style errors, but the token endpoint uses an older format. Both are handled.

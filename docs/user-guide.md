@@ -130,6 +130,8 @@ Tick **Look up the Value where a part number is missing** to search for rows who
 - When several items match, typically different packagings, the cell gets the Value, and the supplier's *Availability* column shows a list to choose the item from.
 - When nothing matches, the cell stays empty.
 
+A manufacturer part number counts as the same when it differs only in dashes, other punctuation or leading zeros: DigiKey lists Molex *22-01-3037* as *0022013037*. When DigiKey doesn't find a part number at all, the app also runs DigiKey's keyword search, which costs a second request; if none of the products it finds has the number, you choose among them.
+
 Generic values such as *100n*, *4u7* or *10k*, names like *LED* or *Conn_01x04*, and cells with "-" are skipped: a value alone can't pick one capacitor out of thousands. Part numbers of digits only, as many connectors have (Molex *22-01-3037*, Würth *61300311121*), are looked up when they have at least 7 digits. The summary says how many part numbers were filled in, are left to choose, or weren't found. A Value looked up in an earlier run fills in an empty cell too. Filling in is one step that **Ctrl+Z** undoes. The option is remembered for next time. While it's off, each supplier says how many rows it could look up by their Value.
 
 ## Building several units

@@ -1,6 +1,6 @@
-// DigiKey Product Information API v4. One part number per request.
-// OAuth 2.0 client credentials; the account number header selects the
-// account's own prices (MyPricing).
+// DigiKey Product Information API v4. One part number per request, and a
+// keyword search for one that isn't found. OAuth 2.0 client credentials;
+// the account number header selects the account's own prices (MyPricing).
 // https://developer.digikey.com/products/product-information-v4
 
 import { z } from "zod";
@@ -8,7 +8,7 @@ import { digikeyLifecycle } from "../../shared/lifecycle";
 import { otherPackagingNote } from "../../shared/line-text";
 import type { LookupOutcome, SupplierOffer } from "../../shared/model";
 import { partNumberKey } from "../../shared/model";
-import { retryAfterMs } from "../collection/http";
+import { retryAfterMs, type HttpResponse } from "../collection/http";
 import { matchOutcome, normalizeCurrency, sortBreaks } from "./matching";
 import {
     AuthError,
@@ -21,6 +21,9 @@ import {
 
 const PRODUCTION_URL = "https://api.digikey.com";
 const SANDBOX_URL = "https://sandbox-api.digikey.com";
+
+/** Products asked for in a keyword search; each has its packagings. */
+const KEYWORD_LIMIT = 10;
 
 const tokenSchema = z.looseObject({
     access_token: z.string(),
@@ -42,30 +45,38 @@ const variationSchema = z.looseObject({
     DigiReelFee: z.number().nullish()
 });
 
-const productDetailsSchema = z.looseObject({
-    Product: z.looseObject({
-        Manufacturer: z.looseObject({ Name: z.string().nullish() }).nullish(),
-        ManufacturerProductNumber: z.string().nullish(),
-        Description: z
-            .looseObject({ ProductDescription: z.string().nullish() })
-            .nullish(),
-        QuantityAvailable: z.number().nullish(),
-        ProductStatus: z
-            .looseObject({ Status: z.string().nullish() })
-            .nullish(),
-        Classifications: z
-            .looseObject({ RohsStatus: z.string().nullish() })
-            .nullish(),
-        ProductUrl: z.string().nullish(),
-        DatasheetUrl: z.string().nullish(),
-        ProductVariations: z.array(variationSchema).nullish()
-    }),
-    SearchLocaleUsed: z
-        .looseObject({ Currency: z.string().nullish() })
-        .nullish()
+const productSchema = z.looseObject({
+    Manufacturer: z.looseObject({ Name: z.string().nullish() }).nullish(),
+    ManufacturerProductNumber: z.string().nullish(),
+    Description: z
+        .looseObject({ ProductDescription: z.string().nullish() })
+        .nullish(),
+    QuantityAvailable: z.number().nullish(),
+    ProductStatus: z.looseObject({ Status: z.string().nullish() }).nullish(),
+    Classifications: z
+        .looseObject({ RohsStatus: z.string().nullish() })
+        .nullish(),
+    ProductUrl: z.string().nullish(),
+    DatasheetUrl: z.string().nullish(),
+    ProductVariations: z.array(variationSchema).nullish()
 });
 
-type ProductDetails = z.infer<typeof productDetailsSchema>;
+const localeSchema = z
+    .looseObject({ Currency: z.string().nullish() })
+    .nullish();
+
+const productDetailsSchema = z.looseObject({
+    Product: productSchema,
+    SearchLocaleUsed: localeSchema
+});
+
+const keywordSearchSchema = z.looseObject({
+    Products: z.array(productSchema).nullish(),
+    ExactMatches: z.array(productSchema).nullish(),
+    SearchLocaleUsed: localeSchema
+});
+
+type Product = z.infer<typeof productSchema>;
 
 const tokens = new Map<string, { token: string; expiresAt: number }>();
 
@@ -98,10 +109,40 @@ async function lookupOne(
     partNumber: string,
     context: SupplierContext
 ): Promise<LookupOutcome> {
+    const currency = String(context.config.currency);
+    const details = await send(context, {
+        method: "GET",
+        path: `/products/v4/search/${encodeURIComponent(partNumber.trim())}/productdetails`
+    });
+    if (details.status !== 404) {
+        return details.status === 200
+            ? parseProductDetails(partNumber, details.json(), currency)
+            : searchError(details);
+    }
+    // DigiKey knows some parts only by another form of their number, e.g.
+    // Molex 22-01-3037 as 0022013037; its keyword search finds them.
+    const search = await send(context, {
+        method: "POST",
+        path: "/products/v4/search/keyword",
+        body: { Keywords: partNumber.trim(), Limit: KEYWORD_LIMIT, Offset: 0 }
+    });
+    switch (search.status) {
+        case 200:
+            return parseKeywordSearch(partNumber, search.json(), currency);
+        case 404:
+            return { status: "notFound" };
+        default:
+            return searchError(search);
+    }
+}
+
+/** Sends an API request. HTTP 200, 400 and 404 are returned; other
+ *  statuses throw. */
+async function send(
+    context: SupplierContext,
+    request: { method: "GET" | "POST"; path: string; body?: object }
+): Promise<HttpResponse> {
     const { config, secrets } = context;
-    const url =
-        `${baseUrl(context)}/products/v4/search/` +
-        `${encodeURIComponent(partNumber.trim())}/productdetails`;
     for (let attempt = 0; ; attempt++) {
         const headers: Record<string, string> = {
             Authorization: `Bearer ${await accessToken(context)}`,
@@ -114,10 +155,14 @@ async function lookupOne(
         if (secrets.accountId) {
             headers["X-DIGIKEY-Account-Id"] = secrets.accountId;
         }
+        if (request.body) {
+            headers["Content-Type"] = "application/json";
+        }
         const response = await context.http.request({
-            method: "GET",
-            url,
-            headers
+            method: request.method,
+            url: `${baseUrl(context)}${request.path}`,
+            headers,
+            body: request.body && JSON.stringify(request.body)
         });
         const remaining = Number(response.headers.get("x-ratelimit-remaining"));
         if (
@@ -129,19 +174,9 @@ async function lookupOne(
 
         switch (response.status) {
             case 200:
-                return parseProductDetails(
-                    partNumber,
-                    response.json(),
-                    String(config.currency)
-                );
-            case 404:
-                return { status: "notFound" };
             case 400:
-                return {
-                    status: "error",
-                    message:
-                        `DigiKey couldn't search for this part number. ${problemDetail(response.text)}`.trim()
-                };
+            case 404:
+                return response;
             case 401:
                 tokens.delete(tokenKey(context));
                 if (attempt === 0) {
@@ -172,6 +207,15 @@ async function lookupOne(
     }
 }
 
+/** The outcome of an HTTP 400 answer. */
+function searchError(response: HttpResponse): LookupOutcome {
+    return {
+        status: "error",
+        message:
+            `DigiKey couldn't search for this part number. ${problemDetail(response.text)}`.trim()
+    };
+}
+
 /** Exported for tests. */
 export function parseProductDetails(
     partNumber: string,
@@ -186,8 +230,43 @@ export function parseProductDetails(
     const currency = normalizeCurrency(
         details.SearchLocaleUsed?.Currency ?? requestedCurrency
     );
-    const offers = (details.Product.ProductVariations ?? []).map(variation =>
-        toOffer(details, variation, currency)
+    // The product holds all packagings (cut tape, reel, Digi-Reel); the one
+    // whose number was asked for is the match. If DigiKey found the product
+    // some other way, the user picks the packaging.
+    return matchOutcome(partNumber, productOffers(details.Product, currency), {
+        askWhenUnsure: true
+    });
+}
+
+/** Exported for tests. */
+export function parseKeywordSearch(
+    partNumber: string,
+    body: unknown,
+    requestedCurrency: string
+): LookupOutcome {
+    const parsed = keywordSearchSchema.safeParse(body);
+    if (!parsed.success) {
+        throw new SupplierError("Unexpected answer from DigiKey.");
+    }
+    const { ExactMatches: exact, Products: products } = parsed.data;
+    const currency = normalizeCurrency(
+        parsed.data.SearchLocaleUsed?.Currency ?? requestedCurrency
+    );
+    // The products DigiKey calls exact matches, or else all it found; one
+    // whose manufacturer part number matches is taken, otherwise the user
+    // chooses among them.
+    const found = exact?.length ? exact : (products ?? []);
+    return matchOutcome(
+        partNumber,
+        found.flatMap(product => productOffers(product, currency)),
+        { askWhenUnsure: true }
+    );
+}
+
+/** An offer for each packaging of a product. */
+function productOffers(product: Product, currency: string): SupplierOffer[] {
+    const offers = (product.ProductVariations ?? []).map(variation =>
+        toOffer(product, variation, currency)
     );
     // Stock is per packaging: mention the others that have some, e.g. a
     // box in stock when cut tape is out of stock.
@@ -202,18 +281,14 @@ export function parseProductDetails(
             ];
         }
     }
-    // The product holds all packagings (cut tape, reel, Digi-Reel); the one
-    // whose number was asked for is the match. If DigiKey found the product
-    // some other way, the user picks the packaging.
-    return matchOutcome(partNumber, offers, { askWhenUnsure: true });
+    return offers;
 }
 
 function toOffer(
-    details: ProductDetails,
+    product: Product,
     variation: z.infer<typeof variationSchema>,
     currency: string
 ): SupplierOffer {
-    const product = details.Product;
     const mine = variation.MyPricing ?? [];
     const prices = mine.length > 0 ? mine : (variation.StandardPricing ?? []);
     const packaging = variation.PackageType?.Name ?? undefined;

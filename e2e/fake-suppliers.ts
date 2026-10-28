@@ -298,6 +298,22 @@ export async function startFakeSuppliers() {
                     }
                 });
             }
+            if (
+                supplier === "digikey" &&
+                path === "/products/v4/search/keyword"
+            ) {
+                // Asked for part numbers that productdetails didn't find.
+                return send(response, 200, {
+                    Products: [],
+                    ProductsCount: 0,
+                    ExactMatches: [],
+                    SearchLocaleUsed: {
+                        Site: "SI",
+                        Language: "en",
+                        Currency: "EUR"
+                    }
+                });
+            }
             if (supplier === "lcsc" && path.startsWith("/rest/api/agent/")) {
                 if (!lcscSignatureOk(request, url)) {
                     return send(response, 200, {
