@@ -139,20 +139,20 @@ src/
 
 ### 5.1 Project file (`.eezbom`)
 
-The project file is a versioned JSON document. 1,000 rows with three suppliers' results come to well under a few MB, and the file can be committed to git next to the KiCad project.
+The project file is a versioned JSON document, small enough to commit to git next to the KiCad project. It holds what the user entered; the collected supplier data is kept on the computer (see "Supplier data isn't in the file" below).
 
 No file the app writes holds absolute paths (#34). `source.path` is stored relative to the `.eezbom`'s folder with `/` separators, and made absolute when read (`main/project/source-paths.ts`), so the app works with absolute paths. Older files with absolute paths open as before and are saved with relative ones; a source on another Windows drive stays absolute, as there's no relative path. Exports show the source relative to the BOM (`shared/paths.ts`), and backup manifests list files relative to the backup folder.
 
 ```ts
 interface Project {
-  schemaVersion: 5;                     // 2 added `collected`, 3 `buildQuantity`, 4 `source.kicadValues`, 5 decimal `qty` and `manualSuppliers`
+  schemaVersion: 6;                     // 2 added `collected`, 3 `buildQuantity`, 4 `source.kicadValues`, 5 decimal `qty` and `manualSuppliers`, 6 left `collected` out
   source: { kind: 'manual' | 'csv' | 'kicad'; path?: string; variant?: string; importedAt?: string };  // path: relative to the file (#34)
   suppliers: SupplierId[];              // suppliers that have a part-number column in this BOM
   customColumns: ColumnDef[];           // user-defined columns, plus unmapped imported ones
   manualSuppliers: { id: string; name: string }[];  // suppliers without an API (#20); rows' `manual[id]` holds what's typed
   rows: BomRow[];
   buildQuantity: number;                // units to build; every Qty is multiplied by it (1 by default)
-  collected: {                         // not part of the undo history
+  collected: {                         // not in the file (format 6); not part of the undo history
     results: Partial<Record<SupplierId, Record<string, LookupResult>>>;  // by part number (trimmed, upper case)
     runs: Partial<Record<SupplierId, CollectionRun>>;  // last run per supplier; used for "Continue"
   };
@@ -197,7 +197,8 @@ interface SupplierOffer {
 - **`Row` isn't stored.** It's the display index (1…n), renumbered when rows are sorted or deleted. On CSV import the `#` column maps to it and is otherwise ignored.
 - **Results are stored per supplier part number**, not per row. A part number used in several rows is looked up once, editing a cell shows whatever was collected for its new value, and undoing an edit never loses collected data.
 - **Supplier offers are stored exactly as returned**, in the original currency, plus the normalised fields above.
-- **DigiKey's API terms forbid building a parts database** from API data. Results live only inside the BOM they were collected for, and the app keeps no shared cache.
+- **Supplier data isn't in the file** (format 6). The suppliers' API terms don't allow passing their data on to third parties (DigiKey API User Agreement §3.2(iv), Mouser Search API Terms §4, TME API Terms 8.5, LCSC API Instruction), and BOM files get published, e.g. with open hardware on GitHub. `main/project/supplier-data.ts` keeps each BOM's `collected` in `<userData>/supplier-data/<hash of the BOM's path>.json`. Main reads and writes it with the file (`readBomFile`, `writeBomFile` in `project-files.ts`), so the renderer still has one `Project` and saving works as before. A BOM moved or renamed outside the app is collected again. Files of format 5 or older have the data in them: reading one keeps the data on the computer and opens the BOM with unsaved changes (`supplierDataInFile`), so saving removes it from the file.
+- **DigiKey's API terms forbid building a parts database** from API data. Results are kept per BOM they were collected for, and the app keeps no shared cache.
 
 ### 5.2 Columns
 
@@ -662,6 +663,7 @@ All eight milestones are done. Everything below is covered by unit tests (148) a
 
 ### Changes from this proposal
 
+- **Collected data is kept on the computer, not in the BOM file** (format 6, section 5.1), as the suppliers' API terms don't allow publishing it.
 - **Collected data is stored per part number** (`project.collected`), not per row. A part number used in several rows is looked up once; undo never loses collected data; importing again keeps data for unchanged part numbers. This replaced the planned "Reload from KiCad" command.
 - **No exchange rates.** All three suppliers return EUR when asked (5.5); prices in other currencies are flagged and left out of totals.
 - **TME uses API v2** (OAuth). TME stopped issuing keys for v1 in May 2026.

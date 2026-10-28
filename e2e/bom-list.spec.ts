@@ -2,8 +2,12 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
+import {
+    SUPPLIER_DATA_FOLDER,
+    writeSupplierData
+} from "../src/main/project/supplier-data";
 import { parseBomListFile } from "../src/shared/bom-list-file";
-import type { Project } from "../src/shared/model";
+import type { CollectedData, Project } from "../src/shared/model";
 import { parseProjectFile, serializeProject } from "../src/shared/project-file";
 import { addRow, createProject, createRow } from "../src/shared/project-ops";
 import {
@@ -35,18 +39,13 @@ function bom(rows: [string, string, number, string][]): Project {
     );
 }
 
-/** `project` with a result for D-1 fetched at `fetchedAt`. */
-function withD1(project: Project, fetchedAt: string): Project {
+/** A result for D-1 fetched at `fetchedAt`. */
+function d1(fetchedAt: string): CollectedData {
     return {
-        ...project,
-        collected: {
-            results: {
-                digikey: {
-                    "D-1": { status: "notFound", runId: "r", fetchedAt }
-                }
-            },
-            runs: {}
-        }
+        results: {
+            digikey: { "D-1": { status: "notFound", runId: "r", fetchedAt } }
+        },
+        runs: {}
     };
 }
 
@@ -61,28 +60,27 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
     await writeFile(
         psu,
         serializeProject(
-            withD1(
-                bom([
-                    ["R1, R2", "10k", 2, "D-1"],
-                    ["C1", "100n", 1, ""]
-                ]),
-                "2026-10-02T10:00:00Z"
-            )
+            bom([
+                ["R1, R2", "10k", 2, "D-1"],
+                ["C1", "100n", 1, ""]
+            ])
         )
     );
     await writeFile(
         mcu,
         serializeProject(
-            withD1(
-                bom([
-                    ["R1", "10k", 1, "D-1"],
-                    ["R5", "10k", 3, "D-2"]
-                ]),
-                "2026-10-01T10:00:00Z"
-            )
+            bom([
+                ["R1", "10k", 1, "D-1"],
+                ["R5", "10k", 3, "D-2"]
+            ])
         )
     );
-    const { app, page } = await launchApp();
+    // Both BOMs were collected before, psu later.
+    const userData = await mkdtemp(join(tmpdir(), "eez-bom-list-profile-"));
+    const supplierData = join(userData, SUPPLIER_DATA_FOLDER);
+    await writeSupplierData(supplierData, psu, d1("2026-10-02T10:00:00Z"));
+    await writeSupplierData(supplierData, mcu, d1("2026-10-01T10:00:00Z"));
+    const { app, page } = await launchApp({ userData });
     try {
         // A new list gets a history BOM next to it.
         await answerSaveDialog(app, join(folder, "device.eezbom-list"));

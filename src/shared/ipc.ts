@@ -78,6 +78,9 @@ export type MenuCommand =
 export interface OpenedProject {
     filePath: string;
     project: Project;
+    /** The file still has supplier data (saved before format 6); saving
+     *  it again removes the data, which is kept on the computer now. */
+    supplierDataInFile?: boolean;
 }
 
 export interface OpenedFile {
@@ -99,6 +102,8 @@ export interface OpenedListBom {
     path: string;
     project: Project | null;
     error?: string;
+    /** As in `OpenedProject`. */
+    supplierDataInFile?: boolean;
 }
 
 export interface OpenedList {

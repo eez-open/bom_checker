@@ -29,8 +29,18 @@ import {
 import { resetTableView } from "./store/ui";
 import { COMBINED, useWorkspace } from "./store/workspace";
 
-function fresh(project: Project): DocumentSnapshot {
-    return { project, savedProject: project, past: [], future: [] };
+/** A BOM as read; one whose file still has supplier data has unsaved
+ *  changes, so saving it removes the data. */
+function fresh(
+    project: Project,
+    supplierDataInFile?: boolean
+): DocumentSnapshot {
+    return {
+        project,
+        savedProject: supplierDataInFile ? null : project,
+        past: [],
+        future: []
+    };
 }
 
 export function isListOpen(): boolean {
@@ -90,7 +100,7 @@ export function loadList(opened: OpenedList): void {
     const all = [...opened.boms, ...(opened.history ? [opened.history] : [])];
     for (const bom of all) {
         if (bom.project) {
-            documents[bom.path] = fresh(bom.project);
+            documents[bom.path] = fresh(bom.project, bom.supplierDataInFile);
         } else {
             errors[bom.path] = bom.error ?? "The file can't be read.";
         }
@@ -346,7 +356,10 @@ export async function addBomsToList(): Promise<void> {
         documents: {
             ...state.documents,
             ...Object.fromEntries(
-                added.map(bom => [bom.filePath, fresh(bom.project)])
+                added.map(bom => [
+                    bom.filePath,
+                    fresh(bom.project, bom.supplierDataInFile)
+                ])
             )
         },
         message: null
@@ -422,7 +435,7 @@ export async function chooseHistory(): Promise<void> {
         list: { ...list, history: opened.filePath },
         documents: {
             ...state.documents,
-            [opened.filePath]: fresh(opened.project)
+            [opened.filePath]: fresh(opened.project, opened.supplierDataInFile)
         },
         message: null
     }));

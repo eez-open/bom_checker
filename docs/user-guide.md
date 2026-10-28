@@ -138,7 +138,7 @@ To check prices and stock for a production batch, enter the number of units in *
 
 ## Reading the table
 
-Each supplier has a group of columns. Click the arrow in the group header to show only the part number, *Total price* and *Availability*. The group header also shows when that supplier's data was last collected. The date is saved with the BOM, and also appears in **Collect…** and on the Info sheet of exports.
+Each supplier has a group of columns. Click the arrow in the group header to show only the part number, *Total price* and *Availability*. The group header also shows when that supplier's data was last collected. The date is kept with the BOM's supplier data, and also appears in **Collect…** and on the Info sheet of exports.
 
 **Searching and filtering:** above the table, **Search** (Ctrl+F, or Edit → Find…) shows only the rows that contain the text in any column, e.g. a reference, a value or a part number; Escape clears it. Once supplier data has been collected, **Rows** shows only the rows where one supplier has the best price, or *Best price: None in stock* for the parts no supplier can deliver. While a filter is on, the Total row adds up the shown rows, and **Show all** turns the filters off. The Row column keeps each row's number in the BOM.
 
@@ -238,10 +238,13 @@ The history BOM isn't changed by Unify, but gets the new part numbers. BOMs impo
 
 ## Files and security
 
-- **Save** (Ctrl+S) stores the BOM with all collected data in an `.eezbom` file. The app asks before closing, or before opening another BOM, if there are unsaved changes. Dropping a file on the window opens it too.
-- **BOM lists** (`.eezbom-list`) only name their BOMs and history BOM; the data is in those `.eezbom` files.
+- **Save** (Ctrl+S) stores the BOM in an `.eezbom` file: its rows, columns and part numbers, and what you typed for suppliers without an API. The app asks before closing, or before opening another BOM, if there are unsaved changes. Dropping a file on the window opens it too.
+- **Supplier data stays on your computer.** What is collected from the suppliers (stock, prices, descriptions, lifecycle and so on) isn't saved in the `.eezbom` file but in the app's data folder, with the BOM's path, and is saved together with the BOM. The suppliers' API terms don't allow passing their data on, so this keeps BOM files safe to publish, e.g. on GitHub; whoever opens a published BOM collects the data with their own credentials. A BOM moved or renamed outside the app has to be collected again.
+  - BOMs saved by version 0.8.0 or earlier still have the data in the file. They open with unsaved changes (an orange dot in a list); saving them removes it.
+  - Exports with supplier columns contain supplier data, and *bom-checker-backups* folders may hold copies of such older BOMs: keep both out of what you publish, e.g. with `.gitignore`.
+- **BOM lists** (`.eezbom-list`) only name their BOMs and history BOM; the rows are in those `.eezbom` files.
 - **No absolute paths:** a BOM keeps the path of the CSV file or KiCad project it came from relative to its own folder, and lists keep their BOMs' paths relative to theirs, so a folder can be moved or shared, e.g. in git, as long as the files keep their places in it. Exports show the source relative to the BOM, or only its name when the BOM wasn't saved yet. BOMs saved by older versions open as before and get relative paths when saved again. Only a source on another drive than the BOM (Windows) keeps its full path.
-- **Settings and credentials** are kept in the app's data folder: `%APPDATA%\EEZ BOM checker` on Windows, `~/.config/EEZ BOM checker` on Linux. Credentials are encrypted with your password (scrypt and AES-256-GCM); the password itself isn't stored.
+- **Settings, credentials and supplier data** are kept in the app's data folder: `%APPDATA%\EEZ BOM checker` on Windows, `~/.config/EEZ BOM checker` on Linux. Supplier data is in its *supplier-data* folder, a file per BOM. Credentials are encrypted with your password (scrypt and AES-256-GCM); the password itself isn't stored.
 - **Supplier settings** always ask for the password, even while the credentials are unlocked for collecting. **Tools → Lock Credentials** locks them until you enter the password again.
 - **Change the password** in **Settings → General**, with the current one.
 

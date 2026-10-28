@@ -1,12 +1,15 @@
-// The .eezbom project file: the Project as JSON. When the format changes,
-// bump PROJECT_SCHEMA_VERSION, update the schema below and add a migration
-// from the previous version to MIGRATIONS, with a test using an old file.
+// The .eezbom project file: the Project as JSON, without the collected
+// supplier data, which is kept on the computer (main/project/
+// supplier-data.ts). When the format changes, bump PROJECT_SCHEMA_VERSION,
+// update the schema below and add a migration from the previous version to
+// MIGRATIONS, with a test using an old file.
 
 import { z } from "zod";
 import {
     MAX_BUILD_QUANTITY,
     PROJECT_SCHEMA_VERSION,
     SUPPLIER_IDS,
+    type CollectedData,
     type Project
 } from "./model";
 
@@ -93,7 +96,7 @@ const lookupResultSchema = z.discriminatedUnion("status", [
     })
 ]);
 
-const collectedSchema = z.object({
+export const collectedSchema = z.object({
     results: z.partialRecord(
         supplierId,
         z.record(z.string(), lookupResultSchema)
@@ -164,8 +167,23 @@ const MIGRATIONS: Partial<Record<number, Migration>> = {
     // are compared without knowing which side changed.
     3: data => data,
     // Version 5 allows decimal quantities and adds suppliers without an API.
-    4: data => ({ ...data, manualSuppliers: [] })
+    4: data => ({ ...data, manualSuppliers: [] }),
+    // Version 6 leaves out the collected supplier data: the suppliers' terms
+    // don't allow passing it on, and BOM files are often published. An
+    // older file's data is still read, for main to move it out.
+    5: data => data
 };
+
+const NO_COLLECTED_DATA = { results: {}, runs: {} };
+
+/** Whether `collected` has any results or runs. */
+export function hasCollectedData(collected: CollectedData): boolean {
+    return (
+        Object.values(collected.results).some(
+            results => Object.keys(results).length > 0
+        ) || Object.keys(collected.runs).length > 0
+    );
+}
 
 export function parseProjectFile(text: string): Project {
     let data: unknown;
@@ -199,7 +217,7 @@ export function parseProjectFile(text: string): Project {
         version++;
         file = { ...migrate(file), schemaVersion: version };
     }
-    return validateProject(file);
+    return validateProject({ collected: NO_COLLECTED_DATA, ...file });
 }
 
 /** Validates a project from an untrusted source (a file or the renderer). */
@@ -214,8 +232,10 @@ export function validateProject(data: unknown): Project {
     return result.data;
 }
 
+/** The file's text: the project without its collected supplier data. */
 export function serializeProject(project: Project): string {
-    return JSON.stringify(project, null, 2) + "\n";
+    // JSON leaves out undefined properties.
+    return JSON.stringify({ ...project, collected: undefined }, null, 2) + "\n";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

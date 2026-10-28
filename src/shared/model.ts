@@ -65,7 +65,7 @@ export interface ProjectSource {
     kicadValues?: Record<string, Record<string, string>>;
 }
 
-export const PROJECT_SCHEMA_VERSION = 5;
+export const PROJECT_SCHEMA_VERSION = 6;
 
 export const MAX_BUILD_QUANTITY = 1_000_000;
 

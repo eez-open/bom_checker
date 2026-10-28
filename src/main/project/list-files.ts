@@ -24,7 +24,6 @@ import type { Project } from "../../shared/model";
 import { createHistoryProject } from "../../shared/parts-history";
 import {
     PROJECT_FILE_EXTENSION,
-    parseProjectFile,
     serializeProject
 } from "../../shared/project-file";
 import { exists, MANIFEST, newBackupFolder } from "../backups";
@@ -32,11 +31,12 @@ import { showError } from "../dialogs";
 import { isFileNotFound, writeFileAtomic } from "../files";
 import { log } from "../logging";
 import { addRecent } from "../recent";
-import { withAbsoluteSource, withRelativeSource } from "./source-paths";
 import {
     isKnownProjectPath,
     pickProjectFiles,
-    rememberProjectPath
+    readBomFile,
+    rememberProjectPath,
+    writeBomFile
 } from "./project-files";
 
 // BOM lists (#35): a .eezbom-list names BOMs whose part numbers are
@@ -68,12 +68,9 @@ function errorText(error: unknown): string {
 async function readMember(path: string): Promise<OpenedListBom> {
     listEntries.add(path);
     try {
-        const project = withAbsoluteSource(
-            parseProjectFile(await readFile(path, "utf8")),
-            path
-        );
+        const { project, supplierDataInFile } = await readBomFile(path);
         rememberProjectPath(path);
-        return { path, project };
+        return { path, project, supplierDataInFile };
     } catch (error) {
         log.warn("Can't read list BOM", path, error);
         return {
@@ -213,8 +210,8 @@ async function readPicked(
             )
         );
     }
-    return read.flatMap(bom =>
-        bom.project ? [{ filePath: bom.path, project: bom.project }] : []
+    return read.flatMap(({ path, project, supplierDataInFile }) =>
+        project ? [{ filePath: path, project, supplierDataInFile }] : []
     );
 }
 
@@ -283,10 +280,7 @@ export async function saveBomsWithBackup(
     const written: typeof files = [];
     try {
         for (const [index, { filePath, project }] of boms.entries()) {
-            await writeFileAtomic(
-                filePath,
-                serializeProject(withRelativeSource(project, filePath))
-            );
+            await writeBomFile(filePath, project);
             written.push(files[index]!);
         }
     } catch (error) {
