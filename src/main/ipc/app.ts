@@ -1,9 +1,10 @@
-import { app, clipboard, shell } from "electron";
+import { app, clipboard, ClipboardItem, shell } from "electron";
 import { z } from "zod";
 import { IpcChannel, type AppInfo } from "../../shared/ipc";
 import { isAllowedExternalUrl } from "../external-urls";
 import { log } from "../logging";
 import { handle } from "./handle";
+import { pngSchema } from "./schemas";
 
 export function registerAppHandlers(): void {
     handle(IpcChannel.AppGetInfo, (): AppInfo => ({
@@ -30,5 +31,14 @@ export function registerAppHandlers(): void {
     // The renderer's own clipboard access is denied with other permissions.
     handle(IpcChannel.AppCopyText, (_context, text) =>
         clipboard.writeText(z.string().max(100_000).parse(text))
+    );
+    handle(IpcChannel.AppCopyImage, (_context, png) =>
+        clipboard.write([
+            new ClipboardItem({
+                "image/png": new Blob([pngSchema.parse(png)], {
+                    type: "image/png"
+                })
+            })
+        ])
     );
 }

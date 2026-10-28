@@ -28,6 +28,7 @@ const api: Api = {
         getInfo: () => invoke(IpcChannel.AppGetInfo),
         openExternal: url => invoke(IpcChannel.AppOpenExternal, url),
         copyText: text => invoke(IpcChannel.AppCopyText, text),
+        copyImage: png => invoke(IpcChannel.AppCopyImage, png),
         pathForFile: file => webUtils.getPathForFile(file)
     },
     files: {
@@ -109,6 +110,8 @@ const api: Api = {
     },
     export: {
         save: request => invoke(IpcChannel.ExportSave, request),
+        saveImage: (png, suggestedName) =>
+            invoke(IpcChannel.ExportSaveImage, png, suggestedName),
         showInFolder: path =>
             ipcRenderer.send(IpcChannel.ExportShowInFolder, path)
     },

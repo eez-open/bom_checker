@@ -621,6 +621,13 @@ svg.icon {
     font-weight: 600;
 }
 
+.group-header-button {
+    margin-left: 8px;
+    padding: 0 6px;
+    font-size: 11px;
+    line-height: 18px;
+}
+
 .group-header-date {
     margin-left: 8px;
     color: var(--app-muted);
@@ -856,11 +863,9 @@ select.choose-item {
     color: var(--app-fg);
 }
 
-/* Most expensive parts (#28). Colors: slot 1 of the data-viz palette and
-   its de-emphasis gray; the table carries every value. */
+/* Most expensive parts (#28). Slice colours come from cost-chart.ts; the
+   table carries every value. */
 .cost-chart {
-    --chart-top: #2a78d6;
-    --chart-other: #c3c2b7;
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
@@ -872,21 +877,14 @@ select.choose-item {
     flex: none;
 }
 
-.cost-slice {
-    fill: var(--chart-top);
+path.cost-slice {
     /* 2px gaps between slices. */
     stroke: var(--app-bg);
     stroke-width: 2px;
+}
+
+.cost-slice {
     transition: opacity 0.12s;
-}
-
-circle.cost-slice {
-    fill: none;
-    stroke: var(--chart-top);
-}
-
-.cost-slice.other {
-    fill: var(--chart-other);
 }
 
 .cost-slice.dimmed {
@@ -894,7 +892,6 @@ circle.cost-slice {
 }
 
 .cost-slice-label {
-    fill: #ffffff;
     font-size: 12px;
     font-weight: 600;
     text-anchor: middle;
@@ -944,11 +941,10 @@ circle.cost-slice {
     height: 10px;
     margin-right: 6px;
     border-radius: 2px;
-    background: var(--chart-top);
 }
 
 .cost-swatch.other {
-    background: var(--chart-other);
+    background: #c3c2b7;
 }
 
 /* BOM lists (#35): the list on the left, the selected BOM on the right. */

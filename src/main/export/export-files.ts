@@ -56,6 +56,36 @@ export async function saveExport(
     }
 }
 
+/** Saves a picture, e.g. the chart of the most expensive parts (#28). */
+export async function saveImage(
+    window: BrowserWindow,
+    png: Uint8Array,
+    suggestedName: string
+): Promise<string | null> {
+    const result = await dialog.showSaveDialog(window, {
+        title: "Save Picture",
+        defaultPath: `${basename(suggestedName)}.png`,
+        filters: [{ name: "PNG image", extensions: ["png"] }]
+    });
+    if (result.canceled || !result.filePath) {
+        return null;
+    }
+    const path =
+        extname(result.filePath) === ""
+            ? `${result.filePath}.png`
+            : result.filePath;
+    try {
+        await writeFileAtomic(path, png);
+        exported.add(path);
+        log.info("Saved picture", path);
+        return path;
+    } catch (error) {
+        log.warn("Saving the picture failed", path, error);
+        await showError(window, `Can't save "${basename(path)}"`, error);
+        return null;
+    }
+}
+
 export function showExportInFolder(path: string): void {
     if (exported.has(path)) {
         shell.showItemInFolder(path);

@@ -38,6 +38,7 @@ import { PartNumberCell, resultFor, type TableContext } from "./PartNumberCell";
 export const TOTALS_ROW_ID = "totals";
 import { describeResult } from "./result-text";
 import type { TableGroup } from "../store/ui";
+import { BestGroupHeader } from "./BestGroupHeader";
 import { SupplierGroupHeader } from "./SupplierGroupHeader";
 
 export interface TableColumns {
@@ -355,6 +356,9 @@ function bestColumns(project: Project): ColGroupDef<BomRow> {
     return {
         groupId: "group:best",
         headerName: "Best price",
+        headerGroupComponentParams: {
+            innerHeaderGroupComponent: BestGroupHeader
+        },
         children: [
             column("supplier", "Supplier", {
                 initialWidth: 130,

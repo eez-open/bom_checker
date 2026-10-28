@@ -277,6 +277,8 @@ export interface Api {
         /** Opens a supplier web page in the default browser. */
         openExternal(url: string): Promise<void>;
         copyText(text: string): Promise<void>;
+        /** Puts a PNG image on the clipboard. */
+        copyImage(png: Uint8Array): Promise<void>;
         /** The path of a file dropped on the window; "" if it has none. */
         pathForFile(file: File): string;
     };
@@ -382,6 +384,12 @@ export interface Api {
     export: {
         /** Asks where to save and writes the file; the path, or null. */
         save(request: ExportRequest): Promise<string | null>;
+        /** Asks where to save a PNG image and writes it; the path, or
+         *  null. */
+        saveImage(
+            png: Uint8Array,
+            suggestedName: string
+        ): Promise<string | null>;
         showInFolder(path: string): void;
     };
     kicad: {
@@ -422,6 +430,7 @@ export const IpcChannel = {
     AppGetInfo: "app:get-info",
     AppOpenExternal: "app:open-external",
     AppCopyText: "app:copy-text",
+    AppCopyImage: "app:copy-image",
     SettingsGet: "settings:get",
     SettingsSaveGeneral: "settings:save-general",
     SettingsSaveSupplier: "settings:save-supplier",
@@ -455,6 +464,7 @@ export const IpcChannel = {
     KicadRestoreBackup: "kicad:restore-backup",
     KicadShowBackup: "kicad:show-backup",
     ExportSave: "export:save",
+    ExportSaveImage: "export:save-image",
     ExportShowInFolder: "export:show-in-folder",
     DialogAskSaveChanges: "dialog:ask-save-changes",
     DialogConfirm: "dialog:confirm",
