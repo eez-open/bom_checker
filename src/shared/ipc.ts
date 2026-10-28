@@ -24,6 +24,8 @@ export interface AppInfo {
     };
     platform: string;
     logFile: string;
+    /** The regional settings' locale, for numbers (#37), e.g. "hr-HR". */
+    systemLocale: string;
 }
 
 /** Table columns that can be hidden together (View menu). */
@@ -217,6 +219,9 @@ export interface ExportRequest {
     /** File name offered in the Save dialog, without extension. */
     suggestedName: string;
     sheets: ExportSheet[];
+    /** CSV: numbers with a decimal comma, and ";" between the values
+     *  (#37). */
+    decimalComma: boolean;
 }
 
 export type SaveChangesChoice = "save" | "discard" | "cancel";

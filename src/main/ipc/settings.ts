@@ -2,6 +2,7 @@ import { z } from "zod";
 import { exportPresetSchema } from "../../shared/export";
 import { IpcChannel } from "../../shared/ipc";
 import { SUPPLIER_IDS } from "../../shared/model";
+import { DECIMAL_SEPARATORS } from "../../shared/numbers";
 import { normalizeOrder } from "../../shared/settings";
 import { validateSupplierConfig } from "../../shared/supplier-config";
 import { confirm } from "../dialogs";
@@ -27,7 +28,8 @@ const password = z.string();
 const generalSchema = z.object({
     supplierOrder: z.array(supplierId),
     logApiResponses: z.boolean(),
-    exportPresets: z.array(exportPresetSchema).max(50)
+    exportPresets: z.array(exportPresetSchema).max(50),
+    decimalSeparator: z.enum(DECIMAL_SEPARATORS)
 });
 const configSchema = z.record(z.string(), z.union([z.string(), z.number()]));
 const secretChangesSchema = z.record(z.string(), z.string().nullable());
@@ -36,14 +38,12 @@ export function registerSettingsHandlers(): void {
     handle(IpcChannel.SettingsGet, () => getSettings());
 
     handle(IpcChannel.SettingsSaveGeneral, (_context, general) => {
-        const { supplierOrder, logApiResponses, exportPresets } =
-            generalSchema.parse(general);
+        const parsed = generalSchema.parse(general);
         return updateSettings(settings => ({
             ...settings,
             general: {
-                supplierOrder: normalizeOrder(supplierOrder),
-                logApiResponses,
-                exportPresets
+                ...parsed,
+                supplierOrder: normalizeOrder(parsed.supplierOrder)
             }
         }));
     });

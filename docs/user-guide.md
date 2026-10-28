@@ -167,6 +167,8 @@ The **Total** row at the top adds up each *Total price* column, for every suppli
 
 Prices are compared in EUR. If a supplier returns another currency, a yellow bar says so; those prices aren't included in totals and the best price.
 
+**Numbers** look as in the system's regional settings, e.g. *1.234,56* where decimals follow a comma. **Settings → General → Numbers** can choose a decimal point (*1,234.56*) or a decimal comma (*1.234,56*) instead. When typing a number in a cell, either "." or "," works before the decimals.
+
 Changing Qty updates all calculations at once, without collecting again.
 
 ## Exporting
@@ -176,7 +178,7 @@ Changing Qty updates all calculations at once, without collecting again.
 - **Preset**: e.g. *All data*, *Basic data only* (Row, Reference, Value, Qty, Footprint and the part numbers), *All Mouser data*, *Best price from Mouser*, *Not available anywhere*.
 - **Columns**: which suppliers' part numbers and data, the Best price columns, and your own columns. Row, Reference, Value, Qty and Footprint are always included. **Part numbers only** leaves out the suppliers' data columns.
 - **Rows**: all rows, rows with a supplier's part number, rows where a supplier has the best price, or rows that no supplier can deliver.
-- **Format**: Excel (.xlsx), LibreOffice (.ods) or CSV. Excel and LibreOffice files also get an *Info* sheet with the source, the filter, when data was collected and the totals.
+- **Format**: Excel (.xlsx), LibreOffice (.ods) or CSV. Excel and LibreOffice files also get an *Info* sheet with the source, the filter, when data was collected and the totals. CSV files write numbers as the app shows them (*Settings → General → Numbers*): with a decimal comma, ";" separates the values, as spreadsheet programs expect in those regions.
 
 To keep a combination, type a name and click **Save as preset**.
 

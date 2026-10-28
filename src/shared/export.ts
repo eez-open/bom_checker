@@ -12,6 +12,7 @@ import {
     type Project,
     type SupplierId
 } from "./model";
+import type { Numbers } from "./numbers";
 import { isPartNumberDefined } from "./part-number";
 import {
     BASE_CURRENCY,
@@ -160,7 +161,8 @@ const TOTAL_FORMAT = "0.00";
 function columns(
     project: Project,
     preference: readonly SupplierId[],
-    selection: ExportSelection
+    selection: ExportSelection,
+    numbers: Numbers
 ): Column[] {
     const { collected } = project;
     const { buildQuantity } = project;
@@ -183,7 +185,7 @@ function columns(
         // mistaken for EUR.
         return l.inBaseCurrency
             ? l.unitPrice
-            : `${l.unitPrice} ${l.offer.currency}`;
+            : `${numbers.price(l.unitPrice)} ${l.offer.currency}`;
     };
 
     const result: Column[] = [
@@ -266,7 +268,8 @@ function columns(
             {
                 header: `${name}_Availability`,
                 width: 16,
-                value: row => availabilityText(line(row, supplier)) || null
+                value: row =>
+                    availabilityText(line(row, supplier), numbers) || null
             },
             {
                 header: `${name}_Status`,
@@ -329,7 +332,7 @@ function columns(
                 {
                     header: `${name}_Availability`,
                     width: 16,
-                    value: row => availabilityText(manual(row)) || null
+                    value: row => availabilityText(manual(row), numbers) || null
                 }
             );
         }
@@ -417,13 +420,15 @@ function matches(
     }
 }
 
-/** The BOM sheet: headers, then one line per matching row. */
+/** The BOM sheet: headers, then one line per matching row. Numbers in
+ *  text, e.g. "Partial: 1,234", are formatted with `numbers` (#37). */
 export function buildBomSheet(
     project: Project,
     preference: readonly SupplierId[],
-    selection: ExportSelection
+    selection: ExportSelection,
+    numbers: Numbers
 ): ExportSheet {
-    const included = columns(project, preference, selection);
+    const included = columns(project, preference, selection, numbers);
     const rows = project.rows
         .map((row, index) => ({ row, index }))
         .filter(({ row }) => matches(project, preference, row, selection.rows))

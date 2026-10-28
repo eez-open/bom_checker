@@ -13,7 +13,9 @@ import {
     createProject,
     createRow
 } from "./project-ops";
+import { numbersFor } from "./numbers";
 
+const NUMBERS = numbersFor("en-US");
 const AT = "2026-10-26T10:00:00Z";
 
 function found(fields: Partial<SupplierOffer>): LookupResult {
@@ -133,7 +135,8 @@ describe("export", () => {
         const sheet = buildBomSheet(
             project,
             PREFERENCE,
-            preset(project, "Basic data only")
+            preset(project, "Basic data only"),
+            NUMBERS
         );
         expect(sheet.rows[0]).toEqual([
             "Row",
@@ -152,7 +155,8 @@ describe("export", () => {
         const sheet = buildBomSheet(
             project,
             PREFERENCE,
-            preset(project, "All data")
+            preset(project, "All data"),
+            NUMBERS
         );
         const [headers, c1] = sheet.rows;
         expect(headers).toEqual([
@@ -230,7 +234,8 @@ describe("export", () => {
         const sheet = buildBomSheet(
             project,
             PREFERENCE,
-            preset(project, "Best price from Mouser")
+            preset(project, "Best price from Mouser"),
+            NUMBERS
         );
         expect(sheet.rows[0]).toContain("Best_Supplier");
         expect(sheet.rows[0]).not.toContain("DigiKey");
@@ -244,7 +249,8 @@ describe("export", () => {
         const [headers, c1] = buildBomSheet(
             project,
             PREFERENCE,
-            preset(project, "All data")
+            preset(project, "All data"),
+            NUMBERS
         ).rows;
         const qty = headers!.indexOf("Qty");
         expect(headers![qty + 1]).toBe("Total Qty");
@@ -259,7 +265,8 @@ describe("export", () => {
         const mouser = buildBomSheet(
             project,
             PREFERENCE,
-            preset(project, "All Mouser data")
+            preset(project, "All Mouser data"),
+            NUMBERS
         );
         expect(mouser.rows.slice(1).map(row => row[1])).toEqual([
             "C1",
@@ -270,7 +277,8 @@ describe("export", () => {
         const missing = buildBomSheet(
             project,
             PREFERENCE,
-            preset(project, "Not available anywhere")
+            preset(project, "Not available anywhere"),
+            NUMBERS
         );
         expect(missing.rows.slice(1).map(row => row[1])).toEqual(["J1"]);
     });
@@ -284,7 +292,7 @@ describe("export", () => {
             }
         };
         const selection = preset(project, "All data");
-        const bom = buildBomSheet(project, PREFERENCE, selection);
+        const bom = buildBomSheet(project, PREFERENCE, selection, NUMBERS);
         const info = buildInfoSheet(project, bom, {
             documentName: "Board",
             documentPath: "C:\\Work\\Board\\Board.eezbom",

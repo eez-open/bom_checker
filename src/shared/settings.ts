@@ -2,6 +2,7 @@
 
 import { exportPresetSchema, type ExportPreset } from "./export";
 import { SUPPLIER_IDS, type SupplierId } from "./model";
+import { DECIMAL_SEPARATORS, type DecimalSeparator } from "./numbers";
 import {
     isSupplierId,
     normalizeSupplierConfig,
@@ -15,6 +16,8 @@ export interface GeneralSettings {
     logApiResponses: boolean;
     /** Export settings saved under a name. */
     exportPresets: ExportPreset[];
+    /** How numbers are shown and written to CSV files (#37). */
+    decimalSeparator: DecimalSeparator;
 }
 
 export interface AppSettings {
@@ -43,7 +46,12 @@ export function normalizeSettings(raw: unknown): AppSettings {
                       const parsed = exportPresetSchema.safeParse(preset);
                       return parsed.success ? [parsed.data] : [];
                   })
-                : []
+                : [],
+            decimalSeparator: DECIMAL_SEPARATORS.includes(
+                general.decimalSeparator as DecimalSeparator
+            )
+                ? (general.decimalSeparator as DecimalSeparator)
+                : "system"
         },
         suppliers: Object.fromEntries(
             SUPPLIER_IDS.map(id => [

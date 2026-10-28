@@ -29,6 +29,7 @@ import {
     manualSuppliersWithPrices,
     suppliersWithData
 } from "../../shared/project-ops";
+import type { Numbers } from "../../shared/numbers";
 import type { TableGroup } from "../store/ui";
 import { buildColumns, TOTALS_ROW_ID } from "./columns";
 import type { TableContext, TableTotals } from "./PartNumberCell";
@@ -66,6 +67,8 @@ interface BomTableProps {
     project: Project;
     /** Preferred supplier order, for best price ties. */
     preference: readonly SupplierId[];
+    /** How numbers look (#37). */
+    numbers: Numbers;
     hiddenColumns: readonly TableGroup[];
     onCellEdit: (rowId: string, key: ColumnKey, value: unknown) => void;
     onSelectionChange: (rowIds: string[]) => void;
@@ -94,6 +97,7 @@ function EmptyTable() {
 export function BomTable({
     project,
     preference,
+    numbers,
     hiddenColumns,
     onCellEdit,
     onSelectionChange,
@@ -111,6 +115,7 @@ export function BomTable({
     const collected = useRef(project.collected);
     const preferenceRef = useRef(preference);
     const buildQuantity = useRef(project.buildQuantity);
+    const numbersRef = useRef(numbers);
     // With filters on, the Total row adds up the shown rows only.
     const [shownIds, setShownIds] = useState<ReadonlySet<string> | null>(null);
     const shown = useMemo(
@@ -142,7 +147,8 @@ export function BomTable({
             getCollected: () => collected.current,
             getPreference: () => preferenceRef.current,
             getBuildQuantity: () => buildQuantity.current,
-            getTotals: () => totalsRef.current
+            getTotals: () => totalsRef.current,
+            getNumbers: () => numbersRef.current
         }),
         []
     );
@@ -151,8 +157,9 @@ export function BomTable({
         collected.current = project.collected;
         preferenceRef.current = preference;
         buildQuantity.current = project.buildQuantity;
+        numbersRef.current = numbers;
         apiRef.current?.refreshCells({ force: true });
-    }, [project.collected, preference, project.buildQuantity]);
+    }, [project.collected, preference, project.buildQuantity, numbers]);
 
     // With a build quantity, totals show the price per unit as well: make
     // the Total price columns wide enough for it.

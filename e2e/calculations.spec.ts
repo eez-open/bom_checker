@@ -144,7 +144,7 @@ test("calculates order quantities, prices and the best supplier", async () => {
         // Stock of the product's other packaging, in the tooltip.
         await cell(page, R1, "data:digikey:availability").hover();
         await expect(page.locator(".ag-tooltip")).toHaveText(
-            "Other packaging: RMCF0805FT100KTR-ND (Tape & Reel (TR)): 500,000 in stock, MOQ 5,000."
+            "Other packaging: RMCF0805FT100KTR-ND (Tape & Reel (TR)): 500000 in stock, MOQ 5000."
         );
         await expect(page.getByTestId("bom-total")).toHaveText(
             "Best price total: 31.72 EUR"

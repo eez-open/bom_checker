@@ -20,6 +20,7 @@ import {
     type ManualSupplier,
     type SupplierId
 } from "../../shared/model";
+import type { Numbers } from "../../shared/numbers";
 import { hasAlternatives } from "../../shared/part-number";
 import { manualSuppliersWithPrices } from "../../shared/project-ops";
 import {
@@ -69,18 +70,20 @@ const LIFECYCLE_CLASS: Record<Lifecycle, string | null> = {
     "not-orderable": "lifecycle-danger"
 };
 
-const UNIT_PRICE = new Intl.NumberFormat("en", {
-    minimumFractionDigits: 4,
-    maximumFractionDigits: 4
-});
-const TOTAL_PRICE = new Intl.NumberFormat("en", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-});
-const QUANTITY = new Intl.NumberFormat("en", { maximumFractionDigits: 6 });
+/** Number cells are edited as text, so "0,5" works as well as "0.5"
+ *  whatever the number format (#37); setCell reads the text. */
+const NUMBER_EDITOR: ColDef<BomRow> = {
+    cellEditor: "agTextCellEditor",
+    valueParser: params => params.newValue as unknown
+};
 
 function context(params: { context: unknown }): TableContext {
     return params.context as TableContext;
+}
+
+/** How numbers look (#37). */
+function numbers(params: { context: unknown }): Numbers {
+    return context(params).getNumbers();
 }
 
 function lineOf(
@@ -105,10 +108,9 @@ function formatTotal(params: { value: unknown; context: unknown }): string {
         return "";
     }
     const build = context(params).getBuildQuantity();
-    const total = TOTAL_PRICE.format(params.value);
-    return build > 1
-        ? `${total} (${TOTAL_PRICE.format(params.value / build)})`
-        : total;
+    const { money } = numbers(params);
+    const total = money(params.value);
+    return build > 1 ? `${total} (${money(params.value / build)})` : total;
 }
 
 /** The Total price columns' header tooltip. */
@@ -118,8 +120,16 @@ function totalTooltip(name: string, buildQuantity: number): string {
         : `${name}_Total price (${BASE_CURRENCY})`;
 }
 
-function formatQuantity(value: unknown): string {
-    return typeof value === "number" ? QUANTITY.format(value) : "";
+function formatQuantity(params: { value: unknown; context: unknown }): string {
+    return typeof params.value === "number"
+        ? numbers(params).quantity(params.value)
+        : "";
+}
+
+function formatUnitPrice(params: { value: unknown; context: unknown }): string {
+    return typeof params.value === "number"
+        ? numbers(params).unitPrice(params.value)
+        : "";
 }
 
 function availabilityClass(line: SupplierLine | null): string | undefined {
@@ -161,7 +171,11 @@ function partNumberColumn(supplier: SupplierId): ColDef<BomRow, string> {
             }
             const result = resultFor(params.context, supplier, params.value);
             return result
-                ? describeResult(SUPPLIERS[supplier].name, result)
+                ? describeResult(
+                      SUPPLIERS[supplier].name,
+                      result,
+                      numbers(params)
+                  )
                 : undefined;
         }
     };
@@ -177,7 +191,7 @@ function dataColumns(
     const column = (
         field: string,
         header: string,
-        valueGetter: (line: SupplierLine | null) => unknown,
+        valueGetter: (line: SupplierLine | null, numbers: Numbers) => unknown,
         options: ColDef<BomRow> = {}
     ): ColDef<BomRow> => ({
         colId: `data:${supplier}:${field}`,
@@ -185,13 +199,13 @@ function dataColumns(
         headerTooltip: `${name}_${header}`,
         editable: false,
         valueGetter: (params: ValueGetterParams<BomRow>) =>
-            valueGetter(lineOf(params, supplier)) ?? null,
+            valueGetter(lineOf(params, supplier), numbers(params)) ?? null,
         ...options
     });
     const numeric: ColDef<BomRow> = {
         type: "rightAligned",
         initialWidth: 110,
-        valueFormatter: params => formatQuantity(params.value)
+        valueFormatter: formatQuantity
     };
 
     return [
@@ -242,7 +256,7 @@ function dataColumns(
                 const currency = line.inBaseCurrency
                     ? ""
                     : ` ${line.offer.currency}`;
-                return UNIT_PRICE.format(params.value) + currency;
+                return numbers(params).unitPrice(params.value) + currency;
             },
             cellClassRules: {
                 "cell-warning": params =>
@@ -262,7 +276,7 @@ function dataColumns(
                 const below = line.belowFirstBreak
                     ? ` The order quantity is below the first price break (${line.offer.priceBreaks[0]?.qty}).`
                     : "";
-                return `${kind}, for ${QUANTITY.format(line.orderQty ?? 0)} pcs.${below}`;
+                return `${kind}, for ${numbers(params).quantity(line.orderQty ?? 0)} pcs.${below}`;
             }
         }),
         column("totalPrice", "Total price", line => line?.total, {
@@ -388,16 +402,13 @@ function bestColumns(project: Project): ColGroupDef<BomRow> {
                 type: "rightAligned",
                 initialWidth: 110,
                 valueGetter: params => best(params)?.line.orderQty ?? null,
-                valueFormatter: params => formatQuantity(params.value)
+                valueFormatter: formatQuantity
             }),
             column("unitPrice", "Unit price", {
                 type: "rightAligned",
                 initialWidth: 110,
                 valueGetter: params => best(params)?.line.unitPrice ?? null,
-                valueFormatter: params =>
-                    typeof params.value === "number"
-                        ? UNIT_PRICE.format(params.value)
-                        : ""
+                valueFormatter: formatUnitPrice
             }),
             column("totalPrice", "Total price", {
                 type: "rightAligned",
@@ -483,37 +494,34 @@ function manualColumns(
             typed("unitPrice", "Unit price", {
                 type: "rightAligned",
                 cellDataType: "number",
-                cellEditorParams: { min: 0, precision: 6 },
+                ...NUMBER_EDITOR,
                 initialWidth: 110,
                 headerTooltip: `${name}_Unit price in ${BASE_CURRENCY} (typed in)`,
-                valueFormatter: params =>
-                    typeof params.value === "number"
-                        ? UNIT_PRICE.format(params.value)
-                        : ""
+                valueFormatter: formatUnitPrice
             }),
             typed("stock", "Stock Qty", {
                 type: "rightAligned",
                 cellDataType: "number",
-                cellEditorParams: { min: 0, precision: 6 },
+                ...NUMBER_EDITOR,
                 initialWidth: 110,
                 columnGroupShow: "open",
                 headerTooltip: `${name}_Stock Qty (typed in; empty means always available)`,
-                valueFormatter: params => formatQuantity(params.value)
+                valueFormatter: formatQuantity
             }),
             typed("moq", "MOQ", {
                 type: "rightAligned",
                 cellDataType: "number",
-                cellEditorParams: { min: 0, precision: 6 },
+                ...NUMBER_EDITOR,
                 initialWidth: 90,
                 columnGroupShow: "open",
-                valueFormatter: params => formatQuantity(params.value)
+                valueFormatter: formatQuantity
             }),
             calculated("orderQty", "Order Qty", {
                 type: "rightAligned",
                 initialWidth: 110,
                 columnGroupShow: "open",
                 valueGetter: params => lineOfRow(params)?.orderQty ?? null,
-                valueFormatter: params => formatQuantity(params.value)
+                valueFormatter: formatQuantity
             }),
             calculated("totalPrice", "Total price", {
                 type: "rightAligned",
@@ -531,7 +539,8 @@ function manualColumns(
             calculated("availability", "Availability", {
                 initialWidth: 160,
                 valueGetter: params =>
-                    availabilityText(lineOfRow(params)) || null,
+                    availabilityText(lineOfRow(params), numbers(params)) ||
+                    null,
                 cellClass: (params: CellClassParams<BomRow>) =>
                     availabilityClass(lineOfRow(params))
             })
@@ -591,7 +600,8 @@ export function buildColumns(
             type: numeric ? "rightAligned" : undefined,
             cellDataType: numeric ? "number" : "text",
             // Qty may be a decimal, e.g. 0.004 m of tape.
-            cellEditorParams: numeric ? { min: 0, precision: 6 } : undefined,
+            ...(numeric ? NUMBER_EDITOR : {}),
+            valueFormatter: numeric ? formatQuantity : undefined,
             initialWidth: WIDTHS[column.field],
             // The Total row adds up no quantities: they're of different
             // parts (#42).
@@ -619,7 +629,7 @@ export function buildColumns(
                     params.node?.rowPinned || !params.data
                         ? null
                         : params.data.qty * project.buildQuantity,
-                valueFormatter: params => formatQuantity(params.value)
+                valueFormatter: formatQuantity
             });
         }
     }
@@ -677,6 +687,9 @@ export function buildColumns(
             headerName: column.name,
             type: numeric ? "rightAligned" : undefined,
             cellDataType: numeric ? "number" : "text",
+            ...(numeric
+                ? { ...NUMBER_EDITOR, valueFormatter: formatQuantity }
+                : {}),
             initialWidth: 150,
             valueGetter: params => params.data?.custom[column.id] ?? null
         });

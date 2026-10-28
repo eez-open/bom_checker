@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import type { SecretStatus, VaultState } from "../../shared/ipc";
 import type { SupplierId } from "../../shared/model";
+import {
+    DECIMAL_SEPARATORS,
+    numberLocale,
+    numbersFor,
+    type DecimalSeparator
+} from "../../shared/numbers";
 import type { AppSettings } from "../../shared/settings";
 import { ALL_SUPPLIERS, SUPPLIERS } from "../../shared/suppliers";
 import { Modal } from "../dialogs/Modal";
 import { errorMessage, isSettingsLocked } from "../errors";
-import { setAppSettings } from "../store/settings";
+import { setAppSettings, useAppSettings } from "../store/settings";
 import {
     ChangePasswordForm,
     CreatePasswordForm,
@@ -14,6 +20,12 @@ import {
 import { SupplierForm } from "./SupplierForm";
 
 type Tab = "general" | "suppliers";
+
+const SEPARATOR_LABELS: Record<DecimalSeparator, string> = {
+    system: "As in the system's regional settings",
+    point: "Decimal point",
+    comma: "Decimal comma"
+};
 
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
     const [tab, setTab] = useState<Tab>("general");
@@ -101,6 +113,7 @@ function GeneralPanel({
     onChange: (settings: AppSettings) => void;
 }) {
     const order = settings.general.supplierOrder;
+    const systemLocale = useAppSettings(state => state.systemLocale);
     const [error, setError] = useState<string | null>(null);
 
     const save = async (general: AppSettings["general"]) => {
@@ -148,6 +161,35 @@ function GeneralPanel({
                     </li>
                 ))}
             </ol>
+            <h3 className="section-gap">Numbers</h3>
+            <div role="radiogroup" aria-label="Decimal separator">
+                {DECIMAL_SEPARATORS.map(separator => (
+                    <label key={separator} className="checkbox">
+                        <input
+                            type="radio"
+                            name="decimal-separator"
+                            checked={
+                                settings.general.decimalSeparator === separator
+                            }
+                            onChange={() =>
+                                void save({
+                                    ...settings.general,
+                                    decimalSeparator: separator
+                                })
+                            }
+                        />
+                        {SEPARATOR_LABELS[separator]} (
+                        {numbersFor(
+                            numberLocale(separator, systemLocale)
+                        ).quantity(1234.56)}
+                        )
+                    </label>
+                ))}
+            </div>
+            <p className="muted">
+                For the table, the dialogs and exports. CSV files with a decimal
+                comma have &quot;;&quot; between the values.
+            </p>
             <h3 className="section-gap">Troubleshooting</h3>
             <label className="checkbox">
                 <input

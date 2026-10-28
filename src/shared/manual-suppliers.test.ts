@@ -15,6 +15,7 @@ import {
     setCell,
     validateColumnName
 } from "./project-ops";
+import { numbersFor } from "./numbers";
 
 // Suppliers without an API (#20): what's typed in counts like the rest.
 
@@ -94,6 +95,13 @@ describe("suppliers without an API", () => {
         });
         expect(type(typed, rowId, shop, { unitPrice: -1 })).toBe(typed);
         expect(type(typed, rowId, shop, { moq: 0 })).toBe(typed);
+        expect(type(typed, rowId, shop, { unitPrice: "1.2.3" })).toBe(typed);
+        // A decimal comma works too (#37).
+        expect(
+            type(typed, rowId, shop, { unitPrice: "0,75" }).rows[0]!.manual?.[
+                shop
+            ]?.unitPrice
+        ).toBe(0.75);
         const cleared = type(typed, rowId, shop, {
             partNumber: "",
             unitPrice: null,
@@ -189,7 +197,12 @@ describe("suppliers without an API", () => {
         });
         const preset = (name: string) =>
             builtInPresets(typed).find(p => p.name === name)!.selection;
-        const all = buildBomSheet(typed, [], preset("All data"));
+        const all = buildBomSheet(
+            typed,
+            [],
+            preset("All data"),
+            numbersFor("en-US")
+        );
         const headers = all.rows[0]!;
         expect(headers).toEqual(
             expect.arrayContaining([
@@ -203,7 +216,12 @@ describe("suppliers without an API", () => {
         expect(all.rows[1]![headers.indexOf("Shop_Total price")]).toBe(1.6);
         expect(all.rows[1]![headers.indexOf("Best_Supplier")]).toBe("Shop");
 
-        const basic = buildBomSheet(typed, [], preset("Basic data only"));
+        const basic = buildBomSheet(
+            typed,
+            [],
+            preset("Basic data only"),
+            numbersFor("en-US")
+        );
         expect(basic.rows[0]).toEqual([
             "Row",
             "Reference",

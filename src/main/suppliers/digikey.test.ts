@@ -150,7 +150,7 @@ describe("DigiKey", () => {
             offer: {
                 stockQty: 0,
                 notes: [
-                    "Other packaging: 495-4874-3-ND (Tape & Box (TB)): 1,930 in stock, MOQ 2,000."
+                    "Other packaging: 495-4874-3-ND (Tape & Box (TB)): 1930 in stock, MOQ 2000."
                 ]
             }
         });

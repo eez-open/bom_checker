@@ -46,7 +46,8 @@ const exportRequestSchema = z.object({
             })
         )
         .min(1)
-        .max(2)
+        .max(2),
+    decimalComma: z.boolean()
 });
 
 const absolutePath = z.string().refine(isAbsolute, "Not an absolute path");
@@ -156,9 +157,11 @@ export function registerProjectHandlers(): void {
         showKicadBackup(z.string().parse(folder))
     );
     handle(IpcChannel.ExportSave, ({ window }, request) => {
-        const { format, suggestedName, sheets } =
+        const { format, suggestedName, sheets, decimalComma } =
             exportRequestSchema.parse(request);
-        return saveExport(window, format, suggestedName, sheets);
+        return saveExport(window, format, suggestedName, sheets, {
+            decimalComma
+        });
     });
     handle(IpcChannel.ExportSaveImage, ({ window }, png, suggestedName) =>
         saveImage(

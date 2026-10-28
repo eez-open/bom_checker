@@ -5,22 +5,22 @@ import {
     type SupplierId,
     type SupplierOffer
 } from "../../shared/model";
+import type { Numbers } from "../../shared/numbers";
 import { SUPPLIERS } from "../../shared/suppliers";
 import { chooseItem } from "../commands";
 import { useUi } from "../store/ui";
-import { resultFor } from "./PartNumberCell";
+import { resultFor, type TableContext } from "./PartNumberCell";
 
-const QUANTITY = new Intl.NumberFormat("en");
 const COMPARE = "compare";
 
-function describe(offer: SupplierOffer): string {
+function describe(offer: SupplierOffer, numbers: Numbers): string {
     const first = offer.priceBreaks[0];
     return [
         offer.supplierPartNumber +
             (offer.packaging ? ` (${offer.packaging})` : ""),
-        `stock ${QUANTITY.format(offer.stockQty)}`,
-        offer.moq > 1 ? `MOQ ${QUANTITY.format(offer.moq)}` : "",
-        first ? `from ${first.unitPrice} ${offer.currency}` : ""
+        `stock ${numbers.quantity(offer.stockQty)}`,
+        offer.moq > 1 ? `MOQ ${numbers.quantity(offer.moq)}` : "",
+        first ? `from ${numbers.price(first.unitPrice)} ${offer.currency}` : ""
     ]
         .filter(Boolean)
         .join(" · ");
@@ -38,6 +38,7 @@ export function ChooseItemCell(
     }
     const name = SUPPLIERS[props.supplier].name;
     const key = partNumberKey(partNumber);
+    const numbers = (props.context as TableContext).getNumbers();
 
     return (
         <select
@@ -68,7 +69,7 @@ export function ChooseItemCell(
             </option>
             {result.candidates.map((offer, index) => (
                 <option key={offer.supplierPartNumber} value={index}>
-                    {describe(offer)}
+                    {describe(offer, numbers)}
                 </option>
             ))}
             <option value={COMPARE}>Compare the items…</option>

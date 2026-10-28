@@ -2,6 +2,7 @@
 // geometry, and the picture that is copied or saved as PNG.
 
 import type { CostBreakdown, CostItem } from "../shared/cost-breakdown";
+import type { Numbers } from "../shared/numbers";
 import { BASE_CURRENCY } from "../shared/pricing";
 
 /**
@@ -114,16 +115,6 @@ export function describeItem(item: CostItem): string {
     return [item.reference, item.value].filter(Boolean).join(" · ");
 }
 
-const MONEY = new Intl.NumberFormat("en", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-});
-const PERCENT = new Intl.NumberFormat("en", {
-    style: "percent",
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1
-});
-
 function escape(text: string): string {
     return text
         .replaceAll("&", "&amp;")
@@ -143,7 +134,8 @@ function shorten(text: string, length: number): string {
 export function chartPicture(
     breakdown: CostBreakdown,
     title: string,
-    summary: string
+    summary: string,
+    { money, percent }: Numbers
 ): { svg: string; width: number; height: number } {
     const width = 780;
     const ring: Ring = { cx: 154, cy: 226, outer: 120, inner: 72 };
@@ -185,7 +177,7 @@ export function chartPicture(
         text(
             ring.cx,
             ring.cy - 2,
-            MONEY.format(breakdown.total),
+            money(breakdown.total),
             'font-size="22" font-weight="600" fill="#1f2328" text-anchor="middle"'
         ),
         text(
@@ -250,13 +242,13 @@ export function chartPicture(
             text(
                 columns.total,
                 y,
-                MONEY.format(entry.total),
+                money(entry.total),
                 `${cell} text-anchor="end"`
             ),
             text(
                 columns.share,
                 y,
-                PERCENT.format(entry.share),
+                percent(entry.share),
                 `${cell} text-anchor="end"`
             )
         );

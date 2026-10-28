@@ -22,17 +22,37 @@ function toWorksheet(sheet: ExportSheet): XLSX.WorkSheet {
     return worksheet;
 }
 
+export interface CsvOptions {
+    /** Numbers with a decimal comma, and ";" between the values, as
+     *  spreadsheets expect in regions that write numbers so (#37). */
+    decimalComma?: boolean;
+}
+
+function withDecimalComma(sheet: ExportSheet): ExportSheet {
+    return {
+        ...sheet,
+        rows: sheet.rows.map(row =>
+            row.map(cell =>
+                typeof cell === "number" ? String(cell).replace(".", ",") : cell
+            )
+        )
+    };
+}
+
 /**
  * The file contents for `format`. A CSV file holds only the first sheet,
  * in UTF-8 with a byte order mark so Excel reads the text correctly.
  */
 export function exportFile(
     format: ExportFormat,
-    sheets: readonly ExportSheet[]
+    sheets: readonly ExportSheet[],
+    { decimalComma = false }: CsvOptions = {}
 ): Uint8Array {
     if (format === "csv") {
-        const csv = XLSX.utils.sheet_to_csv(toWorksheet(sheets[0]!), {
-            rawNumbers: true
+        const sheet = decimalComma ? withDecimalComma(sheets[0]!) : sheets[0]!;
+        const csv = XLSX.utils.sheet_to_csv(toWorksheet(sheet), {
+            rawNumbers: true,
+            FS: decimalComma ? ";" : ","
         });
         return new TextEncoder().encode(`${BYTE_ORDER_MARK}${csv}\n`);
     }

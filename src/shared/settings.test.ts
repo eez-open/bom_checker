@@ -15,6 +15,7 @@ describe("settings", () => {
             "tme",
             "lcsc"
         ]);
+        expect(settings.general.decimalSeparator).toBe("system");
         expect(settings.suppliers.digikey).toMatchObject({
             site: "SI",
             currency: "EUR",
@@ -35,7 +36,10 @@ describe("settings", () => {
 
     it("keeps valid values and replaces invalid ones", () => {
         const settings = normalizeSettings({
-            general: { supplierOrder: ["tme", "farnell", "tme"] },
+            general: {
+                supplierOrder: ["tme", "farnell", "tme"],
+                decimalSeparator: "dot"
+            },
             suppliers: {
                 digikey: { site: "DE", perDay: -5, clientSecret: "leak" },
                 mouser: "nonsense"
@@ -47,6 +51,11 @@ describe("settings", () => {
             "mouser",
             "lcsc"
         ]);
+        expect(settings.general.decimalSeparator).toBe("system");
+        expect(
+            normalizeSettings({ general: { decimalSeparator: "comma" } })
+                .general.decimalSeparator
+        ).toBe("comma");
         expect(settings.suppliers.digikey.site).toBe("DE");
         expect(settings.suppliers.digikey.perDay).toBe(1000);
         expect(settings.suppliers.digikey).not.toHaveProperty("clientSecret");

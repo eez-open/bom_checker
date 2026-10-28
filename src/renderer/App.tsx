@@ -36,21 +36,14 @@ import { FilterBar, rowViews, tableGroups } from "./FilterBar";
 import { addBomsToList, removeFromList } from "./list-commands";
 import { ListPane } from "./ListPane";
 import { documentName, isDirty, useDocument } from "./store/document";
-import { loadAppSettings, useAppSettings } from "./store/settings";
+import { loadAppSettings, useAppSettings, useNumbers } from "./store/settings";
 import { useUi } from "./store/ui";
 import { COMBINED, useWorkspace } from "./store/workspace";
 import { BomTable } from "./table/BomTable";
 import { Toolbar } from "./Toolbar";
 
-const MONEY = new Intl.NumberFormat("en", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-});
-
-const AMOUNT = new Intl.NumberFormat("en", { maximumFractionDigits: 6 });
-
 function count(n: number, noun: string): string {
-    return `${AMOUNT.format(n)} ${noun}${n === 1 ? "" : "s"}`;
+    return `${n} ${noun}${n === 1 ? "" : "s"}`;
 }
 
 function hasFiles(event: DragEvent): boolean {
@@ -117,6 +110,7 @@ export function App() {
     const preference = useAppSettings(
         state => state.settings.general.supplierOrder
     );
+    const numbers = useNumbers();
     const editRowId = useUi(state => state.editRowId);
     const dialog = useUi(state => state.dialog);
     const hiddenColumns = useUi(state => state.hiddenColumns);
@@ -299,6 +293,7 @@ export function App() {
                                 <BomTable
                                     project={project}
                                     preference={preference}
+                                    numbers={numbers}
                                     hiddenColumns={hiddenColumns}
                                     editRowId={editRowId}
                                     onEditStarted={() =>
@@ -349,10 +344,10 @@ export function App() {
                 {open && hasData && (
                     <span>
                         <span data-testid="bom-total">
-                            Best price total: {MONEY.format(totals.total)}{" "}
+                            Best price total: {numbers.money(totals.total)}{" "}
                             {BASE_CURRENCY}
                             {project.buildQuantity > 1 &&
-                                ` (${MONEY.format(totals.total / project.buildQuantity)} ${BASE_CURRENCY} per unit)`}
+                                ` (${numbers.money(totals.total / project.buildQuantity)} ${BASE_CURRENCY} per unit)`}
                             {totals.uncovered > 0 &&
                                 ` · ${count(totals.uncovered, "row")} without a supplier that has enough stock`}
                         </span>{" "}

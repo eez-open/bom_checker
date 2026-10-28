@@ -40,6 +40,8 @@ export async function launchApp(
         ...(executablePath ? { executablePath } : { args: ["."] }),
         env: {
             ...electronEnv(),
+            // Numbers with a decimal point, whatever this machine's region.
+            EEZ_BOM_CHECKER_SYSTEM_LOCALE: "en-US",
             ...options.env,
             EEZ_BOM_CHECKER_USER_DATA: userData
         }

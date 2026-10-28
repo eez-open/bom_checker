@@ -14,7 +14,7 @@ import { errorMessage } from "../errors";
 import { fileTitle } from "../../shared/bom-list";
 import { documentName, useDocument } from "../store/document";
 import { useWorkspace } from "../store/workspace";
-import { setAppSettings, useAppSettings } from "../store/settings";
+import { setAppSettings, useAppSettings, useNumbers } from "../store/settings";
 import { Modal } from "./Modal";
 
 const FORMATS: { id: ExportFormat; label: string }[] = [
@@ -44,6 +44,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
     const settings = useAppSettings(state => state.settings);
     const preference = settings.general.supplierOrder;
     const savedPresets = settings.general.exportPresets;
+    const numbers = useNumbers();
     const presets: { preset: ExportPreset; saved: boolean }[] = [
         ...builtInPresets(project).map(preset => ({ preset, saved: false })),
         ...savedPresets.map(preset => ({ preset, saved: true }))
@@ -62,8 +63,8 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         sameSelection(p.preset.selection, selection)
     );
     const bom = useMemo(
-        () => buildBomSheet(project, preference, selection),
-        [project, preference, selection]
+        () => buildBomSheet(project, preference, selection, numbers),
+        [project, preference, selection, numbers]
     );
 
     const rowOptions: RowFilter[] = [
@@ -109,7 +110,8 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                 suggestedName: current
                     ? `${name} - ${current.preset.name}`
                     : name,
-                sheets
+                sheets,
+                decimalComma: numbers.decimalComma
             });
             if (path) {
                 setExportedTo(path);

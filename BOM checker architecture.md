@@ -547,6 +547,7 @@ The `kicad-cli sch export bom --variant` alternative was rejected. It requires K
 ## 11. Export
 
 - **Formats:** `.xlsx`, `.ods`, `.csv` (UTF-8 with BOM, so Excel opens it correctly).
+- **Numbers (#37)** look as Settings → General → Numbers says: the system's regional settings (`app.getSystemLocale()`, which on Windows is the regional format, not the UI language), a decimal point or a decimal comma. `shared/numbers.ts` formats them for the table, the dialogs and text in exports; xlsx and ods hold real numbers, which the spreadsheet program shows its way. CSV with a decimal comma writes "0,5" and separates values with ";". Number cells are edited as text and accept "." or ",".
 - **Dialog:** pick **columns**, **rows** and **format**. Combinations can be saved as presets.
 
 | Preset | Columns | Rows |

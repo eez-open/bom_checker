@@ -18,6 +18,7 @@ import {
     type ManualSupplier,
     type SupplierId
 } from "./model";
+import { parseDecimal } from "./numbers";
 import { ALL_SUPPLIERS, sortSuppliers } from "./suppliers";
 
 export function createProject(): Project {
@@ -211,11 +212,8 @@ function toOptionalNumber(raw: unknown): number | "" | undefined {
         return Number.isFinite(raw) ? raw : undefined;
     }
     const text = toText(raw);
-    if (text === "") {
-        return "";
-    }
-    const value = Number(text);
-    return Number.isFinite(value) ? value : undefined;
+    // "." or "," before the decimals, whatever numbers look like (#37).
+    return text === "" ? "" : parseDecimal(text);
 }
 
 // --- Supplier part-number columns -------------------------------------------

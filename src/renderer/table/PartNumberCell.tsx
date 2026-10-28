@@ -6,6 +6,7 @@ import {
     type LookupResult,
     type SupplierId
 } from "../../shared/model";
+import type { Numbers } from "../../shared/numbers";
 import { hasAlternatives, isPartNumberDefined } from "../../shared/part-number";
 import type { BomTotals, ColumnTotal } from "../../shared/pricing";
 import { useUi } from "../store/ui";
@@ -20,6 +21,8 @@ export interface TableContext {
     getBuildQuantity: () => number;
     /** Sums for the pinned Total row. */
     getTotals: () => TableTotals;
+    /** How numbers look (#37). */
+    getNumbers: () => Numbers;
 }
 
 export interface TableTotals {
