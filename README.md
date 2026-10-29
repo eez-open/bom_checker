@@ -2,6 +2,7 @@
 
  ![example](images/bom_list_example.png)
 
+ ![example](images/bom_optimization_example.png)
 
 A desktop app for Linux and Windows that checks a Bill of Materials (BOM) against DigiKey, Mouser, TME, and LCSC, while ensuring that the handling of the collected data complies with the suppliers' Terms of Service (TOS). It reports stock, prices, minimum order quantities (MOQ), lifecycle status and RoHS status, and picks the best-priced supplier for each part. The app was created to help maintain BOMs of multiple modules of a [BB3+](https://github.com/eez-open/eez-bb3plus) project.
 
