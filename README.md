@@ -1,6 +1,21 @@
 # EEZ BOM checker
 
-A desktop app for Windows and Linux that checks a bill of materials against DigiKey, Mouser, TME and LCSC. It reports stock, prices, minimum order quantities, lifecycle status and RoHS status, and picks the best-priced supplier for each part.
+ ![example](images/bom_list_example.png)
+
+
+A desktop app for Linux and Windows that checks a Bill of Materials (BOM) against DigiKey, Mouser, TME, and LCSC, while ensuring that the handling of the collected data complies with the suppliers' Terms of Service (TOS). It reports stock, prices, minimum order quantities (MOQ), lifecycle status and RoHS status, and picks the best-priced supplier for each part. The app was created to help maintain BOMs of multiple modules of a [BB3+](https://github.com/eez-open/eez-bb3plus) project.
+
+## Features
+* .csv import and direct import of a BOM from a [KiCad](https://www.kicad.org/) 10.x project
+* Updating the KiCad, if imported BOM has been modified in the meantime
+* Synchronizing an imported BOM if the KiCad project has been modified in meantime
+* 1-click information collection of all selected suppliers that have an API
+* "Best price" calculation
+* Graphic representation of the 10 most expensive parts
+* Adding custom suppliers and custom columns
+* BOM lists for complex projects that have multiple BOMs with optimization by unifying part numbers
+* Export to .xlsx, .ods, and .csv with a warning and password protected, ensuring that the suppliers' TOS is not violated
+### Docs
 
 - How to use it: [docs/user-guide.md](docs/user-guide.md)
 - What the app must do: [BOM checker project scope.md](BOM%20checker%20project%20scope.md)
