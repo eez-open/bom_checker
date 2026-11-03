@@ -275,6 +275,9 @@ export function createMenu(): Menu {
                 documentCommand("Most &Expensive Parts…", "cost-chart", {
                     id: "cost-chart"
                 }),
+                listCommand("Cost by &BOM…", "bom-costs", {
+                    id: "bom-costs"
+                }),
                 { type: "separator" },
                 { role: "zoomIn" },
                 { role: "zoomOut" },

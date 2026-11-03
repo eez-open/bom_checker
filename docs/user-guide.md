@@ -239,6 +239,8 @@ The modules of one device often have their own BOMs, made at different times, an
 
 **Quantities for a number of devices:** the number next to each BOM in the list (**×**) says how many of it one device has, e.g. 2 for a module that's in the device twice; Combined's Qty is for one device. **Build qty** on the toolbar, while Combined is shown, is the number of devices: for 25 devices with two modules each, set the module's × to 2 and Build qty to 25, and the module's parts are ordered for 50. Order quantities, prices and Unify's quantities follow. The list saves both at once. A BOM's own Build qty counts only when it's shown by itself.
 
+**Cost by BOM** (in the list, or **View → Cost by BOM…**) shows what each BOM costs when they're ordered together: a ring chart like *Most expensive parts*, with the same colours, and a table with each BOM's total and share. The rows are those of the Combined BOM, each at its best price for the number of devices, so the BOMs add up to Combined's best-price total; a row that several BOMs use is shared among them by their quantities. The 10 most expensive BOMs get a slice each, the rest one gray *Other* slice. **Copy picture** and **Save as PNG…** work as for the parts.
+
 **The history BOM** remembers every component (Value and Footprint) with each combination of supplier part numbers used in the list's BOMs, also ones they no longer use, so they can be offered again. It gets new combinations when a BOM is added, after Unify's Apply, and whenever a BOM of the list is saved; *Used in* names the BOMs. It isn't unified itself. **Choose…** uses another `.eezbom` as the history.
 
 ### Unifying part numbers

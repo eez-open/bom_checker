@@ -415,6 +415,13 @@ export function openCostChart(): void {
     useUi.setState({ dialog: { kind: "cost-chart" } });
 }
 
+/** What each BOM of the list costs (#54). */
+export function openBomCosts(): void {
+    if (isListOpen()) {
+        useUi.setState({ dialog: { kind: "bom-costs" } });
+    }
+}
+
 export function openCollect(): void {
     if (hasRows()) {
         useUi.setState({ dialog: { kind: "collect" } });
@@ -499,6 +506,7 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     "update-kicad": updateKicad,
     find,
     "cost-chart": openCostChart,
+    "bom-costs": openBomCosts,
     "sync-kicad": syncKicad,
     undo,
     redo,
@@ -536,7 +544,8 @@ const LIST_COMMANDS = new Set<MenuCommand>([
     "close",
     "save-all",
     "add-boms",
-    "unify"
+    "unify",
+    "bom-costs"
 ]);
 
 export function runMenuCommand(command: MenuCommand): void {

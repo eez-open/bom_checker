@@ -70,6 +70,7 @@ export type MenuCommand =
     | "sync-kicad"
     | "find"
     | "cost-chart"
+    | "bom-costs"
     | "undo"
     | "redo"
     | "add-row"

@@ -15,6 +15,7 @@ export type OpenDialog =
     | { kind: "collect" }
     | { kind: "export" }
     | { kind: "cost-chart" }
+    | { kind: "bom-costs" }
     | { kind: "unify" }
     | { kind: "kicad-update" }
     | { kind: "kicad-sync" }

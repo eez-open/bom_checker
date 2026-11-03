@@ -1,6 +1,6 @@
 import { fileTitle } from "../shared/bom-list";
 import { MAX_PER_DEVICE } from "../shared/bom-list-file";
-import { openUnify } from "./commands";
+import { openBomCosts, openUnify } from "./commands";
 import {
     addBomsToList,
     chooseHistory,
@@ -156,6 +156,14 @@ export function ListPane() {
                 onClick={() => void openUnify()}
             >
                 Unify part numbers…
+            </button>
+            <button
+                type="button"
+                disabled={readable === 0}
+                title="What each BOM costs when they're ordered together"
+                onClick={openBomCosts}
+            >
+                Cost by BOM…
             </button>
             <h3>History</h3>
             {list.history ? (

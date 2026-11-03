@@ -24,7 +24,7 @@ import { ChooseItemDialog } from "./dialogs/ChooseItemDialog";
 import { ColumnsDialog } from "./dialogs/ColumnsDialog";
 import { CollectDialog } from "./dialogs/CollectDialog";
 import { CsvImportDialog } from "./dialogs/CsvImportDialog";
-import { CostChartDialog } from "./dialogs/CostChartDialog";
+import { BomCostChartDialog, CostChartDialog } from "./dialogs/CostChartDialog";
 import { ExportDialog } from "./dialogs/ExportDialog";
 import { KicadImportDialog } from "./dialogs/KicadImportDialog";
 import { KicadSyncDialog } from "./dialogs/KicadSyncDialog";
@@ -416,6 +416,9 @@ export function App() {
             )}
             {dialog?.kind === "cost-chart" && (
                 <CostChartDialog onClose={closeDialog} />
+            )}
+            {dialog?.kind === "bom-costs" && (
+                <BomCostChartDialog onClose={closeDialog} />
             )}
             {dialog?.kind === "unify" && <UnifyDialog onClose={closeDialog} />}
             {dialog?.kind === "kicad-update" && (
