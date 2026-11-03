@@ -415,6 +415,38 @@ export function openCostChart(): void {
     useUi.setState({ dialog: { kind: "cost-chart" } });
 }
 
+/** The selected rows of the BOM shown, or all, against the list's history
+ *  (#52). */
+export function checkHistory(): void {
+    const { list, selected } = useWorkspace.getState();
+    const { open, readOnly, project } = useDocument.getState();
+    if (
+        !list?.history ||
+        !selected ||
+        selected === COMBINED ||
+        selected === list.history ||
+        !open ||
+        readOnly ||
+        project.rows.length === 0
+    ) {
+        return;
+    }
+    const rowIds = useUi.getState().selectedRowIds;
+    useUi.setState({
+        dialog: {
+            kind: "check-history",
+            rowIds: rowIds.length > 0 ? rowIds : null
+        }
+    });
+}
+
+/** What each BOM of the list costs (#54). */
+export function openBomCosts(): void {
+    if (isListOpen()) {
+        useUi.setState({ dialog: { kind: "bom-costs" } });
+    }
+}
+
 export function openCollect(): void {
     if (hasRows()) {
         useUi.setState({ dialog: { kind: "collect" } });
@@ -493,12 +525,14 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     "save-all": saveAllInList,
     "add-boms": addBomsToList,
     unify: openUnify,
+    "check-history": checkHistory,
     "import-csv": importCsv,
     "import-kicad": importKicad,
     export: openExport,
     "update-kicad": updateKicad,
     find,
     "cost-chart": openCostChart,
+    "bom-costs": openBomCosts,
     "sync-kicad": syncKicad,
     undo,
     redo,
@@ -536,7 +570,8 @@ const LIST_COMMANDS = new Set<MenuCommand>([
     "close",
     "save-all",
     "add-boms",
-    "unify"
+    "unify",
+    "bom-costs"
 ]);
 
 export function runMenuCommand(command: MenuCommand): void {

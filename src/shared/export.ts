@@ -19,6 +19,7 @@ import {
     BASE_CURRENCY,
     bestSupplier,
     manualLine,
+    manualPriceBreaks,
     supplierLine,
     type SupplierLine
 } from "./pricing";
@@ -70,6 +71,9 @@ export interface ExportSheet {
     numberFormats: Record<number, string>;
     /** Column widths in characters. */
     widths: number[];
+    /** A table: the first row holds the headers, and xlsx and ods files
+     *  format it as in the template of #50. */
+    table?: boolean;
 }
 
 /** Presets for the suppliers in this BOM; the scope's examples are "all
@@ -316,13 +320,31 @@ function columns(
             if (selection.partNumbersOnly) {
                 continue;
             }
+            const used = (field: "priceBreaks" | "oneTime") =>
+                project.rows.some(row => typed(row)?.[field] !== undefined);
+            result.push({
+                header: `${name}_Unit price`,
+                width: 12,
+                format: UNIT_PRICE_FORMAT,
+                // For the order quantity, as for the others.
+                value: row => manual(row)?.unitPrice ?? null
+            });
+            if (used("priceBreaks")) {
+                result.push({
+                    header: `${name}_Price breaks`,
+                    width: 30,
+                    value: row =>
+                        typed(row)?.priceBreaks
+                            ? manualPriceBreaks(typed(row))
+                                  .map(
+                                      b =>
+                                          `${numbers.quantity(b.qty)}+: ${numbers.price(b.unitPrice)}`
+                                  )
+                                  .join("; ")
+                            : null
+                });
+            }
             result.push(
-                {
-                    header: `${name}_Unit price`,
-                    width: 12,
-                    format: UNIT_PRICE_FORMAT,
-                    value: row => typed(row)?.unitPrice ?? null
-                },
                 {
                     header: `${name}_Stock Qty`,
                     width: 12,
@@ -334,7 +356,16 @@ function columns(
                     width: 8,
                     format: QTY_FORMAT,
                     value: row => typed(row)?.moq ?? null
-                },
+                }
+            );
+            if (used("oneTime")) {
+                result.push({
+                    header: `${name}_One-time`,
+                    width: 10,
+                    value: row => (typed(row)?.oneTime ? "Yes" : null)
+                });
+            }
+            result.push(
                 {
                     header: `${name}_Order Qty`,
                     width: 10,
@@ -455,6 +486,7 @@ export function buildBomSheet(
         );
     return {
         name: "BOM",
+        table: true,
         rows: [included.map(column => column.header), ...rows],
         numberFormats: Object.fromEntries(
             included.flatMap((column, index) =>

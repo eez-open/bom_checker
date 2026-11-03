@@ -17,7 +17,7 @@ Based on: `BOM checker project scope.md`, the clarifications in section 2, and r
 | Security | Credentials encrypted with AES-256-GCM using a key derived from the user's password (scrypt). Unlocked once per session |
 | Currency | Every supplier is asked for EUR. The currency of each response is checked; prices in any other currency are flagged, not converted |
 | KiCad | Built-in KiCad 10 schematic parser with variant selection. No KiCad installation needed |
-| Export | `.xlsx`, `.ods`, `.csv` through one library (SheetJS), with saved column and row filters |
+| Export | `.xlsx` and `.ods` formatted as the users' template has it (#50), written by our own module; `.csv` through SheetJS; saved column and row filters |
 | Maintainability | Mainstream libraries and as few of them as possible. Each replaceable library sits behind one module. Supplier and KiCad format changes stay inside one folder each, with recorded-response tests. CI and automated dependency updates from day one |
 
 ---
@@ -57,7 +57,7 @@ Any third-party library that might need replacing is used from **one module only
 | Build | Vite, via electron-vite | Vite is mainstream. electron-vite is only a thin configuration layer over it; if it were ever abandoned, replacing it means rewriting config, not code |
 | Table | AG Grid Community (MIT) | Editing, column groups, pinning, sorting/filtering and cell styling are built in, so there's far less of our own table code to maintain than with a headless library. It releases about one major version a year, with migration guides. Used only in `renderer/table/` |
 | CSV | PapaParse | Mature, stable, no dependencies |
-| Export | SheetJS Community Edition | The only maintained library that writes xlsx, ods and csv. **Caveat:** it's distributed from `cdn.sheetjs.com`, not the npm registry, so update bots don't see it and updating it is a manual step in the upgrade checklist. It doesn't write cell colours (see 11). Used only in `main/export/` |
+| Export | Own writer for xlsx and ods (`main/export/spreadsheet.ts`), zipped with fflate; SheetJS Community Edition for CSV | SheetJS CE can't write cell styles, and no maintained library writes formatted ods, so formatted files (#50) are written as Office Open XML and OpenDocument, both frozen standards, by one module of plain XML. fflate (MIT, no dependencies) zips them. SheetJS writes CSV and reads the files back in tests. **Caveat:** SheetJS is distributed from `cdn.sheetjs.com`, not the npm registry, so update bots don't see it and updating it is a manual step in the upgrade checklist. Used only in `main/export/` |
 | Crypto | Node built-in `crypto` (scrypt, AES-256-GCM) | No dependency at all; updated along with Electron |
 | Validation | zod | Widely used. The same schemas validate project files, settings and IPC messages, and drive file-format migrations |
 | Logging | electron-log | Writes a log file in app data that users can send when something goes wrong |
@@ -145,7 +145,7 @@ No file the app writes holds absolute paths (#34). `source.path` is stored relat
 
 ```ts
 interface Project {
-  schemaVersion: 6;                     // 2 added `collected`, 3 `buildQuantity`, 4 `source.kicadValues`, 5 decimal `qty` and `manualSuppliers`, 6 left `collected` out
+  schemaVersion: 7;                     // 2 added `collected`, 3 `buildQuantity`, 4 `source.kicadValues`, 5 decimal `qty` and `manualSuppliers`, 6 left `collected` out, 7 price breaks and one-time items of suppliers without an API
   source: { kind: 'manual' | 'csv' | 'kicad'; path?: string; variant?: string; importedAt?: string };  // path: relative to the file (#34)
   suppliers: SupplierId[];              // suppliers that have a part-number column in this BOM
   customColumns: ColumnDef[];           // user-defined columns, plus unmapped imported ones
@@ -234,7 +234,7 @@ For one row and one supplier:
 
 The scope's example works out as follows. Mouser is €1 × 20 but has only 10 in stock, so it isn't a candidate. DigiKey at €1.20 × 20 with enough stock wins.
 
-**Suppliers without an API (#20).** A row's `manual[supplierId]` holds a typed part number, unit price (EUR), stock and MOQ. `manualLine` turns it into an offer with one price break, order multiple 1 and, without a stock, unlimited stock; the rules above then apply unchanged. These suppliers are candidates for the best price like the others and rank after those with an API on equal totals. Their names follow the custom-column rules, since they head columns and export headers (`Shop_Unit price`).
+**Suppliers without an API (#20).** A row's `manual[supplierId]` holds a typed part number, unit price (EUR), stock and MOQ. `manualLine` turns it into an offer with order multiple 1 and, without a stock, unlimited stock; the rules above then apply unchanged. Its price breaks are the unit price from 1 and up to three lower ones from larger quantities, `priceBreaks` (#51, `shared/manual-prices.ts`; file format 7), so the price of the largest break the order quantity reaches applies, as for the others. A `oneTime` item (#53), such as a stencil, takes the row's Qty without the build quantity, and in a list's Combined BOM without how many of the BOM a device has. These suppliers are candidates for the best price like the others and rank after those with an API on equal totals. Their names follow the custom-column rules, since they head columns and export headers (`Shop_Unit price`).
 
 **Out of scope for v1:** buying *more* than needed to reach a cheaper price break. DigiKey offers a "better value" quantity endpoint that could support this later.
 
@@ -507,6 +507,7 @@ The `kicad-cli sch export bom --variant` alternative was rejected. It requires K
 - **Three-way:** `source.kicadValues` (file format 4) keeps KiCad's values at the last import or sync, per reference and column. A difference where the BOM still has that value is a KiCad change (offered, ticked); one where KiCad still has it is a BOM change (kept, not offered); anything else is offered unticked. Without these values (older files), every difference is offered unticked except added parts.
 - **Applying** (one undo step): accepted values are set per reference; a row whose references end up with different values is split, keeping its other cells; removed references leave their row; added parts join the one row of their KiCad row-mates if its values match, or get a new row at the end. Rows whose references KiCad never had are left alone. Then KiCad's current values become `kicadValues`.
 - **Update KiCad…** records the values it wrote in `kicadValues`, so the next sync doesn't see them as changes.
+- **Joining rows (#55):** comparing by reference splits the parts of one KiCad row over several BOM rows when KiCad renumbers parts. After the ticked changes, `planJoins` finds BOM rows whose references are all in one row of KiCad's BOM and that have the same Value, Footprint and part numbers; other columns and suppliers without an API mustn't differ. The dialog works them out again on every tick (ids come from the KiCad row and the values, not row ids), and `joinRows` makes each group one row in the place of the first.
 
 ### 9.4 Writing back to the KiCad project (GitHub #11)
 
@@ -526,6 +527,8 @@ The `kicad-cli sch export bom --variant` alternative was rejected. It requires K
 - **History** (`shared/parts-history.ts`): a plain `.eezbom` with a *Used in* column. A BOM row is known when a history row of the same component has all its defined part numbers; otherwise it's added. It also takes newer collected data of its part numbers. Updated when BOMs are added or saved, and after Apply; saved unless it has other unsaved changes.
 - **Combined** (`shared/combined-bom.ts`): computed, read-only (`readOnly` in the document store: edits are ignored, the table can't edit). Rows merge by their set of defined supplier part numbers, or by component without any; Qty = Σ qty × per device, for one device, and Combined's build quantity is the list's number of devices (#39). The BOMs' own build quantities don't count; Unify uses the same quantities. Collected data is the newest of all BOMs; data collected there goes to the BOMs that use the part numbers. Suppliers without an API are matched by name, case ignored, with ids `combined-manual-N`; a merged row keeps the first BOM's typed values for each (#48).
 - **Unify** (`shared/unify.ts`): rows are joined (union-find) by component, or by a shared supplier part number. A group is offered when, for a supplier, its cells differ (an empty one included) or its Values do. Candidates: the cells' part numbers by use, then the history's for the same component. Prices are those of a row with the group's total quantity. The dialog collects candidates with the Collect dialog on its own data (`CollectTarget`), and Apply writes the decisions as one undo step per BOM, with the chosen part numbers' data.
+- **Checking the history (#52):** the Unify dialog in a second mode, for the selected rows (or all) of the BOM shown. `findHistoryGroups` makes a group per row, from the same description as Unify's, offering a supplier when the history has a part number the row doesn't. Quantities are the BOM's own (its Build qty). Apply edits the BOM as one undo step, with the data collected in the dialog, and doesn't save it.
+- **Cost by BOM (#54):** `bomCostBreakdown` (`shared/cost-breakdown.ts`) prices the Combined BOM and shares every row's best total among the BOMs by how much of its quantity each has (`combineBomsWithSources`), so the BOMs add up to Combined's best-price total. The chart is the parts chart's component with other data (`ChartData` in `renderer/cost-chart.ts`).
 - **Not covered yet:** suppliers without an API (their ids are per BOM) are left out of the history and Unify.
 
 ---
@@ -541,7 +544,7 @@ The `kicad-cli sch export bom --variant` alternative was rejected. It requires K
   - Base, part-number and custom cells are editable, and rows can be added or deleted.
   - Changing a part number clears that supplier's result for the row and marks it for collection.
   - Changing Qty recalculates the row instantly.
-- **Cell states:** invalid input (red), a status badge on part numbers (found, not found, several matches, error); the several-matches badge opens a list to choose the item. Lifecycle colours (5.4), availability colours, and a highlight when the order quantity is below the first price break.
+- **Cell states:** invalid input (red), a status badge on part numbers (found, not found, several matches, error); the several-matches badge opens a list to choose the item. Lifecycle colours (5.4), availability colours, and a highlight when the order quantity is below the first price break. A reference another row has can't be typed in (AG Grid's editor validation with `invalidEditValueMode="block"`, and a message in the status bar); rows sharing one anyway are red, and Reference and Qty are amber when Qty isn't the number of references (#58, `shared/references.ts`).
 - **Context menu:** open the product page or datasheet, and re-collect this row.
 
 ---
@@ -563,7 +566,7 @@ The `kicad-cli sch export bom --variant` alternative was rejected. It requires K
 
 - **Typed cells:** numbers and prices are written as numeric cells, not text.
 - **Info sheet** (xlsx/ods only): BOM, source file (relative to the BOM), KiCad variant, export filter, how prices and the best price were chosen, the preferred supplier order, collection dates per supplier, and total prices.
-- **No colours:** SheetJS Community Edition can't write cell styles, so status colours don't appear in exported files. If coloured `.xlsx` output is wanted, ExcelJS could be added for xlsx only.
+- **Formatting (#50)**, xlsx and ods, as in the template attached to the issue: the header row bold and centred on orange (#ffcc00), the rows below alternately white and blue gray (#e6e6ff), Row and Qty centred, text wrapped at the top of the cell, the template's column widths for Row, Reference, Value, Qty, Footprint and the four part-number columns (the others from the export's widths), a 10 pt font so a row is 0.45 cm (wrapped text makes it taller), A4 landscape with 1 cm margins at 83 %, the file name and page number in the page header, and a print range over all columns. The Info sheet keeps plain cells. `main/export/spreadsheet.ts` writes both formats from the same cell styles; status colours of the table aren't exported.
 
 ---
 
@@ -611,6 +614,10 @@ These points couldn't be settled from documentation and should be the first thin
 ---
 
 ## 15. Status
+
+### Version 0.12.0
+
+Formatted xlsx and ods exports as in the users' template (#50, section 11), written by `main/export/spreadsheet.ts`. Price breaks (#51) and one-time items (#53) for suppliers without an API (file format 7, section 5.3). Checking selected rows against a list's history (#52) and a chart of the cost by BOM (#54, section 9.5). Sync KiCad… joins the rows of one KiCad row after KiCad renumbered parts (#55, section 9.3). A reference can be in one row only, and Qty is checked against the references (#58). A list keeps the search when another BOM is shown (#60). Unit tests: 263; end-to-end tests: 25.
 
 ### Version 0.11.0
 

@@ -3,7 +3,9 @@ import type { CsvTable } from "./csv-import";
 import {
     applySync,
     importedKicadValues,
+    joinRows,
     markWrittenToKicad,
+    planJoins,
     planSync,
     readKicadBom
 } from "./kicad-sync";
@@ -229,5 +231,146 @@ describe("syncing with KiCad", () => {
                 c => c.kind === "changed" && c.references.includes("U1")
             )
         ).toEqual([]);
+    });
+
+    describe("after KiCad renumbered its parts (#55)", () => {
+        /** C7,C12 10n; C8,C9 100n; C13 1u, as imported, then Notes
+         *  added in the BOM. */
+        function renumbered(notes: Record<string, string> = {}) {
+            let project: Project = {
+                ...addSupplier(createProject(), "mouser"),
+                source: { kind: "kicad" }
+            };
+            for (const [reference, value, mouser] of [
+                ["C7,C12", "10n", "81-10N"],
+                ["C8,C9", "100n", "81-100N"],
+                ["C13", "1u", "81-1U"]
+            ] as const) {
+                project = addRow(
+                    project,
+                    createRow({
+                        reference,
+                        value,
+                        footprint: "C_0603",
+                        qty: reference.split(",").length,
+                        partNumbers: { mouser }
+                    })
+                );
+            }
+            project = {
+                ...project,
+                source: {
+                    ...project.source,
+                    kicadValues: importedKicadValues(project)
+                }
+            };
+            const { project: withNotes, column } = addCustomColumn(
+                project,
+                "Notes",
+                "text"
+            );
+            project = {
+                ...withNotes,
+                rows: withNotes.rows.map(row =>
+                    notes[row.reference]
+                        ? {
+                              ...row,
+                              custom: { [column.id]: notes[row.reference]! }
+                          }
+                        : row
+                )
+            };
+            // A 4u7 added as C7, then Annotate Schematic: every capacitor
+            // from C7 on is one higher.
+            const table: CsvTable = {
+                headers: ["Reference", "Value", "Qty", "Footprint", "Mouser"],
+                rows: [
+                    ["C7", "4u7", "1", "C_0603", "81-4U7"],
+                    ["C8,C13", "10n", "2", "C_0603", "81-10N"],
+                    ["C9,C10", "100n", "2", "C_0603", "81-100N"],
+                    ["C14", "1u", "1", "C_0603", "81-1U"]
+                ]
+            };
+            const kicad = readKicadBom(project, table);
+            const plan = planSync(project, kicad);
+            const synced = applySync(
+                project,
+                kicad,
+                plan,
+                new Set(plan.selected)
+            );
+            return { synced, kicad, notes: column.id };
+        }
+
+        const summary = (project: Project, notes: string) =>
+            project.rows.map(row =>
+                [row.reference, row.qty, row.value, row.custom[notes] ?? ""]
+                    .filter(value => value !== "")
+                    .join(" ")
+            );
+
+        it("joins the rows KiCad has as one", () => {
+            const { synced, kicad, notes } = renumbered({ C13: "check" });
+            // The 10n capacitors C8 and C13 were compared with the 100n C8
+            // and the 1u C13 of the BOM, so they're in two rows.
+            expect(summary(synced, notes)).toEqual([
+                "C7 1 4u7",
+                "C8 1 10n",
+                "C9,C10 2 100n",
+                "C13 1 10n check",
+                "C14 1 1u"
+            ]);
+            const joins = planJoins(synced, kicad);
+            expect(joins).toMatchObject([
+                {
+                    references: ["C8", "C13"],
+                    description: "10n · C_0603",
+                    rowIds: [synced.rows[1]!.id, synced.rows[3]!.id]
+                }
+            ]);
+            const joined = joinRows(synced, joins);
+            // In the first row's place, with the Notes only one row had.
+            expect(summary(joined, notes)).toEqual([
+                "C7 1 4u7",
+                "C8,C13 2 10n check",
+                "C9,C10 2 100n",
+                "C14 1 1u"
+            ]);
+            expect(joined.rows[1]!.id).toBe(synced.rows[1]!.id);
+            expect(planSync(joined, kicad).changes).toEqual([]);
+            expect(planJoins(joined, kicad)).toEqual([]);
+            // The same rows get the same id, whatever their row ids.
+            expect(planJoins(renumbered().synced, kicad)[0]?.id).toBe(
+                joins[0]!.id
+            );
+        });
+
+        it("keeps rows apart that differ in other columns", () => {
+            const { synced, kicad } = renumbered({
+                "C8,C9": "this",
+                C13: "that"
+            });
+            expect(planJoins(synced, kicad)).toEqual([]);
+        });
+
+        it("keeps rows apart that KiCad doesn't have in one row", () => {
+            const { synced, kicad } = renumbered();
+            // C14 as a 10n too, but in a KiCad row of its own.
+            const moved = {
+                ...synced,
+                rows: synced.rows.map(row =>
+                    row.reference === "C14"
+                        ? {
+                              ...row,
+                              value: "10n",
+                              partNumbers: { mouser: "81-10N" }
+                          }
+                        : row
+                )
+            };
+            expect(
+                planJoins(moved, kicad).map(join => join.references)
+            ).toEqual([["C8", "C13"]]);
+        });
     });
 });

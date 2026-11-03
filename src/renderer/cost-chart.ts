@@ -1,7 +1,8 @@
-// The chart of the most expensive parts (#28): colours, the ring's
-// geometry, and the picture that is copied or saved as PNG.
+// The cost charts, of the most expensive parts (#28) and of a list's BOMs
+// (#54): colours, the ring's geometry, and the picture that is copied or
+// saved as PNG.
 
-import type { CostBreakdown, CostItem } from "../shared/cost-breakdown";
+import type { CostItem } from "../shared/cost-breakdown";
 import { uncoveredText } from "../shared/line-text";
 import type { Numbers } from "../shared/numbers";
 import { BASE_CURRENCY } from "../shared/pricing";
@@ -34,6 +35,26 @@ export const OTHER_COLOR = "#c3c2b7";
 /** Rows left out of the total (#49), as the app's error colour. */
 const WARNING_COLOR = "#cf222e";
 
+/** What a cost chart shows: its largest parts, a colour each, the rest as
+ *  Other, and a legend with two columns of text. */
+export interface ChartData {
+    entries: ChartEntry[];
+    other: { label: string; total: number; share: number } | null;
+    total: number;
+    /** Rows the total leaves out (#49). */
+    uncovered: number;
+}
+
+export interface ChartEntry {
+    key: string;
+    /** E.g. "C1 · 100n", or a BOM's name. */
+    label: string;
+    /** E.g. the supplier with the best price. */
+    detail: string;
+    total: number;
+    share: number;
+}
+
 export interface Slice {
     key: string;
     /** 1-based rank; null for Other. */
@@ -46,11 +67,11 @@ export interface Slice {
     end: number;
 }
 
-/** The items' slices, then Other's, around the ring. */
-export function slicesOf({ items, other }: CostBreakdown): Slice[] {
+/** The entries' slices, then Other's, around the ring. */
+export function slicesOf({ entries, other }: ChartData): Slice[] {
     const parts = [
-        ...items.map((item, index) => ({
-            key: item.rowId,
+        ...entries.map((item, index) => ({
+            key: item.key,
             rank: index + 1,
             share: item.share,
             ...CHART_COLORS[index % CHART_COLORS.length]!
@@ -134,10 +155,12 @@ function shorten(text: string, length: number): string {
 
 /**
  * The chart as a picture: the title and summary, the ring, and a legend
- * with every row's rank, colour, supplier, total and share.
+ * with every entry's rank, colour, label, detail, total and share, under
+ * `headers` for the label and the detail.
  */
 export function chartPicture(
-    breakdown: CostBreakdown,
+    breakdown: ChartData,
+    headers: { label: string; detail: string },
     title: string,
     summary: string,
     { money, percent }: Numbers
@@ -150,7 +173,7 @@ export function chartPicture(
     const ring: Ring = { cx: 154, cy: 226 + shift, outer: 120, inner: 72 };
     const top = 96 + shift;
     const rowHeight = 24;
-    const rows = breakdown.items.length + (breakdown.other ? 1 : 0);
+    const rows = breakdown.entries.length + (breakdown.other ? 1 : 0);
     const height = Math.max(
         ring.cy + ring.outer + 28,
         top + 28 + rows * rowHeight + 24
@@ -220,8 +243,8 @@ export function chartPicture(
     const header = 'font-size="12" font-weight="600" fill="#59636e"';
     parts.push(
         text(columns.rank, top, "#", `${header} text-anchor="end"`),
-        text(columns.part, top, "Reference · Value", header),
-        text(columns.supplier, top, "Best price at", header),
+        text(columns.part, top, headers.label, header),
+        text(columns.supplier, top, headers.detail, header),
         text(
             columns.total,
             top,
@@ -231,10 +254,10 @@ export function chartPicture(
         text(columns.share, top, "Share", `${header} text-anchor="end"`)
     );
     const entries = [
-        ...breakdown.items.map((item, index) => ({
+        ...breakdown.entries.map((item, index) => ({
             rank: String(index + 1),
-            part: describeItem(item),
-            supplier: item.supplier,
+            part: item.label,
+            supplier: item.detail,
             total: item.total,
             share: item.share,
             fill: slices[index]!.fill
@@ -243,7 +266,7 @@ export function chartPicture(
             ? [
                   {
                       rank: "",
-                      part: `Other ${breakdown.other.rows} ${breakdown.other.rows === 1 ? "row" : "rows"}`,
+                      part: breakdown.other.label,
                       supplier: "",
                       total: breakdown.other.total,
                       share: breakdown.other.share,

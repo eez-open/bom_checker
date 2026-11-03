@@ -7,6 +7,7 @@ import {
     type BomRow,
     type CollectedData,
     type LookupResult,
+    type ManualOffer,
     type ManualSupplier,
     type PriceBreak,
     type Project,
@@ -131,10 +132,25 @@ function lineFor(
     };
 }
 
+/** A supplier without an API's price breaks (#51): the unit price from 1,
+ *  then the lower prices for larger quantities. */
+export function manualPriceBreaks(
+    offer: ManualOffer | undefined
+): PriceBreak[] {
+    return offer?.unitPrice === undefined
+        ? []
+        : [
+              { qty: 1, unitPrice: offer.unitPrice },
+              ...(offer.priceBreaks ?? [])
+          ];
+}
+
 /**
  * The line of a supplier without an API (#20), from what was typed: the
- * unit price in EUR, the MOQ and the stock, where no stock means always
- * available (e.g. made to order). Null when nothing was typed.
+ * unit price in EUR with its price breaks (#51), the MOQ and the stock,
+ * where no stock means always available (e.g. made to order). A one-time
+ * item (#53) isn't multiplied by the build quantity. Null when nothing was
+ * typed.
  */
 export function manualLine(
     row: BomRow,
@@ -153,10 +169,7 @@ export function manualLine(
         stockQty: entry.stock ?? Number.POSITIVE_INFINITY,
         moq: entry.moq ?? 1,
         orderMultiple: 1,
-        priceBreaks:
-            entry.unitPrice === undefined
-                ? []
-                : [{ qty: 1, unitPrice: entry.unitPrice }],
+        priceBreaks: manualPriceBreaks(entry),
         priceKind: "unknown",
         currency: BASE_CURRENCY,
         lifecycle: null,
@@ -171,7 +184,7 @@ export function manualLine(
             runId: "",
             fetchedAt: ""
         },
-        row.qty * buildQuantity
+        entry.oneTime ? row.qty : row.qty * buildQuantity
     );
 }
 

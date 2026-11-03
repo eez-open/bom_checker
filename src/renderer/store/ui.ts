@@ -15,7 +15,9 @@ export type OpenDialog =
     | { kind: "collect" }
     | { kind: "export" }
     | { kind: "cost-chart" }
+    | { kind: "bom-costs" }
     | { kind: "unify" }
+    | { kind: "check-history"; rowIds: readonly string[] | null }
     | { kind: "kicad-update" }
     | { kind: "kicad-sync" }
     | { kind: "choose-item"; supplier: SupplierId; key: string }
@@ -50,6 +52,8 @@ interface UiStore {
     rowView: string;
     /** Rows shown with the filters on; null when nothing is filtered. */
     shownRows: number | null;
+    /** Why the value being edited in the table can't be entered (#58). */
+    editError: string | null;
 }
 
 const HIDDEN_COLUMNS_KEY = "hidden-columns";
@@ -101,17 +105,19 @@ export const useUi = create<UiStore>()(() => ({
     tableTab: loadText(TAB_KEY) as TableGroup | null,
     search: "",
     rowView: "all",
-    shownRows: null
+    shownRows: null,
+    editError: null
 }));
 
-/** Another BOM starts unfiltered and with no rows selected. */
-export function resetTableView(): void {
-    useUi.setState({
-        search: "",
+/** Another BOM starts unfiltered and with no rows selected. Another BOM
+ *  of the same list keeps the search text, to find it there too (#60). */
+export function resetTableView({ keepSearch = false } = {}): void {
+    useUi.setState(state => ({
+        search: keepSearch ? state.search : "",
         rowView: "all",
         selectedRowIds: [],
         shownRows: null
-    });
+    }));
 }
 
 export function setHiddenColumns(hidden: TableGroup[]): void {

@@ -275,6 +275,9 @@ export function createMenu(): Menu {
                 documentCommand("Most &Expensive Parts…", "cost-chart", {
                     id: "cost-chart"
                 }),
+                listCommand("Cost by &BOM…", "bom-costs", {
+                    id: "bom-costs"
+                }),
                 { type: "separator" },
                 { role: "zoomIn" },
                 { role: "zoomOut" },
@@ -292,6 +295,15 @@ export function createMenu(): Menu {
                     { id: "forget-data" }
                 ),
                 listCommand("&Unify Part Numbers…", "unify", { id: "unify" }),
+                command(
+                    "Check Selected Rows Against the &History…",
+                    "check-history",
+                    {
+                        id: "check-history",
+                        enabled:
+                            state.listOpen && state.editable && state.hasRows
+                    }
+                ),
                 { type: "separator" },
                 command("&Settings…", "settings", {
                     accelerator: "CmdOrCtrl+,"

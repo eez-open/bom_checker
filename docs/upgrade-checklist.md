@@ -29,4 +29,4 @@ Read AG Grid's upgrade guide for the new major version. AG Grid is used only in 
 
 ## SheetJS (when the export feature exists)
 
-SheetJS is installed from `cdn.sheetjs.com`, not the npm registry, so Dependabot doesn't see it. Check <https://cdn.sheetjs.com/> for new versions each time you upgrade Electron.
+SheetJS is installed from `cdn.sheetjs.com`, not the npm registry, so Dependabot doesn't see it. Check <https://cdn.sheetjs.com/> for new versions each time you upgrade Electron. It writes CSV exports and reads exported files back in tests; formatted xlsx and ods files are written by `src/main/export/spreadsheet.ts` (zipped with fflate, which Dependabot updates). After changing that file, open an export in Excel and in LibreOffice.

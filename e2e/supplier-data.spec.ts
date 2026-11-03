@@ -6,7 +6,11 @@ import {
     SUPPLIER_DATA_FOLDER,
     readSupplierData
 } from "../src/main/project/supplier-data";
-import type { CollectedData, Project } from "../src/shared/model";
+import {
+    PROJECT_SCHEMA_VERSION,
+    type CollectedData,
+    type Project
+} from "../src/shared/model";
 import { addRow, createProject, createRow } from "../src/shared/project-ops";
 import { cell, answerOpenDialog, closeApp, launchApp } from "./helpers";
 
@@ -68,7 +72,10 @@ test("keeps supplier data on the computer, not in the BOM file", async () => {
     const text = await readFile(bom, "utf8");
     expect(text).not.toContain("collected");
     expect(text).not.toContain("run-1");
-    expect(JSON.parse(text)).toMatchObject({ schemaVersion: 6 });
+    // Saved in the current format, which has no supplier data.
+    expect(JSON.parse(text)).toMatchObject({
+        schemaVersion: PROJECT_SCHEMA_VERSION
+    });
     expect(
         await readSupplierData(join(userData, SUPPLIER_DATA_FOLDER), bom)
     ).toEqual(collected);

@@ -24,7 +24,7 @@ import { ChooseItemDialog } from "./dialogs/ChooseItemDialog";
 import { ColumnsDialog } from "./dialogs/ColumnsDialog";
 import { CollectDialog } from "./dialogs/CollectDialog";
 import { CsvImportDialog } from "./dialogs/CsvImportDialog";
-import { CostChartDialog } from "./dialogs/CostChartDialog";
+import { BomCostChartDialog, CostChartDialog } from "./dialogs/CostChartDialog";
 import { ExportDialog } from "./dialogs/ExportDialog";
 import { KicadImportDialog } from "./dialogs/KicadImportDialog";
 import { KicadSyncDialog } from "./dialogs/KicadSyncDialog";
@@ -52,6 +52,9 @@ function hasFiles(event: DragEvent): boolean {
 
 const onShownRows = (rows: number | null) =>
     useUi.setState({ shownRows: rows });
+
+const onEditError = (message: string | null) =>
+    useUi.setState({ editError: message });
 
 /** The right side of a list (#35) when it shows no BOM. */
 function ListPlaceholder() {
@@ -116,6 +119,7 @@ export function App() {
     const hiddenColumns = useUi(state => state.hiddenColumns);
     const search = useUi(state => state.search);
     const shownRows = useUi(state => state.shownRows);
+    const editError = useUi(state => state.editError);
     // A filter for a supplier without data any more shows all rows.
     const chosenView = useUi(state => state.rowView);
     const rowView = rowViews(project).some(([value]) => value === chosenView)
@@ -337,6 +341,7 @@ export function App() {
                                     rowView={rowView}
                                     onShownRows={onShownRows}
                                     readOnly={readOnly}
+                                    onEditError={onEditError}
                                 />
                             </main>
                         )}
@@ -344,7 +349,12 @@ export function App() {
                 </div>
             )}
             <footer className="status-bar">
-                <span>
+                {open && editError && (
+                    <span className="field-error" role="alert">
+                        {editError}
+                    </span>
+                )}
+                <span hidden={open && !!editError}>
                     {open && (
                         <span data-testid="bom-summary">
                             {count(project.rows.length, "row")}
@@ -407,7 +417,16 @@ export function App() {
             {dialog?.kind === "cost-chart" && (
                 <CostChartDialog onClose={closeDialog} />
             )}
+            {dialog?.kind === "bom-costs" && (
+                <BomCostChartDialog onClose={closeDialog} />
+            )}
             {dialog?.kind === "unify" && <UnifyDialog onClose={closeDialog} />}
+            {dialog?.kind === "check-history" && (
+                <UnifyDialog
+                    mode={{ kind: "history", rowIds: dialog.rowIds }}
+                    onClose={closeDialog}
+                />
+            )}
             {dialog?.kind === "kicad-update" && (
                 <KicadUpdateDialog onClose={closeDialog} />
             )}

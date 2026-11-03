@@ -18,6 +18,7 @@ import {
     type ManualSupplier,
     type SupplierId
 } from "./model";
+import { validPriceBreaks } from "./manual-prices";
 import { parseDecimal } from "./numbers";
 import { ALL_SUPPLIERS, sortSuppliers } from "./suppliers";
 
@@ -128,31 +129,10 @@ function updateRow(
             if (!project.manualSuppliers.some(s => s.id === key.supplier)) {
                 return row;
             }
-            const value =
-                key.field === "partNumber"
-                    ? toText(raw)
-                    : toOptionalNumber(raw);
-            if (
-                value === undefined ||
-                (typeof value === "number" &&
-                    (value < 0 || (key.field === "moq" && value === 0)))
-            ) {
-                return row;
-            }
             const offer = row.manual?.[key.supplier] ?? {};
-            if (
-                value === ""
-                    ? !(key.field in offer)
-                    : offer[key.field] === value
-            ) {
+            const next = editManualOffer(offer, key.field, raw);
+            if (next === offer) {
                 return row;
-            }
-            const next: ManualOffer = { ...offer };
-            if (value === "") {
-                delete next[key.field];
-            } else {
-                (next as Record<ManualField, string | number>)[key.field] =
-                    value;
             }
             const manual = { ...row.manual };
             if (Object.keys(next).length === 0) {
@@ -163,6 +143,59 @@ function updateRow(
             return { ...row, manual };
         }
     }
+}
+
+/**
+ * `offer` with one field set from an edited value; the same object when
+ * nothing changes or the value isn't valid. The Unit price takes a number,
+ * or all price breaks (#51), the first from 1; without it, there are no
+ * price breaks. One-time (#53) takes a boolean.
+ */
+function editManualOffer(
+    offer: ManualOffer,
+    field: ManualField,
+    raw: unknown
+): ManualOffer {
+    const next: ManualOffer = { ...offer };
+    if (field === "oneTime") {
+        if (raw === true) {
+            next.oneTime = true;
+        } else {
+            delete next.oneTime;
+        }
+    } else if (field === "unitPrice" && Array.isArray(raw)) {
+        const breaks = validPriceBreaks(raw);
+        if (!breaks) {
+            return offer;
+        }
+        const [first, ...more] = breaks;
+        next.unitPrice = first?.unitPrice;
+        next.priceBreaks = more.length > 0 ? more : undefined;
+    } else {
+        const value =
+            field === "partNumber" ? toText(raw) : toOptionalNumber(raw);
+        if (
+            value === undefined ||
+            (typeof value === "number" &&
+                (value < 0 || (field === "moq" && value === 0)))
+        ) {
+            return offer;
+        }
+        (next as Record<string, unknown>)[field] =
+            value === "" ? undefined : value;
+    }
+    if (next.unitPrice === undefined) {
+        next.priceBreaks = undefined;
+    }
+    for (const [name, value] of Object.entries(next)) {
+        if (value === undefined) {
+            delete next[name as keyof ManualOffer];
+        }
+    }
+    return JSON.stringify(Object.entries(next).sort()) ===
+        JSON.stringify(Object.entries(offer).sort())
+        ? offer
+        : next;
 }
 
 /** Sets or (for "") removes an entry; returns the same object if unchanged. */

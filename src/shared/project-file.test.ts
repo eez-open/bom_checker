@@ -210,6 +210,19 @@ describe("collected data", () => {
         expect(parseProjectFile(version5)).toEqual(project);
     });
 
+    it("is read from a version 6 file", () => {
+        const project = withCollected();
+        const version6 = JSON.stringify({
+            ...project,
+            schemaVersion: 6,
+            collected: undefined
+        });
+        expect(parseProjectFile(version6)).toEqual({
+            ...project,
+            collected: { results: {}, runs: {} }
+        });
+    });
+
     it("tells whether there is any", () => {
         expect(hasCollectedData(withCollected().collected)).toBe(true);
         expect(hasCollectedData({ results: {}, runs: {} })).toBe(false);

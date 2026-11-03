@@ -1,12 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     applySync,
+    joinRows,
+    planJoins,
     planSync,
     readKicadBom,
     type KicadBom,
+    type RowJoin,
     type SyncChange,
     type SyncPlan
 } from "../../shared/kicad-sync";
+import type { Project } from "../../shared/model";
 import { SUPPLIERS } from "../../shared/suppliers";
 import { errorMessage } from "../errors";
 import { useDocument } from "../store/document";
@@ -48,10 +52,46 @@ function describe(change: SyncChange): string {
     }
 }
 
+function describeJoin(join: RowJoin): string {
+    return `${join.references.join(", ")}${join.description ? ` · ${join.description}` : ""} · ${join.rowIds.length} rows`;
+}
+
+/** The ticked changes, then the ticked joins of rows that are the same
+ *  component afterwards (#55). */
+function synced(
+    project: Project,
+    kicad: KicadBom,
+    plan: SyncPlan,
+    selected: ReadonlySet<string>,
+    unjoined: ReadonlySet<string>
+): Project {
+    const next = applySync(project, kicad, plan, selected);
+    return joinRows(
+        next,
+        planJoins(next, kicad).filter(join => !unjoined.has(join.id))
+    );
+}
+
 export function KicadSyncDialog({ onClose }: { onClose: () => void }) {
-    const source = useDocument(state => state.project.source);
+    const project = useDocument(state => state.project);
+    const source = project.source;
     const [state, setState] = useState<State>({ kind: "reading" });
     const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+    // Joins are ticked unless unticked: which there are depends on the
+    // ticked changes.
+    const [unjoined, setUnjoined] = useState<ReadonlySet<string>>(new Set());
+    const joins = useMemo(
+        () =>
+            state.kind === "ready"
+                ? planJoins(
+                      applySync(project, state.kicad, state.plan, selected),
+                      state.kicad
+                  )
+                : [],
+        [project, state, selected]
+    );
+    const joining = joins.filter(join => !unjoined.has(join.id)).length;
+    const count = selected.size + joining;
 
     useEffect(() => {
         if (!source.path) {
@@ -102,7 +142,7 @@ export function KicadSyncDialog({ onClose }: { onClose: () => void }) {
         useDocument
             .getState()
             .edit(project =>
-                applySync(project, state.kicad, state.plan, selected)
+                synced(project, state.kicad, state.plan, selected, unjoined)
             );
         onClose();
     };
@@ -115,7 +155,7 @@ export function KicadSyncDialog({ onClose }: { onClose: () => void }) {
             size="large"
             onClose={onClose}
             footer={
-                changes.length > 0 ? (
+                changes.length + joins.length > 0 ? (
                     <>
                         <button type="button" onClick={onClose}>
                             Cancel
@@ -123,11 +163,10 @@ export function KicadSyncDialog({ onClose }: { onClose: () => void }) {
                         <button
                             type="button"
                             className="primary"
-                            disabled={selected.size === 0}
+                            disabled={count === 0}
                             onClick={apply}
                         >
-                            Apply {selected.size}{" "}
-                            {selected.size === 1 ? "change" : "changes"}
+                            Apply {count} {count === 1 ? "change" : "changes"}
                         </button>
                     </>
                 ) : (
@@ -156,7 +195,7 @@ export function KicadSyncDialog({ onClose }: { onClose: () => void }) {
                             {warning}
                         </p>
                     ))}
-                    {changes.length === 0 ? (
+                    {changes.length + joins.length === 0 ? (
                         <p>
                             Nothing changed in KiCad that the BOM doesn&apos;t
                             have.
@@ -219,6 +258,41 @@ export function KicadSyncDialog({ onClose }: { onClose: () => void }) {
                                     )
                                 );
                             })}
+                            {joins.length > 0 && (
+                                <fieldset className="kicad-columns">
+                                    <legend>
+                                        Rows to join into one ({joins.length})
+                                    </legend>
+                                    <p className="muted">
+                                        Parts KiCad lists in one row, with the
+                                        same Value, Footprint and part numbers,
+                                        e.g. after KiCad renumbered them.
+                                    </p>
+                                    {joins.map(join => (
+                                        <label
+                                            key={join.id}
+                                            className="checkbox"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={!unjoined.has(join.id)}
+                                                onChange={event => {
+                                                    const next = new Set(
+                                                        unjoined
+                                                    );
+                                                    if (event.target.checked) {
+                                                        next.delete(join.id);
+                                                    } else {
+                                                        next.add(join.id);
+                                                    }
+                                                    setUnjoined(next);
+                                                }}
+                                            />
+                                            {describeJoin(join)}
+                                        </label>
+                                    ))}
+                                </fieldset>
+                            )}
                         </>
                     )}
                 </div>

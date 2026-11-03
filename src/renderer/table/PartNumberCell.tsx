@@ -23,6 +23,12 @@ export interface TableContext {
     getTotals: () => TableTotals;
     /** How numbers look (#37). */
     getNumbers: () => Numbers;
+    /** The BOM's rows, in BOM order. */
+    getRows: () => readonly BomRow[];
+    /** Rows with a reference that another row has too (#58), by row id. */
+    getReferenceProblems: () => ReadonlyMap<string, string>;
+    /** Why the Reference being edited can't be entered, or null. */
+    onEditError: (message: string | null) => void;
 }
 
 export interface TableTotals {

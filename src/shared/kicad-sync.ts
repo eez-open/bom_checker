@@ -9,7 +9,14 @@
 // version 0.4 or older), are offered unticked.
 
 import { suggestMapping, type CsvTable } from "./csv-import";
-import type { BomRow, ColumnKey, Project, SupplierId } from "./model";
+import {
+    partNumberKey,
+    type BomRow,
+    type ColumnKey,
+    type ManualOffer,
+    type Project,
+    type SupplierId
+} from "./model";
 import { normalizeCell } from "./part-number";
 import { addSupplier, createRow, setCell } from "./project-ops";
 import { joinReferences, splitReferences } from "./references";
@@ -469,6 +476,148 @@ export function applySync(
         );
     }
     return { ...next, source: { ...next.source, kicadValues } };
+}
+
+/** BOM rows to join into one (#55). */
+export interface RowJoin {
+    /** The same for the same rows, whatever their ids. */
+    id: string;
+    /** In BOM order; the first one becomes the joined row. */
+    rowIds: string[];
+    /** All references of the rows, in natural order. */
+    references: string[];
+    /** Value · Footprint. */
+    description: string;
+}
+
+/**
+ * Rows to join (#55). When KiCad renumbers its parts (Annotate Schematic),
+ * a sync compares other parts under the old references, so the parts of
+ * one KiCad row can end up in several BOM rows. Rows are joined when all
+ * their references are in the same row of KiCad's BOM and they have the
+ * same Value, Footprint and part numbers. A value in another column, or
+ * for a supplier without an API, that only some of them have goes to the
+ * joined row; rows with different such values stay apart.
+ */
+export function planJoins(project: Project, kicad: KicadBom): RowJoin[] {
+    const same = new Map<string, BomRow[]>();
+    for (const row of project.rows) {
+        const references = splitReferences(row.reference);
+        const group = kicad.groupOf.get(references[0] ?? "");
+        if (!group || !references.every(r => group.includes(r))) {
+            continue;
+        }
+        const key = JSON.stringify([
+            joinReferences(group),
+            normalizeCell(row.value),
+            normalizeCell(row.footprint),
+            ...project.suppliers.map(s =>
+                partNumberKey(row.partNumbers[s] ?? "")
+            )
+        ]);
+        same.set(key, [...(same.get(key) ?? []), row]);
+    }
+    const joins: RowJoin[] = [];
+    for (const [key, rows] of same) {
+        const clusters: BomRow[][] = [];
+        for (const row of rows) {
+            const cluster = clusters.find(c =>
+                c.every(other => canJoin(row, other))
+            );
+            if (cluster) {
+                cluster.push(row);
+            } else {
+                clusters.push([row]);
+            }
+        }
+        clusters.forEach((cluster, index) => {
+            if (cluster.length < 2) {
+                return;
+            }
+            const first = cluster[0]!;
+            joins.push({
+                id: `join:${key}:${index}`,
+                rowIds: cluster.map(row => row.id),
+                references: splitReferences(
+                    joinReferences(
+                        new Set(
+                            cluster.flatMap(row =>
+                                splitReferences(row.reference)
+                            )
+                        )
+                    )
+                ),
+                description: [first.value, first.footprint]
+                    .map(normalizeCell)
+                    .filter(Boolean)
+                    .join(" · ")
+            });
+        });
+    }
+    return joins;
+}
+
+/** Whether two rows have no different values in the columns that don't
+ *  decide whether they're the same component. */
+function canJoin(a: BomRow, b: BomRow): boolean {
+    const agree = <T>(
+        x: Record<string, T> | undefined,
+        y: Record<string, T> | undefined,
+        equal: (p: T, q: T) => boolean
+    ) =>
+        Object.entries(x ?? {}).every(
+            ([key, value]) => y?.[key] === undefined || equal(value, y[key])
+        );
+    const sameOffer = (p: ManualOffer, q: ManualOffer) =>
+        JSON.stringify(Object.entries(p).sort()) ===
+        JSON.stringify(Object.entries(q).sort());
+    return (
+        agree(a.custom, b.custom, (p, q) => p === q) &&
+        agree(a.manual, b.manual, sameOffer)
+    );
+}
+
+/** Joins each group of rows into its first row: the references and the
+ *  quantities together, with the values any of them has. */
+export function joinRows(project: Project, joins: readonly RowJoin[]): Project {
+    const joinOf = new Map<string, RowJoin>();
+    for (const join of joins) {
+        join.rowIds.forEach(id => joinOf.set(id, join));
+    }
+    if (joinOf.size === 0) {
+        return project;
+    }
+    const byId = new Map(project.rows.map(row => [row.id, row]));
+    const rows: BomRow[] = [];
+    for (const row of project.rows) {
+        const join = joinOf.get(row.id);
+        if (!join) {
+            rows.push(row);
+            continue;
+        }
+        if (join.rowIds[0] !== row.id) {
+            continue;
+        }
+        const members = join.rowIds.map(id => byId.get(id)!);
+        // Values any of them has; they don't differ.
+        const custom: BomRow["custom"] = {};
+        const manual: NonNullable<BomRow["manual"]> = {};
+        for (const member of [...members].reverse()) {
+            Object.assign(custom, member.custom);
+            Object.assign(manual, member.manual);
+        }
+        rows.push({
+            ...row,
+            reference: joinReferences(join.references),
+            // Decimal quantities mustn't gain rounding errors.
+            qty: Number(
+                members.reduce((sum, member) => sum + member.qty, 0).toFixed(9)
+            ),
+            custom,
+            ...(members.some(member => member.manual) ? { manual } : {})
+        });
+    }
+    return { ...project, rows };
 }
 
 /** KiCad's values right after an import: the project's own values. */

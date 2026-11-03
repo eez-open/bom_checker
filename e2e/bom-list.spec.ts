@@ -145,6 +145,22 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
         await page.keyboard.press("Control+Y");
         await expect(cell(page, 1, "value")).toHaveText("220n");
 
+        // The search stays when another BOM of the list is shown (#60).
+        const search = page.getByLabel("Search the table");
+        await search.fill("R5");
+        await expect(page.getByTestId("shown-rows")).toContainText(
+            "Showing 0 of 2 rows"
+        );
+        await mcuItem.click();
+        await expect(search).toHaveValue("R5");
+        await expect(page.getByTestId("shown-rows")).toContainText(
+            "Showing 1 of 2 rows"
+        );
+        await expect(cell(page, 0, "reference")).toHaveText("R5");
+        await search.fill("");
+        await psuItem.click();
+        await expect(page.getByTestId("shown-rows")).toHaveCount(0);
+
         // Combined: the same part numbers in one row, with the BOMs.
         await pane.getByRole("button", { name: "Combined" }).click();
         // Showing it changes no BOM, although psu has newer data for D-1.
@@ -182,6 +198,22 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
         await expect(cell(page, 1, "best:totalPrice")).toHaveText(
             "5.00 (0.50)"
         );
+        // What each BOM costs (#54): only psu has a price; D-1 wasn't
+        // found.
+        await pane.getByRole("button", { name: "Cost by BOM…" }).click();
+        const costs = page.getByRole("dialog", { name: "Cost by BOM" });
+        await expect(costs.getByTestId("cost-summary")).toHaveText(
+            "Combined BOM's best price total: 5.00 EUR for 10 devices, from 1 BOM with a price."
+        );
+        await expect(costs.locator("tbody tr")).toHaveText([
+            /^1psu× 15\.00100\.0%$/
+        ]);
+        await expect(costs.getByTestId("cost-warning")).toBeVisible();
+        await page.keyboard.press("Escape");
+        await clickMenuItem(app, "bom-costs");
+        await expect(costs).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(costs).toHaveCount(0);
         // It can't be edited.
         await cell(page, 1, "value").dblclick();
         await expect(editor(page, "value")).toHaveCount(0);

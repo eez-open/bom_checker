@@ -1,6 +1,6 @@
 import { fileTitle } from "../shared/bom-list";
 import { MAX_PER_DEVICE } from "../shared/bom-list-file";
-import { openUnify } from "./commands";
+import { checkHistory, openBomCosts, openUnify } from "./commands";
 import {
     addBomsToList,
     chooseHistory,
@@ -10,6 +10,7 @@ import {
 } from "./list-commands";
 import { QuantityInput } from "./QuantityInput";
 import { isDirty, useDocument } from "./store/document";
+import { useUi } from "./store/ui";
 import { COMBINED, useWorkspace } from "./store/workspace";
 
 function ListItem({
@@ -85,6 +86,11 @@ export function ListPane() {
     const shownUnsaved = useDocument(
         state => state.open && !state.readOnly && isDirty(state)
     );
+    // Rows of the BOM shown to check against the history (#52).
+    const checkable = useDocument(
+        state => state.open && !state.readOnly && state.project.rows.length > 0
+    );
+    const selectedRows = useUi(state => state.selectedRowIds.length);
     if (!list) {
         return null;
     }
@@ -157,12 +163,35 @@ export function ListPane() {
             >
                 Unify part numbers…
             </button>
+            <button
+                type="button"
+                disabled={readable === 0}
+                title="What each BOM costs when they're ordered together"
+                onClick={openBomCosts}
+            >
+                Cost by BOM…
+            </button>
             <h3>History</h3>
             {list.history ? (
                 <ul className="list-items">{item(list.history)}</ul>
             ) : (
                 <p className="muted">No history BOM.</p>
             )}
+            <button
+                type="button"
+                disabled={
+                    !list.history ||
+                    !checkable ||
+                    selected === COMBINED ||
+                    selected === list.history
+                }
+                title="Look in the history for other part numbers of the BOM's selected rows, or all rows, with their stock and prices"
+                onClick={checkHistory}
+            >
+                {selectedRows > 0
+                    ? `Check ${selectedRows} selected ${selectedRows === 1 ? "row" : "rows"}…`
+                    : "Check the BOM's rows…"}
+            </button>
             <div className="list-pane-actions">
                 <button
                     type="button"

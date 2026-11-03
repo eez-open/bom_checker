@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-03
+
+### Added
+
+- Excel (.xlsx) and LibreOffice (.ods) exports are formatted for reading and printing, as in the template attached to #50: the header row bold and centred on orange, the rows alternately white and blue gray, Row and Qty centred, the template's column widths, rows of 0.45 cm (long reference lists wrap), A4 landscape at 83 % with all columns in the print range, and the file name and page number at the top of each page (#50).
+- Price breaks for suppliers without an API: up to four unit prices, the one from 1 and lower ones from larger quantities. The price of the largest break the order quantity reaches applies, as for the other suppliers: 1.10 from 1, 1.00 from 25, 0.80 from 100 and 0.65 from 300 make 5 pieces cost 5.50 and 500 cost 325.00. Double-click the Unit price cell, or start typing in it, to type them (#51).
+- One-time items for suppliers without an API, e.g. a stencil or tooling: their Qty isn't multiplied by Build qty, nor, in a list's Combined BOM, by how many of the BOM a device has (#53).
+- Check rows against a BOM list's history (Check N selected rows… under History, or Tools → Check Selected Rows Against the History…): the other part numbers the history has for the rows' components, e.g. ones that were out of stock when another was chosen. Collect… gets their stock and prices, the cheapest in stock is suggested, and Apply changes the BOM; Ctrl+Z undoes it (#52).
+- Cost by BOM (in a BOM list, or View → Cost by BOM…): a ring chart and a table of what each BOM costs when the list's BOMs are ordered together, with the colours of the most expensive parts; more than 10 BOMs are grouped as Other (#54).
+- Sync KiCad… offers to join rows that hold parts of one KiCad row and are the same component, as happens after KiCad renumbers parts (Annotate Schematic) (#55).
+- A reference can be in one row only: one that another row has can't be typed in, and the status bar says which row has it. Rows that share a reference anyway, e.g. imported, are red. Reference and Qty are amber when Qty isn't the number of references, e.g. KK1, KK2, KK3 with Qty 2 (#58).
+
+### Changed
+
+- In a BOM list, the search stays when another BOM is shown (#60).
+- BOM files are now format 7, for price breaks and one-time items. Earlier versions can't open BOMs saved by this one.
+
 ## [0.11.0] - 2026-10-29
 
 ### Added

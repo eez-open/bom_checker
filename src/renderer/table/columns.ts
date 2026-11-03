@@ -2,6 +2,7 @@ import type {
     CellClassParams,
     ColDef,
     ColGroupDef,
+    IErrorValidationParams,
     ValueGetterParams
 } from "ag-grid-community";
 import { lastCollectedAt } from "../../shared/collection";
@@ -12,6 +13,7 @@ import {
 } from "../../shared/line-text";
 import {
     BASE_COLUMNS,
+    MAX_MANUAL_PRICE_BREAKS,
     type BomRow,
     type ColumnKey,
     type Lifecycle,
@@ -23,17 +25,20 @@ import {
 import type { Numbers } from "../../shared/numbers";
 import { hasAlternatives } from "../../shared/part-number";
 import { manualSuppliersWithPrices } from "../../shared/project-ops";
+import { duplicateReferences, quantityMismatch } from "../../shared/references";
 import {
     BASE_CURRENCY,
     bestSupplier,
     hasSupplierData,
     manualLine,
+    manualPriceBreaks,
     supplierLine,
     type SupplierLine
 } from "../../shared/pricing";
 import { SUPPLIERS, supplierName } from "../../shared/suppliers";
 import { ChooseItemCell } from "./ChooseItemCell";
 import { PartNumberCell, resultFor, type TableContext } from "./PartNumberCell";
+import { PriceBreaksEditor } from "./PriceBreaksEditor";
 
 /** Id of the pinned row with the column totals. */
 export const TOTALS_ROW_ID = "totals";
@@ -85,6 +90,72 @@ function context(params: { context: unknown }): TableContext {
 function numbers(params: { context: unknown }): Numbers {
     return context(params).getNumbers();
 }
+
+/** A BOM row's Qty that isn't its number of references (#58); not for
+ *  the Total row. */
+function mismatchOf(params: {
+    data?: BomRow;
+    node?: { rowPinned?: unknown } | null;
+}): string | null {
+    return params.data && !params.node?.rowPinned
+        ? quantityMismatch(params.data)
+        : null;
+}
+
+/** A reference that another row has too (#58). */
+function duplicateOf(params: {
+    data?: BomRow;
+    context: unknown;
+}): string | undefined {
+    return params.data
+        ? context(params).getReferenceProblems().get(params.data.id)
+        : undefined;
+}
+
+/**
+ * Each part is in one row only, and Qty is the number of references
+ * (#58): a reference another row has can't be typed in, and rows that
+ * have one anyway (e.g. imported) are red. Rows whose Qty differs from
+ * their number of references are amber.
+ */
+const REFERENCE_CHECKS: Record<"reference" | "qty", ColDef<BomRow>> = {
+    reference: {
+        cellEditorParams: {
+            getValidationErrors: ({
+                value,
+                cellEditorParams: { data, context: table }
+            }: IErrorValidationParams<BomRow, string, TableContext>) => {
+                const rows = table
+                    .getRows()
+                    .map(row =>
+                        row.id === data.id
+                            ? { ...row, reference: value ?? "" }
+                            : row
+                    );
+                const problem = duplicateReferences(rows).get(data.id);
+                const message = problem
+                    ? `${problem} A part can be in one row only.`
+                    : null;
+                // The grid shows it only to the mouse pointer.
+                table.onEditError(message);
+                return message ? [message] : null;
+            }
+        },
+        cellClassRules: {
+            "cell-invalid": params => duplicateOf(params) !== undefined,
+            "cell-warning": params =>
+                duplicateOf(params) === undefined && mismatchOf(params) !== null
+        },
+        tooltipValueGetter: params =>
+            duplicateOf(params) ?? mismatchOf(params) ?? undefined
+    },
+    qty: {
+        cellClassRules: {
+            "cell-warning": params => mismatchOf(params) !== null
+        },
+        tooltipValueGetter: params => mismatchOf(params) ?? undefined
+    }
+};
 
 function lineOf(
     params: { data?: BomRow; context: unknown },
@@ -491,13 +562,46 @@ function manualColumns(
                 initialWidth: 170,
                 headerTooltip: `${name} part number (typed in; ${name} has no API)`
             }),
+            // The price for the order quantity; the editor has the price
+            // breaks (#51).
             typed("unitPrice", "Unit price", {
                 type: "rightAligned",
                 cellDataType: "number",
-                ...NUMBER_EDITOR,
                 initialWidth: 110,
-                headerTooltip: `${name}_Unit price in ${BASE_CURRENCY} (typed in)`,
-                valueFormatter: formatUnitPrice
+                headerTooltip: `${name}_Unit price in ${BASE_CURRENCY} (typed in, with up to ${MAX_MANUAL_PRICE_BREAKS} lower prices for larger quantities)`,
+                valueGetter: params =>
+                    params.node?.rowPinned
+                        ? null
+                        : (lineOfRow(params)?.unitPrice ?? null),
+                valueFormatter: formatUnitPrice,
+                cellEditor: PriceBreaksEditor,
+                cellEditorParams: { supplier: id, name },
+                cellEditorPopup: true,
+                cellEditorPopupPosition: "under",
+                // Tab moves between the editor's fields.
+                suppressKeyboardEvent: params =>
+                    params.editing && params.event.key === "Tab",
+                cellClassRules: {
+                    "cell-breaks": params =>
+                        !params.node?.rowPinned &&
+                        (params.data?.manual?.[id]?.priceBreaks?.length ?? 0) >
+                            0
+                },
+                tooltipValueGetter: params => {
+                    const offer = params.data?.manual?.[id];
+                    const line = lineOfRow(params);
+                    if (!offer?.priceBreaks || !line?.orderQty) {
+                        return undefined;
+                    }
+                    const { quantity, price } = numbers(params);
+                    return [
+                        ...manualPriceBreaks(offer).map(
+                            b =>
+                                `${quantity(b.qty)}+: ${price(b.unitPrice)} ${BASE_CURRENCY}`
+                        ),
+                        `For ${quantity(line.orderQty)} pcs: ${price(line.unitPrice ?? 0)} ${BASE_CURRENCY} each.`
+                    ].join("\n");
+                }
             }),
             typed("stock", "Stock Qty", {
                 type: "rightAligned",
@@ -516,12 +620,33 @@ function manualColumns(
                 columnGroupShow: "open",
                 valueFormatter: formatQuantity
             }),
+            // A one-time cost, e.g. a stencil (#53).
+            typed("oneTime", "One-time", {
+                cellDataType: "boolean",
+                initialWidth: 100,
+                columnGroupShow: "open",
+                headerTooltip: `${name}_One-time: a one-time cost, e.g. a stencil or tooling. Qty isn't multiplied by the build quantity.`,
+                valueGetter: params =>
+                    params.node?.rowPinned
+                        ? null
+                        : params.data?.manual?.[id]?.oneTime === true,
+                // No checkbox in the Total row.
+                cellRendererSelector: params =>
+                    params.node.rowPinned
+                        ? { component: () => null }
+                        : undefined
+            }),
             calculated("orderQty", "Order Qty", {
                 type: "rightAligned",
                 initialWidth: 110,
                 columnGroupShow: "open",
                 valueGetter: params => lineOfRow(params)?.orderQty ?? null,
-                valueFormatter: formatQuantity
+                valueFormatter: formatQuantity,
+                tooltipValueGetter: params =>
+                    params.data?.manual?.[id]?.oneTime &&
+                    context(params).getBuildQuantity() > 1
+                        ? "One-time: Qty isn't multiplied by the build quantity."
+                        : undefined
             }),
             calculated("totalPrice", "Total price", {
                 type: "rightAligned",
@@ -564,11 +689,14 @@ function hideGroup(
  * @param withData suppliers that have collected data; only they get the
  *   calculated columns.
  * @param hidden column groups the user has hidden.
+ * @param checkReferences whether references are checked (#58); not in a
+ *   list's Combined BOM, where they're by BOM.
  */
 export function buildColumns(
     project: Project,
     withData: readonly SupplierId[],
-    hidden: ReadonlySet<TableGroup> = new Set()
+    hidden: ReadonlySet<TableGroup> = new Set(),
+    checkReferences = true
 ): TableColumns {
     const keys = new Map<string, ColumnKey>();
     const columnDefs: (ColDef<BomRow> | ColGroupDef<BomRow>)[] = [];
@@ -615,7 +743,11 @@ export function buildColumns(
             pinned:
                 column.field === "reference" || column.field === "value"
                     ? "left"
-                    : undefined
+                    : undefined,
+            ...(checkReferences &&
+            (column.field === "reference" || column.field === "qty")
+                ? REFERENCE_CHECKS[column.field]
+                : {})
         });
         if (column.field === "qty" && project.buildQuantity > 1) {
             columnDefs.push({

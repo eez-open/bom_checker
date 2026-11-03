@@ -1,8 +1,9 @@
 // The Combined BOM of a list (#35): the rows of all its BOMs for ordering
 // them together, e.g. the PCBA of a device's modules. Rows with the same
 // supplier part numbers are merged and their quantities added up, for one
-// device: with how many of each BOM it has. Its build quantity is the
-// number of devices (#39); the BOMs' own build quantities don't count.
+// device: with how many of each BOM it has, except for one-time items
+// (#53). Its build quantity is the number of devices (#39); the BOMs' own
+// build quantities don't count.
 // Suppliers without an API come along with what was typed for them (#48).
 
 import {
@@ -37,7 +38,13 @@ interface Merged {
     row: BomRow;
     /** References by BOM name. */
     references: Map<string, string[]>;
+    /** How much of the quantity each BOM has (by index in the list). */
+    sources: Map<number, number>;
 }
+
+/** Of a Combined BOM's row: how much of its quantity each BOM has, by
+ *  index in the list. */
+export type RowSources = ReadonlyMap<number, number>;
 
 function referencesText(references: Map<string, string[]>): string {
     const parts = [...references].filter(([, refs]) => refs.length > 0);
@@ -68,6 +75,15 @@ export function combineBoms(
     members: readonly ListMember[],
     buildQuantity = 1
 ): Project {
+    return combineBomsWithSources(members, buildQuantity).project;
+}
+
+/** The Combined BOM, with where each row's quantity comes from, by row
+ *  id. */
+export function combineBomsWithSources(
+    members: readonly ListMember[],
+    buildQuantity = 1
+): { project: Project; sources: Map<string, RowSources> } {
     const { project: base, column } = addCustomColumn(
         createProject(),
         SOURCE_BOM_COLUMN,
@@ -79,7 +95,10 @@ export function combineBoms(
     // one supplier.
     const manualByName = new Map<string, string>();
 
-    for (const { name, project: bom, perDevice } of members) {
+    for (const [
+        index,
+        { name, project: bom, perDevice }
+    ] of members.entries()) {
         for (const supplier of bom.suppliers) {
             project = addSupplier(project, supplier);
         }
@@ -102,7 +121,12 @@ export function combineBoms(
         }
         for (const row of bom.rows) {
             const key = mergeKey(row);
-            const qty = row.qty * perDevice;
+            // A one-time item (#53) is needed once, however many of the
+            // BOM a device has.
+            const oneTime = Object.values(row.manual ?? {}).some(
+                offer => offer.oneTime
+            );
+            const qty = oneTime ? row.qty : row.qty * perDevice;
             const reference = row.reference.trim();
             let entry = merged.get(key);
             if (!entry) {
@@ -116,11 +140,13 @@ export function combineBoms(
                         partNumbers: { ...row.partNumbers },
                         custom: {}
                     },
-                    references: new Map()
+                    references: new Map(),
+                    sources: new Map()
                 };
                 merged.set(key, entry);
             }
             entry.row.qty += qty;
+            entry.sources.set(index, (entry.sources.get(index) ?? 0) + qty);
             mergeManual(entry.row, row, combinedIds);
             const references = entry.references.get(name) ?? [];
             if (reference) {
@@ -131,15 +157,20 @@ export function combineBoms(
     }
 
     return {
-        ...project,
-        buildQuantity,
-        rows: [...merged.values()].map(({ row, references }) => ({
-            ...row,
-            // Floating-point sums such as 0.1 + 0.2.
-            qty: Number(row.qty.toFixed(9)),
-            reference: referencesText(references),
-            custom: { [column.id]: [...references.keys()].join(", ") }
-        })),
-        collected: mergeCollected(members.map(member => member.project))
+        project: {
+            ...project,
+            buildQuantity,
+            rows: [...merged.values()].map(({ row, references }) => ({
+                ...row,
+                // Floating-point sums such as 0.1 + 0.2.
+                qty: Number(row.qty.toFixed(9)),
+                reference: referencesText(references),
+                custom: { [column.id]: [...references.keys()].join(", ") }
+            })),
+            collected: mergeCollected(members.map(member => member.project))
+        },
+        sources: new Map(
+            [...merged.values()].map(({ row, sources }) => [row.id, sources])
+        )
     };
 }

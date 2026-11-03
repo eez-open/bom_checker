@@ -118,6 +118,27 @@ export async function fillEditor(
     }).toPass();
 }
 
+/**
+ * Types into the open Unit price editor of a supplier without an API
+ * (#51): the price from 1, then [quantity, price] of lower prices for
+ * larger quantities.
+ */
+export async function fillPrices(
+    page: Page,
+    price: string,
+    breaks: [string, string][] = []
+): Promise<void> {
+    const first = page.getByLabel("Price break 1 unit price");
+    await expect(first).toBeFocused();
+    await first.fill(price);
+    for (const [index, [qty, unitPrice]] of breaks.entries()) {
+        await page.getByLabel(`Price break ${index + 2} quantity`).fill(qty);
+        await page
+            .getByLabel(`Price break ${index + 2} unit price`)
+            .fill(unitPrice);
+    }
+}
+
 /** `rowIndex` is "t-0" for the pinned Total row. */
 export function cell(page: Page, rowIndex: number | string, columnId: string) {
     return page.locator(

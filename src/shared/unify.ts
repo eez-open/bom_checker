@@ -4,6 +4,10 @@
 // a supplier (an empty cell counts too), every part number used for the
 // component, in the BOMs and in the history, is offered with stock and
 // prices for the quantity of all rows, to choose one.
+//
+// Checking the history (#52) offers the same for rows of one BOM: the part
+// numbers the history has for their components, e.g. one that was out of
+// stock when another was chosen, which may be in stock and cheaper now.
 
 import { componentKey, definedPartNumbers, type ListMember } from "./bom-list";
 import {
@@ -153,12 +157,48 @@ export function findUnifyGroups(
     return groups;
 }
 
+/**
+ * Rows of a BOM whose components have other part numbers in the history
+ * (#52), a group each: for a supplier of the BOM, the row's part number
+ * and every other one the history has for the component. Only the rows in
+ * `rowIds`, or all. Stock and prices are for the row's quantity.
+ */
+export function findHistoryGroups(
+    member: ListMember,
+    rowIds: ReadonlySet<string> | null,
+    history: Project,
+    { matchFootprint = true, buildQuantity = 1 } = {}
+): UnifyGroup[] {
+    const suppliers = SUPPLIER_IDS.filter(supplier =>
+        member.project.suppliers.includes(supplier)
+    );
+    return member.project.rows.flatMap(row => {
+        if (rowIds && !rowIds.has(row.id)) {
+            return [];
+        }
+        const group = describeGroup(
+            [{ member, row }],
+            history,
+            suppliers,
+            matchFootprint,
+            buildQuantity,
+            true
+        );
+        return group ? [group] : [];
+    });
+}
+
+/**
+ * @param fromHistory offer a supplier's part numbers when the history has
+ *   one the rows don't (#52), rather than when the rows differ.
+ */
 function describeGroup(
     entries: { member: ListMember; row: BomRow }[],
     history: Project | null,
     suppliers: readonly SupplierId[],
     matchFootprint: boolean,
-    buildQuantity: number
+    buildQuantity: number,
+    fromHistory = false
 ): UnifyGroup | null {
     const rows: UnifyRow[] = entries.map(({ member, row }) => ({
         bom: member.path,
@@ -192,7 +232,7 @@ function describeGroup(
     const choices: Partial<Record<SupplierId, Candidate[]>> = {};
     for (const supplier of suppliers) {
         const cells = rows.map(row => row.cells[supplier] ?? "");
-        if (new Set(cells.map(cellKey)).size < 2) {
+        if (!fromHistory && new Set(cells.map(cellKey)).size < 2) {
             continue;
         }
         const candidates = new Map<string, Candidate>();
@@ -233,6 +273,9 @@ function describeGroup(
                 candidates.set(cellKey(partNumber), candidate);
                 used.push(candidate);
             }
+        }
+        if (fromHistory && !used.some(candidate => candidate.rows === 0)) {
+            continue;
         }
         choices[supplier] = used;
     }

@@ -88,12 +88,40 @@ test("brings changes made in KiCad into the BOM", async () => {
         await dialog.getByRole("button", { name: "Close" }).click();
 
         // One undo step brings the BOM back.
+        const r112Rows = page.locator('.ag-cell[col-id="reference"]', {
+            hasText: /^R112$/
+        });
         await page.keyboard.press("Control+Z");
+        await expect(r112Rows).toHaveCount(0);
+        await page.keyboard.press("Control+Y");
+        await expect(r112Rows).toHaveCount(1);
+
+        // R112 gets its row-mates' number back in KiCad: its row joins
+        // theirs again (#55).
+        await writeFile(file, text);
+        await page.getByRole("button", { name: "Sync KiCad…" }).click();
         await expect(
-            page.locator('.ag-cell[col-id="reference"]', {
-                hasText: /^R112$/
+            dialog.getByRole("checkbox", {
+                name: "R112 · Mouser: 603-NEW-1K → 603-RC0805FR-071KL"
             })
-        ).toHaveCount(0);
+        ).toBeChecked();
+        const rowJoin = dialog.getByRole("checkbox", {
+            name: /^R41, R49, .*R107, R112, R119, .*R138 · .* · 2 rows$/
+        });
+        await expect(rowJoin).toBeChecked();
+        // Without the change, R112's row isn't the same component.
+        await dialog
+            .getByRole("checkbox", { name: /^R112 · Mouser/ })
+            .uncheck();
+        await expect(rowJoin).toHaveCount(0);
+        await dialog.getByRole("checkbox", { name: /^R112 · Mouser/ }).check();
+        await dialog.getByRole("button", { name: "Apply 2 changes" }).click();
+        await expect(r112Rows).toHaveCount(0);
+        const joined = await rowIndexOf(
+            page,
+            "R41,R49,R55,R56,R60,R101,R107,R112,R119,R134,R135,R137,R138"
+        );
+        await expect(cell(page, joined, "qty")).toHaveText("13");
     } finally {
         await closeApp(app);
     }

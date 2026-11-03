@@ -212,3 +212,101 @@ test("unifies part numbers across the BOMs of a list", async () => {
         await fake.close();
     }
 });
+
+test("offers the history's part numbers for selected rows (#52)", async () => {
+    const { psu, history, list } = await writeList();
+    // The cut tape was used before, e.g. when psu chose another one.
+    await writeFile(
+        history,
+        serializeProject({
+            ...addRow(
+                { ...createHistoryProject(), suppliers: ["digikey"] },
+                createRow({
+                    value: "100k",
+                    footprint: "R_0805",
+                    partNumbers: { digikey: "RMCF0805FT100KCT-ND" }
+                })
+            )
+        })
+    );
+
+    const fake = await startFakeSuppliers();
+    const { app, page } = await launchApp({
+        env: { EEZ_BOM_CHECKER_API_URLS: JSON.stringify(fake.urls) }
+    });
+    try {
+        await setUpCredentials(page);
+        await answerOpenDialog(app, list);
+        await page.getByRole("button", { name: "Open BOM…" }).click();
+        const pane = page.getByRole("navigation", { name: "BOM list" });
+        const psuItem = pane.getByRole("button", { name: /^psu/ });
+        await expect(psuItem).toHaveAttribute("aria-current", "true");
+        await page
+            .locator('.ag-row[row-index="0"] .ag-selection-checkbox input')
+            .check();
+        await pane
+            .getByRole("button", { name: "Check 1 selected row…" })
+            .click();
+
+        const dialog = page.getByRole("dialog", {
+            name: "Part numbers from the history"
+        });
+        await expect(dialog).toContainText(
+            "1 row has other part numbers in the history"
+        );
+        const group = dialog.getByRole("region", { name: "100k · R_0805" });
+        await expect(group).toContainText("2 pcs in 1 row");
+        const current = group.getByRole("radio", { name: "FAKE-PLENTY-ND" });
+        const before = group.getByRole("radio", {
+            name: "RMCF0805FT100KCT-ND"
+        });
+        // Without data, the row keeps its part number.
+        await expect(current).toBeChecked();
+        await expect(
+            group.getByRole("row", { name: /RMCF0805FT100KCT-ND/ })
+        ).toContainText("history");
+        await expect(dialog).toContainText("Nothing to change");
+
+        // Their stock and prices, for the row's quantity.
+        await dialog.getByRole("button", { name: "Collect…" }).click();
+        const collect = page.getByRole("dialog", {
+            name: "Collect supplier data"
+        });
+        await collect.getByRole("button", { name: "Start" }).click();
+        await expect(
+            collect.getByRole("region", { name: "DigiKey summary" })
+        ).toBeVisible();
+        await collect.getByRole("button", { name: "Close" }).click();
+        await expect(
+            group.getByRole("row", { name: /RMCF0805FT100KCT-ND/ })
+        ).toContainText("Best price");
+        await dialog
+            .getByRole("button", { name: "Choose suggestions" })
+            .click();
+        await expect(before).toBeChecked();
+        await expect(dialog).toContainText("1 row in 1 BOM will change");
+        await dialog
+            .getByRole("button", { name: "Apply", exact: true })
+            .click();
+        await expect(dialog).toHaveCount(0);
+
+        // The BOM has it, with its data, not saved yet; Ctrl+Z undoes it.
+        const digikey = page.locator(
+            '.ag-row[row-index="0"] .ag-cell[col-id="pn:digikey"]'
+        );
+        await expect(digikey).toContainText("RMCF0805FT100KCT-ND");
+        await expect(digikey.locator(".pn-badge")).toHaveAttribute(
+            "aria-label",
+            "Found"
+        );
+        await expect(psuItem.getByLabel("unsaved")).toBeVisible();
+        expect((await readBom(psu)).rows[0]?.partNumbers.digikey).toBe(
+            "FAKE-PLENTY-ND"
+        );
+        await page.keyboard.press("Control+Z");
+        await expect(digikey).toContainText("FAKE-PLENTY-ND");
+    } finally {
+        await closeApp(app);
+        await fake.close();
+    }
+});

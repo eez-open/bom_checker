@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { costBreakdown } from "./cost-breakdown";
+import { bomCostBreakdown, costBreakdown } from "./cost-breakdown";
+import type { LookupResult, Project } from "./model";
 import { bomTotals } from "./pricing";
 import {
     addManualSupplier,
@@ -73,5 +74,106 @@ describe("cost breakdown", () => {
         expect(breakdown.items.map(item => item.reference)).toEqual(["R1"]);
         expect(breakdown.uncovered).toBe(1);
         expect(breakdown.uncovered).toBe(bomTotals(project, []).uncovered);
+    });
+});
+
+describe("cost by BOM (#54)", () => {
+    /** A DigiKey part at 1 EUR each, with no price break. */
+    const found: LookupResult = {
+        status: "found",
+        matchedBy: "supplierPartNumber",
+        runId: "r",
+        fetchedAt: "2026-11-01T10:00:00Z",
+        offer: {
+            supplierPartNumber: "D-1",
+            manufacturer: "",
+            manufacturerPartNumber: "",
+            description: "",
+            stockQty: 1_000_000,
+            moq: 1,
+            orderMultiple: 1,
+            priceBreaks: [{ qty: 1, unitPrice: 1 }],
+            priceKind: "list",
+            currency: "EUR",
+            lifecycle: "active",
+            lifecycleRaw: null,
+            rohs: null
+        }
+    };
+
+    /** A part of its own at a shop (`value`, 2 per board, at `price`). */
+    function shopBom(value: string, price: number): Project {
+        const { project, supplier } = addManualSupplier(
+            createProject(),
+            "Shop"
+        );
+        return addRow(
+            project,
+            createRow({
+                reference: "R1, R2",
+                value,
+                qty: 2,
+                manual: { [supplier.id]: { unitPrice: price } }
+            })
+        );
+    }
+
+    /** `shopBom`, with D-1 `shared` times. */
+    function module(value: string, shared: number, own: number): Project {
+        return {
+            ...addRow(
+                shopBom(value, own),
+                createRow({
+                    reference: "R9",
+                    qty: shared,
+                    partNumbers: { digikey: "D-1" }
+                })
+            ),
+            suppliers: ["digikey"],
+            collected: { results: { digikey: { "D-1": found } }, runs: {} }
+        };
+    }
+
+    const member = (name: string, project: Project, perDevice = 1) => ({
+        path: `/${name}.eezbom`,
+        name,
+        project,
+        perDevice
+    });
+
+    it("shares the Combined BOM's rows among the BOMs", () => {
+        // D-1: 1 in psu, 2 × 3 in mcu, for 10 devices.
+        const breakdown = bomCostBreakdown(
+            [
+                member("psu", module("psu part", 1, 5)),
+                member("mcu", module("mcu part", 3, 1), 2),
+                member("empty", createProject())
+            ],
+            10,
+            []
+        );
+        // psu: 1 × 10 D-1, 2 × 10 at 5; mcu: 6 × 10 D-1, 2 × 2 × 10 at 1.
+        expect(breakdown.items).toMatchObject([
+            { name: "psu", perDevice: 1, total: 110 },
+            { name: "mcu", perDevice: 2, total: 100 }
+        ]);
+        expect(breakdown.total).toBe(210);
+        expect(breakdown.items[0]!.share).toBeCloseTo(110 / 210);
+        expect(breakdown.other).toBeNull();
+        expect(breakdown.uncovered).toBe(0);
+    });
+
+    it("groups the BOMs beyond the limit as Other", () => {
+        const members = [3, 1, 4, 2].map((price, index) =>
+            member(`m${index + 1}`, shopBom(`part ${index + 1}`, price))
+        );
+        const breakdown = bomCostBreakdown(members, 1, [], 2);
+        expect(breakdown.items.map(item => item.name)).toEqual(["m3", "m1"]);
+        // m4 and m2: 2 × 2 + 2 × 1.
+        expect(breakdown.other).toEqual({
+            boms: 2,
+            total: 6,
+            share: 6 / 20
+        });
     });
 });

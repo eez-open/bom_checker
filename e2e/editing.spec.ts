@@ -1,7 +1,9 @@
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
+import { serializeProject } from "../src/shared/project-file";
+import { addRow, createProject, createRow } from "../src/shared/project-ops";
 import {
     answerMessageBox,
     answerOpenDialog,
@@ -10,7 +12,8 @@ import {
     clickMenuItem,
     fillEditor,
     closeApp,
-    launchApp
+    launchApp,
+    tooltipOf
 } from "./helpers";
 
 test("builds a BOM from scratch, saves, undoes and reopens it", async () => {
@@ -216,6 +219,81 @@ test("undoes and redoes with the toolbar buttons", async () => {
         await redo.click();
         await expect(cell(page, 0, "reference")).toHaveText("R1");
         await expect(redo).toBeDisabled();
+    } finally {
+        await closeApp(app);
+    }
+});
+
+test("keeps each reference in one row, with Qty for each (#58)", async () => {
+    const folder = await mkdtemp(join(tmpdir(), "eez-bom-checker-"));
+    const filePath = join(folder, "duplicates.eezbom");
+    // As imported: R1 in two rows.
+    let project = createProject();
+    for (const [reference, qty] of [
+        ["R1", 1],
+        ["R1, R2", 2]
+    ] as const) {
+        project = addRow(project, createRow({ reference, qty }));
+    }
+    await writeFile(filePath, serializeProject(project));
+    const { app, page } = await launchApp();
+    try {
+        await page.getByRole("button", { name: "New", exact: true }).click();
+        await page.getByRole("button", { name: "Add row" }).click();
+        await fillEditor(page, "reference", "C1, C2");
+        await page.keyboard.press("Enter");
+        // Qty is still 1: amber, until it's 2.
+        await expect(cell(page, 0, "qty")).toHaveClass(/cell-warning/);
+        await expect(cell(page, 0, "reference")).toHaveClass(/cell-warning/);
+        await expect(await tooltipOf(page, cell(page, 0, "qty"))).toHaveText(
+            "2 references, but Qty is 1."
+        );
+        await cell(page, 0, "qty").dblclick();
+        await fillEditor(page, "qty", "2");
+        await page.keyboard.press("Enter");
+        await expect(cell(page, 0, "qty")).not.toHaveClass(/cell-warning/);
+        await expect(cell(page, 0, "reference")).not.toHaveClass(
+            /cell-warning/
+        );
+
+        // Another row can't have C2: Enter keeps the editor open.
+        await page.getByRole("button", { name: "Add row" }).click();
+        await fillEditor(page, "reference", "C3, c2");
+        await page.keyboard.press("Enter");
+        const editing = page.locator(
+            '.ag-cell-inline-editing[col-id="reference"]'
+        );
+        await expect(editing).toHaveClass(/ag-cell-editing-error/);
+        // In the status bar, and pointing at the cell.
+        const error = "c2 is also in row 1. A part can be in one row only.";
+        await expect(page.getByRole("alert")).toHaveText(error);
+        await editing.hover();
+        await expect(page.locator(".ag-cell-editor-tooltip")).toHaveText(error);
+        await fillEditor(page, "reference", "C3");
+        await page.keyboard.press("Enter");
+        await expect(editing).toHaveCount(0);
+        await expect(page.getByRole("alert")).toHaveCount(0);
+        await expect(cell(page, 1, "reference")).toHaveText("C3");
+        await expect(cell(page, 1, "reference")).not.toHaveClass(
+            /cell-invalid|cell-warning/
+        );
+
+        // A BOM that has R1 twice shows both rows red.
+        await answerMessageBox(app, 1); // "Don't Save"
+        await answerOpenDialog(app, filePath);
+        await page.getByRole("button", { name: "Open…" }).click();
+        await expect(cell(page, 0, "reference")).toHaveClass(/cell-invalid/);
+        await expect(cell(page, 1, "reference")).toHaveClass(/cell-invalid/);
+        await expect(
+            await tooltipOf(page, cell(page, 1, "reference"))
+        ).toHaveText("R1 is also in row 1.");
+        // Fixing one fixes both.
+        await cell(page, 0, "reference").dblclick();
+        await fillEditor(page, "reference", "R3");
+        await page.keyboard.press("Enter");
+        await expect(cell(page, 1, "reference")).not.toHaveClass(
+            /cell-invalid/
+        );
     } finally {
         await closeApp(app);
     }

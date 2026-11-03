@@ -4,6 +4,7 @@ import type { CollectedData, LookupResult, Project } from "./model";
 import { addRow, createProject, createRow } from "./project-ops";
 import {
     applyDecisions,
+    findHistoryGroups,
     findUnifyGroups,
     suggestDecision,
     type UnifyDecision
@@ -186,5 +187,98 @@ describe("unifying part numbers", () => {
             ["10k", "D-1", "M-1"], // "d-1" written as chosen
             ["LM358", "U-1", undefined]
         ]);
+    });
+});
+
+describe("checking the history (#52)", () => {
+    // 10k at DigiKey: D-1 now, D-0 used before; 1u and 100n: nothing else.
+    const board = member("board", [
+        ["R1, R2", "10k", "R_0603", 2, { digikey: "D-1" }],
+        ["C1", "1u", "C_0603", 1, { digikey: "D-5" }],
+        ["C2", "100n", "C_0603", 1, {}]
+    ]);
+    const history = member("history", [
+        ["", "10k", "R_0603", 1, { digikey: "D-0" }],
+        ["", "10k", "R_0603", 1, { digikey: "d-1", mouser: "M-1" }],
+        ["", "1u", "C_0603", 1, { digikey: "D-5" }],
+        ["", "100n", "C_0603", 1, { digikey: "D-7" }],
+        ["", "10k", "R_0805", 1, { digikey: "D-8" }]
+    ]).project;
+
+    it("offers the part numbers the history has for the rows", () => {
+        const groups = findHistoryGroups(board, null, history, {
+            buildQuantity: 10
+        });
+        expect(
+            groups.map(group => ({
+                row: group.rows[0]!.reference,
+                qty: group.totalQty,
+                digikey: group.suppliers.digikey?.map(c => [
+                    c.partNumber,
+                    c.usedIn.join("+")
+                ]),
+                mouser: group.suppliers.mouser?.map(c => c.partNumber)
+            }))
+        ).toEqual([
+            // The other footprint's D-8 isn't offered; Mouser's M-1 is.
+            {
+                row: "R1, R2",
+                qty: 20,
+                digikey: [
+                    ["D-1", "board+history"],
+                    ["D-0", "history"]
+                ],
+                mouser: ["M-1"]
+            },
+            // An empty cell can be filled in.
+            {
+                row: "C2",
+                qty: 10,
+                digikey: [["D-7", "history"]],
+                mouser: undefined
+            }
+        ]);
+        // Only the rows asked for.
+        const c1 = board.project.rows[1]!.id;
+        expect(findHistoryGroups(board, new Set([c1]), history)).toEqual([]);
+    });
+
+    it("suggests a history part number in stock that costs less", () => {
+        const [group] = findHistoryGroups(board, null, history, {
+            buildQuantity: 10
+        });
+        const collected: CollectedData = {
+            results: {
+                digikey: {
+                    "D-1": found("D-1", 1000, 0.1),
+                    "D-0": found("D-0", 50, 0.05)
+                }
+            },
+            runs: {}
+        };
+        expect(suggestDecision(group!, collected).suppliers.digikey).toBe(
+            "D-0"
+        );
+        // Not enough in stock: keep D-1.
+        const short: CollectedData = {
+            ...collected,
+            results: {
+                digikey: {
+                    ...collected.results.digikey,
+                    "D-0": found("D-0", 5, 0.05)
+                }
+            }
+        };
+        expect(suggestDecision(group!, short).suppliers.digikey).toBe("D-1");
+        const changes = applyDecisions(
+            [board],
+            [group!],
+            new Map([
+                [group!.id, { value: null, suppliers: { digikey: "D-0" } }]
+            ])
+        );
+        expect(changes.projects.get(board.path)!.rows[0]!.partNumbers).toEqual({
+            digikey: "D-0"
+        });
     });
 });
