@@ -63,6 +63,7 @@ export type MenuCommand =
     | "save-all"
     | "add-boms"
     | "unify"
+    | "check-history"
     | "import-csv"
     | "import-kicad"
     | "export"

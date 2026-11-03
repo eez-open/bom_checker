@@ -17,6 +17,7 @@ export type OpenDialog =
     | { kind: "cost-chart" }
     | { kind: "bom-costs" }
     | { kind: "unify" }
+    | { kind: "check-history"; rowIds: readonly string[] | null }
     | { kind: "kicad-update" }
     | { kind: "kicad-sync" }
     | { kind: "choose-item"; supplier: SupplierId; key: string }

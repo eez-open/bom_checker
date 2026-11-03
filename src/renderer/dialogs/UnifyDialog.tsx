@@ -1,6 +1,11 @@
 import { useMemo, useState } from "react";
 import { createStore, useStore } from "zustand";
-import { mergeCollected } from "../../shared/bom-list";
+import {
+    mergeCollected,
+    usedPartNumbers,
+    withNewerResults,
+    type ListMember
+} from "../../shared/bom-list";
 import { availabilityText } from "../../shared/line-text";
 import {
     SUPPLIER_IDS,
@@ -14,6 +19,7 @@ import { SUPPLIERS } from "../../shared/suppliers";
 import {
     applyDecisions,
     candidateLine,
+    findHistoryGroups,
     findUnifyGroups,
     suggestDecision,
     type UnifyDecision,
@@ -24,8 +30,10 @@ import {
     applyUnify,
     documentOf,
     listMembers,
+    shownMember,
     type UnifyResult
 } from "../list-commands";
+import { useDocument } from "../store/document";
 import { useNumbers } from "../store/settings";
 import { useWorkspace } from "../store/workspace";
 import { CollectDialog, type CollectTarget } from "./CollectDialog";
@@ -314,11 +322,14 @@ function GroupSection({
     group,
     choices,
     collected,
+    withValue,
     onChoose
 }: {
     group: UnifyGroup;
     choices: Choices;
     collected: CollectedData;
+    /** Whether the Value can be chosen too. */
+    withValue: boolean;
     onChoose: (key: string, choice: Choice) => void;
 }) {
     const numbers = useNumbers();
@@ -338,7 +349,8 @@ function GroupSection({
                 )}
                 <span className="unify-qty">
                     {numbers.quantity(group.totalQty)} pcs in{" "}
-                    {group.rows.length} rows
+                    {group.rows.length}{" "}
+                    {group.rows.length === 1 ? "row" : "rows"}
                 </span>
             </h3>
             <p className="muted unify-used-in">{usedInText(group)}</p>
@@ -346,6 +358,7 @@ function GroupSection({
                 className="unify-values"
                 role="radiogroup"
                 aria-label={`Value of ${title}`}
+                hidden={!withValue}
             >
                 Value:
                 {/* One Value only: it can still be changed with Other. */}
@@ -439,6 +452,14 @@ function GroupSection({
     );
 }
 
+/** What checking the history (#52) found. */
+function historyText(groups: number, selected: boolean): string {
+    const where = selected ? "the selected rows" : "the rows of this BOM";
+    return groups === 0
+        ? `The history has no other part numbers for ${where}.`
+        : `${groups} ${groups === 1 ? "row has" : "rows have"} other part numbers in the history, e.g. ones that were out of stock when another was chosen. Collect… gets their stock and prices, for the row's quantity; the best price in stock is marked.`;
+}
+
 function Done({ result }: { result: UnifyResult }) {
     return (
         <div className="settings-form">
@@ -472,17 +493,46 @@ function Done({ result }: { result: UnifyResult }) {
     );
 }
 
+/** What the dialog does: unify the part numbers of a list's BOMs (#35), or
+ *  check rows of the BOM shown against the list's history (#52). */
+export type UnifyMode =
+    { kind: "unify" } | { kind: "history"; rowIds: readonly string[] | null };
+
+const UNIFY: UnifyMode = { kind: "unify" };
+
 /**
  * Tools → Unify Part Numbers… of a BOM list (#35): the components whose
  * part numbers differ between rows, with stock and prices for the quantity
  * of all their rows; Apply writes the choices into the BOMs.
+ *
+ * Checking the history (#52): the rows of the BOM shown whose components
+ * have other part numbers in the history, e.g. one that was out of stock
+ * when another was chosen; Apply changes the BOM, and Ctrl+Z undoes it.
  */
-export function UnifyDialog({ onClose }: { onClose: () => void }) {
+export function UnifyDialog({
+    onClose,
+    mode = UNIFY
+}: {
+    onClose: () => void;
+    mode?: UnifyMode;
+}) {
+    const checking = mode.kind === "history";
     const historyPath = useWorkspace(state => state.list?.history ?? null);
-    // Quantities for all devices (#39).
-    const buildQuantity = useWorkspace(state => state.list?.buildQuantity ?? 1);
-    // The BOMs as they were when the dialog opened (they were saved).
-    const [members] = useState(listMembers);
+    // The BOMs as they were when the dialog opened (they were saved), or
+    // the one shown.
+    const [members] = useState<ListMember[]>(() => {
+        if (!checking) {
+            return listMembers();
+        }
+        const shown = shownMember();
+        return shown ? [shown] : [];
+    });
+    // Quantities for all devices (#39), or the BOM's own.
+    const listBuild = useWorkspace(state => state.list?.buildQuantity ?? 1);
+    const buildQuantity = checking
+        ? (members[0]?.project.buildQuantity ?? 1)
+        : listBuild;
+    const rowIds = mode.kind === "history" ? mode.rowIds : null;
     const [history] = useState(
         () => (historyPath && documentOf(historyPath)?.project) || null
     );
@@ -508,13 +558,25 @@ export function UnifyDialog({ onClose }: { onClose: () => void }) {
     );
     const collected = useStore(session, state => state.project.collected);
     const [matchFootprint, setMatchFootprint] = useState(true);
+    const groupsFor = (match: boolean): UnifyGroup[] => {
+        const options = { matchFootprint: match, buildQuantity };
+        if (!checking) {
+            return findUnifyGroups(members, history, options);
+        }
+        return members[0] && history
+            ? findHistoryGroups(
+                  members[0],
+                  rowIds ? new Set(rowIds) : null,
+                  history,
+                  options
+              )
+            : [];
+    };
     const groups = useMemo(
-        () =>
-            findUnifyGroups(members, history, {
-                matchFootprint,
-                buildQuantity
-            }),
-        [members, history, matchFootprint, buildQuantity]
+        () => groupsFor(matchFootprint),
+        // groupsFor reads only these.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [members, history, matchFootprint, buildQuantity, rowIds, checking]
     );
     const [choices, setChoices] = useState<Choices>(() =>
         suggestedChoices(groups, session.getState().project.collected)
@@ -549,7 +611,31 @@ export function UnifyDialog({ onClose }: { onClose: () => void }) {
         setCollecting(true);
     };
 
+    // The BOM shown changes, as one undo step, with the data collected
+    // here for its new part numbers.
+    const applyToShown = () => {
+        const member = members[0];
+        const changed = member && changes.projects.get(member.path);
+        if (changed) {
+            const { edit, applyCollected } = useDocument.getState();
+            edit(project => ({ ...changed, collected: project.collected }));
+            applyCollected(
+                current =>
+                    withNewerResults(
+                        { ...changed, collected: current },
+                        collected,
+                        usedPartNumbers(changed)
+                    ).collected
+            );
+        }
+        onClose();
+    };
+
     const apply = async () => {
+        if (checking) {
+            applyToShown();
+            return;
+        }
         const confirmed = await window.api.dialog.confirm({
             message: `Change ${changedRows} ${changedRows === 1 ? "row" : "rows"} in ${changes.projects.size} ${changes.projects.size === 1 ? "BOM" : "BOMs"}?`,
             detail: "The BOM files are saved at once. Copies of them from before are kept in a backup folder next to the list.",
@@ -574,8 +660,12 @@ export function UnifyDialog({ onClose }: { onClose: () => void }) {
     const done = step.kind === "done";
     return (
         <Modal
-            title="Unify part numbers"
-            name="unify"
+            title={
+                checking
+                    ? "Part numbers from the history"
+                    : "Unify part numbers"
+            }
+            name={checking ? "check-history" : "unify"}
             size="full"
             onClose={() => step.kind !== "applying" && onClose()}
             footer={
@@ -605,7 +695,7 @@ export function UnifyDialog({ onClose }: { onClose: () => void }) {
                             }
                             onClick={() => void apply()}
                         >
-                            Apply…
+                            {checking ? "Apply" : "Apply…"}
                         </button>
                     </>
                 )
@@ -618,9 +708,11 @@ export function UnifyDialog({ onClose }: { onClose: () => void }) {
                 <>
                     <div className="unify-header">
                         <p>
-                            {groups.length === 0
-                                ? "Every component has the same part numbers in all rows of the BOMs."
-                                : `${groups.length} ${groups.length === 1 ? "component has" : "components have"} different part numbers or Values in their rows. Stock and prices are for the quantity of all rows.`}
+                            {checking
+                                ? historyText(groups.length, rowIds !== null)
+                                : groups.length === 0
+                                  ? "Every component has the same part numbers in all rows of the BOMs."
+                                  : `${groups.length} ${groups.length === 1 ? "component has" : "components have"} different part numbers or Values in their rows. Stock and prices are for the quantity of all rows.`}
                         </p>
                         <label className="checkbox">
                             <input
@@ -631,10 +723,7 @@ export function UnifyDialog({ onClose }: { onClose: () => void }) {
                                     setMatchFootprint(match);
                                     setChoices(
                                         suggestedChoices(
-                                            findUnifyGroups(members, history, {
-                                                matchFootprint: match,
-                                                buildQuantity
-                                            }),
+                                            groupsFor(match),
                                             collected
                                         )
                                     );
@@ -666,6 +755,7 @@ export function UnifyDialog({ onClose }: { onClose: () => void }) {
                             group={group}
                             choices={choices}
                             collected={collected}
+                            withValue={!checking}
                             onChoose={(key, choice) =>
                                 setChoices(current => ({
                                     ...current,

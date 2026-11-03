@@ -421,6 +421,12 @@ export function App() {
                 <BomCostChartDialog onClose={closeDialog} />
             )}
             {dialog?.kind === "unify" && <UnifyDialog onClose={closeDialog} />}
+            {dialog?.kind === "check-history" && (
+                <UnifyDialog
+                    mode={{ kind: "history", rowIds: dialog.rowIds }}
+                    onClose={closeDialog}
+                />
+            )}
             {dialog?.kind === "kicad-update" && (
                 <KicadUpdateDialog onClose={closeDialog} />
             )}

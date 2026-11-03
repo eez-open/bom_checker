@@ -95,6 +95,22 @@ export function listMembers(): ListMember[] {
     });
 }
 
+/** The BOM of the list that's shown, as it is now; null for Combined or
+ *  nothing. */
+export function shownMember(): ListMember | null {
+    const { list, selected } = useWorkspace.getState();
+    const { open, project } = useDocument.getState();
+    if (!list || !selected || selected === COMBINED || !open) {
+        return null;
+    }
+    return {
+        path: selected,
+        name: fileTitle(selected),
+        project,
+        perDevice: list.perDevice[selected] ?? 1
+    };
+}
+
 export function unsavedPaths(): string[] {
     return readablePaths().filter(path => {
         const document = documentOf(path);
