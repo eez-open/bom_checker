@@ -145,6 +145,22 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
         await page.keyboard.press("Control+Y");
         await expect(cell(page, 1, "value")).toHaveText("220n");
 
+        // The search stays when another BOM of the list is shown (#60).
+        const search = page.getByLabel("Search the table");
+        await search.fill("R5");
+        await expect(page.getByTestId("shown-rows")).toContainText(
+            "Showing 0 of 2 rows"
+        );
+        await mcuItem.click();
+        await expect(search).toHaveValue("R5");
+        await expect(page.getByTestId("shown-rows")).toContainText(
+            "Showing 1 of 2 rows"
+        );
+        await expect(cell(page, 0, "reference")).toHaveText("R5");
+        await search.fill("");
+        await psuItem.click();
+        await expect(page.getByTestId("shown-rows")).toHaveCount(0);
+
         // Combined: the same part numbers in one row, with the BOMs.
         await pane.getByRole("button", { name: "Combined" }).click();
         // Showing it changes no BOM, although psu has newer data for D-1.

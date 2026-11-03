@@ -154,7 +154,7 @@ export function selectInList(target: string | null): void {
     if (selected && selected !== COMBINED && shown.open) {
         waiting[selected] = snapshotOf(shown);
     }
-    resetTableView();
+    resetTableView({ keepSearch: true });
 
     if (target === COMBINED) {
         useWorkspace.setState({ documents: waiting, selected: target });

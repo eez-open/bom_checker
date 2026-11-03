@@ -104,14 +104,15 @@ export const useUi = create<UiStore>()(() => ({
     shownRows: null
 }));
 
-/** Another BOM starts unfiltered and with no rows selected. */
-export function resetTableView(): void {
-    useUi.setState({
-        search: "",
+/** Another BOM starts unfiltered and with no rows selected. Another BOM
+ *  of the same list keeps the search text, to find it there too (#60). */
+export function resetTableView({ keepSearch = false } = {}): void {
+    useUi.setState(state => ({
+        search: keepSearch ? state.search : "",
         rowView: "all",
         selectedRowIds: [],
         shownRows: null
-    });
+    }));
 }
 
 export function setHiddenColumns(hidden: TableGroup[]): void {
