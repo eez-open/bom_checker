@@ -144,4 +144,28 @@ describe("combined BOM", () => {
         );
         expect(best).toMatchObject({ supplier: other, line: { total: 90 } });
     });
+
+    it("needs a one-time item once, however many of its BOM (#53)", () => {
+        const { project, supplier } = addManualSupplier(
+            bom([["", "Stencil", 1, {}]]),
+            "Stencil maker"
+        );
+        project.rows[0]!.manual = {
+            [supplier.id]: { unitPrice: 40, oneTime: true }
+        };
+        const combined = combineBoms(
+            [{ path: "m", name: "m", project, perDevice: 2 }],
+            25
+        );
+        expect(combined.rows[0]!.qty).toBe(1);
+        const best = bestSupplier(
+            combined.rows[0]!,
+            combined.collected,
+            combined.suppliers,
+            [],
+            combined.buildQuantity,
+            combined.manualSuppliers
+        );
+        expect(best?.line).toMatchObject({ orderQty: 1, total: 40 });
+    });
 });

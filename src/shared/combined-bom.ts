@@ -1,8 +1,9 @@
 // The Combined BOM of a list (#35): the rows of all its BOMs for ordering
 // them together, e.g. the PCBA of a device's modules. Rows with the same
 // supplier part numbers are merged and their quantities added up, for one
-// device: with how many of each BOM it has. Its build quantity is the
-// number of devices (#39); the BOMs' own build quantities don't count.
+// device: with how many of each BOM it has, except for one-time items
+// (#53). Its build quantity is the number of devices (#39); the BOMs' own
+// build quantities don't count.
 // Suppliers without an API come along with what was typed for them (#48).
 
 import {
@@ -102,7 +103,12 @@ export function combineBoms(
         }
         for (const row of bom.rows) {
             const key = mergeKey(row);
-            const qty = row.qty * perDevice;
+            // A one-time item (#53) is needed once, however many of the
+            // BOM a device has.
+            const oneTime = Object.values(row.manual ?? {}).some(
+                offer => offer.oneTime
+            );
+            const qty = oneTime ? row.qty : row.qty * perDevice;
             const reference = row.reference.trim();
             let entry = merged.get(key);
             if (!entry) {

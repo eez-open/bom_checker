@@ -13,6 +13,7 @@ import {
 } from "../../shared/line-text";
 import {
     BASE_COLUMNS,
+    MAX_MANUAL_PRICE_BREAKS,
     type BomRow,
     type ColumnKey,
     type Lifecycle,
@@ -30,12 +31,14 @@ import {
     bestSupplier,
     hasSupplierData,
     manualLine,
+    manualPriceBreaks,
     supplierLine,
     type SupplierLine
 } from "../../shared/pricing";
 import { SUPPLIERS, supplierName } from "../../shared/suppliers";
 import { ChooseItemCell } from "./ChooseItemCell";
 import { PartNumberCell, resultFor, type TableContext } from "./PartNumberCell";
+import { PriceBreaksEditor } from "./PriceBreaksEditor";
 
 /** Id of the pinned row with the column totals. */
 export const TOTALS_ROW_ID = "totals";
@@ -559,13 +562,46 @@ function manualColumns(
                 initialWidth: 170,
                 headerTooltip: `${name} part number (typed in; ${name} has no API)`
             }),
+            // The price for the order quantity; the editor has the price
+            // breaks (#51).
             typed("unitPrice", "Unit price", {
                 type: "rightAligned",
                 cellDataType: "number",
-                ...NUMBER_EDITOR,
                 initialWidth: 110,
-                headerTooltip: `${name}_Unit price in ${BASE_CURRENCY} (typed in)`,
-                valueFormatter: formatUnitPrice
+                headerTooltip: `${name}_Unit price in ${BASE_CURRENCY} (typed in, with up to ${MAX_MANUAL_PRICE_BREAKS} lower prices for larger quantities)`,
+                valueGetter: params =>
+                    params.node?.rowPinned
+                        ? null
+                        : (lineOfRow(params)?.unitPrice ?? null),
+                valueFormatter: formatUnitPrice,
+                cellEditor: PriceBreaksEditor,
+                cellEditorParams: { supplier: id, name },
+                cellEditorPopup: true,
+                cellEditorPopupPosition: "under",
+                // Tab moves between the editor's fields.
+                suppressKeyboardEvent: params =>
+                    params.editing && params.event.key === "Tab",
+                cellClassRules: {
+                    "cell-breaks": params =>
+                        !params.node?.rowPinned &&
+                        (params.data?.manual?.[id]?.priceBreaks?.length ?? 0) >
+                            0
+                },
+                tooltipValueGetter: params => {
+                    const offer = params.data?.manual?.[id];
+                    const line = lineOfRow(params);
+                    if (!offer?.priceBreaks || !line?.orderQty) {
+                        return undefined;
+                    }
+                    const { quantity, price } = numbers(params);
+                    return [
+                        ...manualPriceBreaks(offer).map(
+                            b =>
+                                `${quantity(b.qty)}+: ${price(b.unitPrice)} ${BASE_CURRENCY}`
+                        ),
+                        `For ${quantity(line.orderQty)} pcs: ${price(line.unitPrice ?? 0)} ${BASE_CURRENCY} each.`
+                    ].join("\n");
+                }
             }),
             typed("stock", "Stock Qty", {
                 type: "rightAligned",
@@ -584,12 +620,33 @@ function manualColumns(
                 columnGroupShow: "open",
                 valueFormatter: formatQuantity
             }),
+            // A one-time cost, e.g. a stencil (#53).
+            typed("oneTime", "One-time", {
+                cellDataType: "boolean",
+                initialWidth: 100,
+                columnGroupShow: "open",
+                headerTooltip: `${name}_One-time: a one-time cost, e.g. a stencil or tooling. Qty isn't multiplied by the build quantity.`,
+                valueGetter: params =>
+                    params.node?.rowPinned
+                        ? null
+                        : params.data?.manual?.[id]?.oneTime === true,
+                // No checkbox in the Total row.
+                cellRendererSelector: params =>
+                    params.node.rowPinned
+                        ? { component: () => null }
+                        : undefined
+            }),
             calculated("orderQty", "Order Qty", {
                 type: "rightAligned",
                 initialWidth: 110,
                 columnGroupShow: "open",
                 valueGetter: params => lineOfRow(params)?.orderQty ?? null,
-                valueFormatter: formatQuantity
+                valueFormatter: formatQuantity,
+                tooltipValueGetter: params =>
+                    params.data?.manual?.[id]?.oneTime &&
+                    context(params).getBuildQuantity() > 1
+                        ? "One-time: Qty isn't multiplied by the build quantity."
+                        : undefined
             }),
             calculated("totalPrice", "Total price", {
                 type: "rightAligned",

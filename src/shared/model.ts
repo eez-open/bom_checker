@@ -37,15 +37,28 @@ export interface ManualSupplier {
     name: string;
 }
 
-export type ManualField = "partNumber" | "unitPrice" | "stock" | "moq";
+export type ManualField =
+    "partNumber" | "unitPrice" | "stock" | "moq" | "oneTime";
+
+/** Price breaks of a supplier without an API: the unit price from 1, and
+ *  up to this many more (#51). */
+export const MAX_MANUAL_PRICE_BREAKS = 3;
 
 /** One row's data for a supplier without an API. Prices are in EUR; no
  *  stock means it's always available, e.g. made to order. */
 export interface ManualOffer {
     partNumber?: string;
+    /** The unit price from 1 piece on. */
     unitPrice?: number;
+    /** Lower unit prices for larger quantities (#51): from `qty` on, each
+     *  part costs `unitPrice`. Ascending, all above 1; at most
+     *  `MAX_MANUAL_PRICE_BREAKS`. Only with a `unitPrice`. */
+    priceBreaks?: PriceBreak[];
     stock?: number;
     moq?: number;
+    /** A one-time cost (#53), e.g. a stencil or tooling: Qty isn't
+     *  multiplied by the build quantity. */
+    oneTime?: true;
 }
 
 export interface ProjectSource {
@@ -65,7 +78,7 @@ export interface ProjectSource {
     kicadValues?: Record<string, Record<string, string>>;
 }
 
-export const PROJECT_SCHEMA_VERSION = 6;
+export const PROJECT_SCHEMA_VERSION = 7;
 
 export const MAX_BUILD_QUANTITY = 1_000_000;
 

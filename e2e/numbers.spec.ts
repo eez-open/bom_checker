@@ -7,6 +7,7 @@ import {
     cell,
     closeApp,
     fillEditor,
+    fillPrices,
     launchApp
 } from "./helpers";
 
@@ -36,9 +37,8 @@ test("shows numbers as the region does, or as chosen (#37)", async () => {
         const unitPrice = page.locator(
             '.ag-row[row-index="0"] .ag-cell[col-id$=":unitPrice"]'
         );
-        const unitPriceId = (await unitPrice.getAttribute("col-id"))!;
         await unitPrice.dblclick();
-        await fillEditor(page, unitPriceId, "1234.5");
+        await fillPrices(page, "1234.5");
         await page.keyboard.press("Enter");
         await expect(unitPrice).toHaveText("1.234,5000");
         await expect(page.getByTestId("bom-total")).toHaveText(

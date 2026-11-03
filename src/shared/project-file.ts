@@ -7,6 +7,7 @@
 import { z } from "zod";
 import {
     MAX_BUILD_QUANTITY,
+    MAX_MANUAL_PRICE_BREAKS,
     PROJECT_SCHEMA_VERSION,
     SUPPLIER_IDS,
     type CollectedData,
@@ -35,8 +36,25 @@ const rowSchema = z.object({
             z.object({
                 partNumber: z.string().optional(),
                 unitPrice: z.number().nonnegative().optional(),
+                priceBreaks: z
+                    .array(
+                        z.object({
+                            qty: z.number().gt(1),
+                            unitPrice: z.number().nonnegative()
+                        })
+                    )
+                    .max(MAX_MANUAL_PRICE_BREAKS)
+                    .refine(
+                        breaks =>
+                            breaks.every(
+                                (b, i) => i === 0 || b.qty > breaks[i - 1]!.qty
+                            ),
+                        "price break quantities must go up"
+                    )
+                    .optional(),
                 stock: z.number().nonnegative().optional(),
-                moq: z.number().positive().optional()
+                moq: z.number().positive().optional(),
+                oneTime: z.literal(true).optional()
             })
         )
         .optional()
@@ -171,7 +189,10 @@ const MIGRATIONS: Partial<Record<number, Migration>> = {
     // Version 6 leaves out the collected supplier data: the suppliers' terms
     // don't allow passing it on, and BOM files are often published. An
     // older file's data is still read, for main to move it out.
-    5: data => data
+    5: data => data,
+    // Version 7 adds price breaks (#51) and one-time items (#53) to
+    // suppliers without an API.
+    6: data => data
 };
 
 const NO_COLLECTED_DATA = { results: {}, runs: {} };

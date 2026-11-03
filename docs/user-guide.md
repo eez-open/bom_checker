@@ -102,9 +102,12 @@ Importing again (for example after changing the schematic) keeps the supplier da
 Some parts don't come from DigiKey, Mouser, TME or LCSC: a TFT display from a specialist shop, a metal enclosure, cardboard shipping boxes. In **Columns…**, under *Suppliers without an API*, add such a supplier by name. It gets a column group in the table where you type, for each row:
 
 - **part number** (optional, for your reference);
-- **Unit price** in EUR;
+- **Unit price** in EUR, with up to three lower prices for larger quantities (see below);
 - **Stock Qty**: how many it has; leave it empty if it's always available, e.g. made to order;
-- **MOQ**: the smallest quantity it sells (1 if empty).
+- **MOQ**: the smallest quantity it sells (1 if empty);
+- **One-time**: tick it for a one-time cost, such as a stencil or tooling. Its Qty isn't multiplied by Build qty, nor, in a BOM list's Combined BOM, by how many of the BOM a device has.
+
+**Price breaks:** double-click the Unit price cell (or start typing in it) to open its prices: the unit price from 1, and up to three more, each from a quantity, e.g. 1.10 from 1, 1.00 from 25, 0.80 from 100 and 0.65 from 300. The price whose quantity the order quantity reaches applies to all of it: 5 cost 5.50, 25 cost 25.00 and 500 cost 325.00. Tab moves between the fields, Enter keeps the prices and Escape cancels; the rows may be typed in any order. The cell then shows the unit price for the order quantity, with a blue corner; hover for all prices. Exports have them in a *Price breaks* column.
 
 Order Qty, Total price and Availability are calculated as for the other suppliers, and these suppliers take part in the best price: the cheapest total with enough stock wins; on equal totals, a supplier with an API is preferred. They're included in the Total row, the Rows filter and exports. Renaming or deleting one is done in **Columns…**; deleting removes what was typed for it (Ctrl+Z undoes it).
 

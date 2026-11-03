@@ -232,4 +232,112 @@ describe("suppliers without an API", () => {
             "Shop"
         ]);
     });
+
+    describe("price breaks (#51)", () => {
+        /** 1.10 from 1, 1.00 from 25, 0.80 from 100, 0.65 from 300. */
+        const breaks = [
+            { qty: 1, unitPrice: 1.1 },
+            { qty: 25, unitPrice: 1 },
+            { qty: 100, unitPrice: 0.8 },
+            { qty: 300, unitPrice: 0.65 }
+        ];
+
+        it("price the quantity at its break", () => {
+            const { project, shop, rowId } = bom();
+            const typed = type(project, rowId, shop, { unitPrice: breaks });
+            expect(typed.rows[0]!.manual?.[shop]).toEqual({
+                unitPrice: 1.1,
+                priceBreaks: breaks.slice(1)
+            });
+            const total = (qty: number) =>
+                manualLine(
+                    { ...typed.rows[0]!, qty },
+                    typed.manualSuppliers[0]!,
+                    1
+                )?.total;
+            // The issue's examples: 5 → 5.50, 25 → 25, 500 → 325.
+            expect(total(5)).toBeCloseTo(5.5);
+            expect(total(25)).toBeCloseTo(25);
+            expect(total(99)).toBeCloseTo(99);
+            expect(total(500)).toBeCloseTo(325);
+        });
+
+        it("are kept only with a price from 1, and checked", () => {
+            const { project, shop, rowId } = bom();
+            const typed = type(project, rowId, shop, { unitPrice: breaks });
+            // Typing a price changes the one from 1.
+            expect(
+                type(typed, rowId, shop, { unitPrice: "1.2" }).rows[0]!
+                    .manual?.[shop]
+            ).toEqual({ unitPrice: 1.2, priceBreaks: breaks.slice(1) });
+            // Without it, there are none.
+            expect(
+                type(typed, rowId, shop, { unitPrice: "" }).rows[0]!.manual
+            ).toEqual({});
+            expect(
+                type(typed, rowId, shop, { unitPrice: [] }).rows[0]!.manual
+            ).toEqual({});
+            // The same breaks change nothing; invalid ones are ignored.
+            expect(type(typed, rowId, shop, { unitPrice: breaks })).toBe(typed);
+            expect(
+                type(typed, rowId, shop, {
+                    unitPrice: [{ qty: 10, unitPrice: 1 }]
+                })
+            ).toBe(typed);
+        });
+
+        it("are saved in the BOM file and exported", () => {
+            const { project, shop, rowId } = bom();
+            const typed = type(project, rowId, shop, { unitPrice: breaks });
+            expect(parseProjectFile(serializeProject(typed)).rows).toEqual(
+                typed.rows
+            );
+            const sheet = buildBomSheet(
+                { ...typed, buildQuantity: 50 },
+                [],
+                builtInPresets(typed).find(p => p.name === "All data")!
+                    .selection,
+                numbersFor("en-US")
+            );
+            const [headers, row] = sheet.rows as [string[], unknown[]];
+            // 2 × 50 at the break from 100.
+            expect(row[headers.indexOf("Shop_Unit price")]).toBe(0.8);
+            expect(row[headers.indexOf("Shop_Price breaks")]).toBe(
+                "1+: 1.1; 25+: 1; 100+: 0.8; 300+: 0.65"
+            );
+            expect(headers).not.toContain("Shop_One-time");
+        });
+    });
+
+    describe("one-time items (#53)", () => {
+        it("aren't multiplied by the build quantity", () => {
+            const { project, shop, rowId } = bom();
+            const typed = type(project, rowId, shop, {
+                unitPrice: 40,
+                oneTime: true
+            });
+            expect(typed.rows[0]!.manual?.[shop]).toEqual({
+                unitPrice: 40,
+                oneTime: true
+            });
+            const line = (p: Project) =>
+                manualLine(p.rows[0]!, p.manualSuppliers[0]!, 25);
+            expect(line(typed)).toMatchObject({ orderQty: 2, total: 80 });
+            const every = type(typed, rowId, shop, { oneTime: false });
+            expect(every.rows[0]!.manual?.[shop]).toEqual({ unitPrice: 40 });
+            expect(line(every)).toMatchObject({ orderQty: 50, total: 2000 });
+            expect(parseProjectFile(serializeProject(typed)).rows).toEqual(
+                typed.rows
+            );
+            const sheet = buildBomSheet(
+                typed,
+                [],
+                builtInPresets(typed).find(p => p.name === "All data")!
+                    .selection,
+                numbersFor("en-US")
+            );
+            const [headers, row] = sheet.rows as [string[], unknown[]];
+            expect(row[headers.indexOf("Shop_One-time")]).toBe("Yes");
+        });
+    });
 });
