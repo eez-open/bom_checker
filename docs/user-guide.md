@@ -198,6 +198,7 @@ For a BOM imported from a KiCad 10 project, the toolbar's **Import KiCad…** be
 - **Added in KiCad:** new parts. They join the BOM row of their KiCad row-mates when that row has the same values; otherwise they get a new row.
 - **No longer in KiCad's BOM:** parts deleted in KiCad, or now DNP or excluded from the BOM. They leave their row; a row with no parts left goes.
 - **Changed in KiCad:** a Value, Footprint, part number or other field that changed in KiCad. When only some parts of a row changed, they get a row of their own.
+- **Rows to join into one:** parts that KiCad lists in one row but that are in several BOM rows with the same Value, Footprint and part numbers. That happens when KiCad renumbers parts (Annotate Schematic): a sync compares each reference with the part that had it before, so a renumbered part leaves its row for a row of its own. Ticked, the rows become one, in the place of the first, with their references and quantities together. Rows with different values in another column, e.g. one of your own, stay apart.
 
 Tick what to bring into the BOM and click **Apply**; Ctrl+Z undoes it. What was done in the BOM is kept: rows and columns added by hand, and values changed in the BOM, e.g. a chosen item or a corrected part number, which aren't listed. The BOM file remembers what KiCad had at the import or the last sync to tell the two apart. A value changed on both sides is listed unticked, so the BOM's value stays unless you tick it.
 
