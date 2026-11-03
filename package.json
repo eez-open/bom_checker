@@ -46,6 +46,7 @@
     },
     "dependencies": {
         "electron-log": "^5.4.4",
+        "fflate": "^0.8.3",
         "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
         "zod": "^4.6.7"
     },

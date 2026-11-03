@@ -71,6 +71,9 @@ export interface ExportSheet {
     numberFormats: Record<number, string>;
     /** Column widths in characters. */
     widths: number[];
+    /** A table: the first row holds the headers, and xlsx and ods files
+     *  format it as in the template of #50. */
+    table?: boolean;
 }
 
 /** Presets for the suppliers in this BOM; the scope's examples are "all
@@ -483,6 +486,7 @@ export function buildBomSheet(
         );
     return {
         name: "BOM",
+        table: true,
         rows: [included.map(column => column.header), ...rows],
         numberFormats: Object.fromEntries(
             included.flatMap((column, index) =>

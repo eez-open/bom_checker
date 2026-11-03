@@ -4,7 +4,7 @@ import type { ExportFormat, ExportSheet } from "../../shared/export";
 import { showError } from "../dialogs";
 import { writeFileAtomic } from "../files";
 import { log } from "../logging";
-import { exportFile, type CsvOptions } from "./write";
+import { exportFile, type ExportOptions } from "./write";
 
 const FILTERS: Record<ExportFormat, Electron.FileFilter> = {
     xlsx: { name: "Excel workbook", extensions: ["xlsx"] },
@@ -20,7 +20,7 @@ export async function saveExport(
     format: ExportFormat,
     suggestedName: string,
     sheets: readonly ExportSheet[],
-    options: CsvOptions
+    options: ExportOptions
 ): Promise<string | null> {
     const result = await dialog.showSaveDialog(window, {
         title: "Export BOM",
@@ -35,7 +35,13 @@ export async function saveExport(
             ? `${result.filePath}.${format}`
             : result.filePath;
     try {
-        await writeFileAtomic(path, exportFile(format, sheets, options));
+        await writeFileAtomic(
+            path,
+            exportFile(format, sheets, {
+                ...options,
+                title: basename(path, extname(path))
+            })
+        );
         exported.add(path);
         log.info("Exported", path);
         return path;

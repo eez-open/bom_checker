@@ -17,7 +17,7 @@ Based on: `BOM checker project scope.md`, the clarifications in section 2, and r
 | Security | Credentials encrypted with AES-256-GCM using a key derived from the user's password (scrypt). Unlocked once per session |
 | Currency | Every supplier is asked for EUR. The currency of each response is checked; prices in any other currency are flagged, not converted |
 | KiCad | Built-in KiCad 10 schematic parser with variant selection. No KiCad installation needed |
-| Export | `.xlsx`, `.ods`, `.csv` through one library (SheetJS), with saved column and row filters |
+| Export | `.xlsx` and `.ods` formatted as the users' template has it (#50), written by our own module; `.csv` through SheetJS; saved column and row filters |
 | Maintainability | Mainstream libraries and as few of them as possible. Each replaceable library sits behind one module. Supplier and KiCad format changes stay inside one folder each, with recorded-response tests. CI and automated dependency updates from day one |
 
 ---
@@ -57,7 +57,7 @@ Any third-party library that might need replacing is used from **one module only
 | Build | Vite, via electron-vite | Vite is mainstream. electron-vite is only a thin configuration layer over it; if it were ever abandoned, replacing it means rewriting config, not code |
 | Table | AG Grid Community (MIT) | Editing, column groups, pinning, sorting/filtering and cell styling are built in, so there's far less of our own table code to maintain than with a headless library. It releases about one major version a year, with migration guides. Used only in `renderer/table/` |
 | CSV | PapaParse | Mature, stable, no dependencies |
-| Export | SheetJS Community Edition | The only maintained library that writes xlsx, ods and csv. **Caveat:** it's distributed from `cdn.sheetjs.com`, not the npm registry, so update bots don't see it and updating it is a manual step in the upgrade checklist. It doesn't write cell colours (see 11). Used only in `main/export/` |
+| Export | Own writer for xlsx and ods (`main/export/spreadsheet.ts`), zipped with fflate; SheetJS Community Edition for CSV | SheetJS CE can't write cell styles, and no maintained library writes formatted ods, so formatted files (#50) are written as Office Open XML and OpenDocument, both frozen standards, by one module of plain XML. fflate (MIT, no dependencies) zips them. SheetJS writes CSV and reads the files back in tests. **Caveat:** SheetJS is distributed from `cdn.sheetjs.com`, not the npm registry, so update bots don't see it and updating it is a manual step in the upgrade checklist. Used only in `main/export/` |
 | Crypto | Node built-in `crypto` (scrypt, AES-256-GCM) | No dependency at all; updated along with Electron |
 | Validation | zod | Widely used. The same schemas validate project files, settings and IPC messages, and drive file-format migrations |
 | Logging | electron-log | Writes a log file in app data that users can send when something goes wrong |
@@ -563,7 +563,7 @@ The `kicad-cli sch export bom --variant` alternative was rejected. It requires K
 
 - **Typed cells:** numbers and prices are written as numeric cells, not text.
 - **Info sheet** (xlsx/ods only): BOM, source file (relative to the BOM), KiCad variant, export filter, how prices and the best price were chosen, the preferred supplier order, collection dates per supplier, and total prices.
-- **No colours:** SheetJS Community Edition can't write cell styles, so status colours don't appear in exported files. If coloured `.xlsx` output is wanted, ExcelJS could be added for xlsx only.
+- **Formatting (#50)**, xlsx and ods, as in the template attached to the issue: the header row bold and centred on orange (#ffcc00), the rows below alternately white and blue gray (#e6e6ff), Row and Qty centred, text wrapped at the top of the cell, the template's column widths for Row, Reference, Value, Qty, Footprint and the four part-number columns (the others from the export's widths), a 10 pt font so a row is 0.45 cm (wrapped text makes it taller), A4 landscape with 1 cm margins at 83 %, the file name and page number in the page header, and a print range over all columns. The Info sheet keeps plain cells. `main/export/spreadsheet.ts` writes both formats from the same cell styles; status colours of the table aren't exported.
 
 ---
 

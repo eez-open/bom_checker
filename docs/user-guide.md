@@ -187,7 +187,7 @@ Changing Qty updates all calculations at once, without collecting again.
 - **Preset**: e.g. *All data*, *Basic data only* (Row, Reference, Value, Qty, Footprint and the part numbers), *All Mouser data*, *Best price from Mouser*, *Not available anywhere*.
 - **Columns**: which suppliers' part numbers and data, the Best price columns, and your own columns. Row, Reference, Value, Qty and Footprint are always included. **Part numbers only** leaves out the suppliers' data columns.
 - **Rows**: all rows, rows with a supplier's part number, rows where a supplier has the best price, or rows that no supplier can deliver.
-- **Format**: Excel (.xlsx), LibreOffice (.ods) or CSV. Excel and LibreOffice files also get an *Info* sheet with the source, the filter, when data was collected and the totals. CSV files write numbers as the app shows them (*Settings → General → Numbers*): with a decimal comma, ";" separates the values, as spreadsheet programs expect in those regions.
+- **Format**: Excel (.xlsx), LibreOffice (.ods) or CSV. Excel and LibreOffice files also get an *Info* sheet with the source, the filter, when data was collected and the totals. They're formatted for reading and printing: the header row bold on orange, the rows alternately white and blue gray, Row and Qty centred, the BOM's own columns and the part numbers at set widths, and long reference lists wrapped. They print on A4 landscape at 83 %, with all columns in the print range and the file name and page number at the top. CSV files write numbers as the app shows them (*Settings → General → Numbers*): with a decimal comma, ";" separates the values, as spreadsheet programs expect in those regions.
 
 To keep a combination, type a name and click **Save as preset**.
 
