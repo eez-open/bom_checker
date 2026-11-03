@@ -2,6 +2,7 @@ import type {
     CellClassParams,
     ColDef,
     ColGroupDef,
+    IErrorValidationParams,
     ValueGetterParams
 } from "ag-grid-community";
 import { lastCollectedAt } from "../../shared/collection";
@@ -23,6 +24,7 @@ import {
 import type { Numbers } from "../../shared/numbers";
 import { hasAlternatives } from "../../shared/part-number";
 import { manualSuppliersWithPrices } from "../../shared/project-ops";
+import { duplicateReferences, quantityMismatch } from "../../shared/references";
 import {
     BASE_CURRENCY,
     bestSupplier,
@@ -85,6 +87,72 @@ function context(params: { context: unknown }): TableContext {
 function numbers(params: { context: unknown }): Numbers {
     return context(params).getNumbers();
 }
+
+/** A BOM row's Qty that isn't its number of references (#58); not for
+ *  the Total row. */
+function mismatchOf(params: {
+    data?: BomRow;
+    node?: { rowPinned?: unknown } | null;
+}): string | null {
+    return params.data && !params.node?.rowPinned
+        ? quantityMismatch(params.data)
+        : null;
+}
+
+/** A reference that another row has too (#58). */
+function duplicateOf(params: {
+    data?: BomRow;
+    context: unknown;
+}): string | undefined {
+    return params.data
+        ? context(params).getReferenceProblems().get(params.data.id)
+        : undefined;
+}
+
+/**
+ * Each part is in one row only, and Qty is the number of references
+ * (#58): a reference another row has can't be typed in, and rows that
+ * have one anyway (e.g. imported) are red. Rows whose Qty differs from
+ * their number of references are amber.
+ */
+const REFERENCE_CHECKS: Record<"reference" | "qty", ColDef<BomRow>> = {
+    reference: {
+        cellEditorParams: {
+            getValidationErrors: ({
+                value,
+                cellEditorParams: { data, context: table }
+            }: IErrorValidationParams<BomRow, string, TableContext>) => {
+                const rows = table
+                    .getRows()
+                    .map(row =>
+                        row.id === data.id
+                            ? { ...row, reference: value ?? "" }
+                            : row
+                    );
+                const problem = duplicateReferences(rows).get(data.id);
+                const message = problem
+                    ? `${problem} A part can be in one row only.`
+                    : null;
+                // The grid shows it only to the mouse pointer.
+                table.onEditError(message);
+                return message ? [message] : null;
+            }
+        },
+        cellClassRules: {
+            "cell-invalid": params => duplicateOf(params) !== undefined,
+            "cell-warning": params =>
+                duplicateOf(params) === undefined && mismatchOf(params) !== null
+        },
+        tooltipValueGetter: params =>
+            duplicateOf(params) ?? mismatchOf(params) ?? undefined
+    },
+    qty: {
+        cellClassRules: {
+            "cell-warning": params => mismatchOf(params) !== null
+        },
+        tooltipValueGetter: params => mismatchOf(params) ?? undefined
+    }
+};
 
 function lineOf(
     params: { data?: BomRow; context: unknown },
@@ -564,11 +632,14 @@ function hideGroup(
  * @param withData suppliers that have collected data; only they get the
  *   calculated columns.
  * @param hidden column groups the user has hidden.
+ * @param checkReferences whether references are checked (#58); not in a
+ *   list's Combined BOM, where they're by BOM.
  */
 export function buildColumns(
     project: Project,
     withData: readonly SupplierId[],
-    hidden: ReadonlySet<TableGroup> = new Set()
+    hidden: ReadonlySet<TableGroup> = new Set(),
+    checkReferences = true
 ): TableColumns {
     const keys = new Map<string, ColumnKey>();
     const columnDefs: (ColDef<BomRow> | ColGroupDef<BomRow>)[] = [];
@@ -615,7 +686,11 @@ export function buildColumns(
             pinned:
                 column.field === "reference" || column.field === "value"
                     ? "left"
-                    : undefined
+                    : undefined,
+            ...(checkReferences &&
+            (column.field === "reference" || column.field === "qty")
+                ? REFERENCE_CHECKS[column.field]
+                : {})
         });
         if (column.field === "qty" && project.buildQuantity > 1) {
             columnDefs.push({

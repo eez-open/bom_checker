@@ -30,6 +30,7 @@ import {
     suppliersWithData
 } from "../../shared/project-ops";
 import type { Numbers } from "../../shared/numbers";
+import { duplicateReferences } from "../../shared/references";
 import type { TableGroup } from "../store/ui";
 import { buildColumns, TOTALS_ROW_ID } from "./columns";
 import type { TableContext, TableTotals } from "./PartNumberCell";
@@ -83,6 +84,8 @@ interface BomTableProps {
     onShownRows: (rows: number | null) => void;
     /** No cell can be edited, e.g. in a list's Combined BOM. */
     readOnly?: boolean;
+    /** Why the value being edited can't be entered (#58), or null. */
+    onEditError?: (message: string | null) => void;
 }
 
 function EmptyTable() {
@@ -106,7 +109,8 @@ export function BomTable({
     search,
     rowView,
     onShownRows,
-    readOnly = false
+    readOnly = false,
+    onEditError
 }: BomTableProps) {
     const apiRef = useRef<GridApi<BomRow> | null>(null);
     // Cells read collected data and the supplier preference through the
@@ -142,16 +146,49 @@ export function BomTable({
         [shown, preference]
     );
     const totalsRef = useRef(totals);
+    const rows = useRef(project.rows);
+    // References another row has too (#58).
+    const duplicates = useMemo(
+        () => duplicateReferences(project.rows),
+        [project.rows]
+    );
+    const duplicatesRef = useRef(duplicates);
+    const editError = useRef<string | null>(null);
+    const onEditErrorRef = useRef(onEditError);
+    useEffect(() => {
+        onEditErrorRef.current = onEditError;
+    }, [onEditError]);
+    const reportEditError = useCallback((message: string | null) => {
+        if (editError.current !== message) {
+            editError.current = message;
+            // Not while the grid renders the editor.
+            queueMicrotask(() => onEditErrorRef.current?.(message));
+        }
+    }, []);
     const context = useMemo<TableContext>(
         () => ({
             getCollected: () => collected.current,
             getPreference: () => preferenceRef.current,
             getBuildQuantity: () => buildQuantity.current,
             getTotals: () => totalsRef.current,
-            getNumbers: () => numbersRef.current
+            getNumbers: () => numbersRef.current,
+            getRows: () => rows.current,
+            getReferenceProblems: () => duplicatesRef.current,
+            onEditError: reportEditError
         }),
-        []
+        [reportEditError]
     );
+
+    // An edit in one row can make another row's reference a duplicate, or
+    // stop it being one: those rows' Reference cells are refreshed too.
+    const duplicatesKey = JSON.stringify([...duplicates]);
+    useEffect(() => {
+        rows.current = project.rows;
+        duplicatesRef.current = duplicates;
+    }, [project.rows, duplicates]);
+    useEffect(() => {
+        apiRef.current?.refreshCells({ columns: ["reference"], force: true });
+    }, [duplicatesKey]);
 
     useEffect(() => {
         collected.current = project.collected;
@@ -205,7 +242,8 @@ export function BomTable({
             buildColumns(
                 project,
                 withData ? (withData.split(",") as SupplierId[]) : [],
-                new Set(hidden.split(",") as TableGroup[])
+                new Set(hidden.split(",") as TableGroup[]),
+                !readOnly
             ),
         // Columns change only when suppliers, custom columns, the
         // suppliers with data, their collection times, the build quantity
@@ -219,7 +257,8 @@ export function BomTable({
             project.buildQuantity,
             project.manualSuppliers,
             manualPriced,
-            hidden
+            hidden,
+            readOnly
         ]
     );
 
@@ -326,6 +365,8 @@ export function BomTable({
             rowSelection={ROW_SELECTION}
             selectionColumnDef={SELECTION_COLUMN}
             readOnlyEdit
+            // A reference another row has can't be entered (#58).
+            invalidEditValueMode="block"
             singleClickEdit={false}
             stopEditingWhenCellsLoseFocus
             tooltipShowDelay={300}
@@ -337,6 +378,7 @@ export function BomTable({
             }
             onRowDataUpdated={startPendingEdit}
             onFirstDataRendered={autoSizeTotals}
+            onCellEditingStopped={() => reportEditError(null)}
             onCellEditRequest={(event: CellEditRequestEvent<BomRow>) => {
                 const key = keys.get(event.column.getColId());
                 if (key && event.data) {

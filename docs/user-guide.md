@@ -77,6 +77,8 @@ The app starts on a start page: **Open BOM…**, or drop a file on the window (a
 
 **New**, then **Add row**: the Reference cell starts editing. Type, then press Tab to move to the next cell and Enter to finish. **Columns…** adds part-number columns for DigiKey, Mouser, TME and LCSC, and your own text or number columns. Select rows with their checkboxes to delete them.
 
+**References:** a row's Reference lists its parts, separated by commas, e.g. *C1, C2, C3*. Each part can be in one row only: a reference that another row already has can't be entered. The cell turns red, the status bar says which row has it, and Enter does nothing until it's changed (Escape gives up the edit). Rows that have one anyway, e.g. from an imported file, are red too; hover for the other row. Qty should be the number of references: when it isn't, Reference and Qty are amber, e.g. *KK1, KK2, KK3* with Qty 2. Decimal quantities (amounts, such as metres of tape) aren't compared.
+
 Every change can be undone with **Ctrl+Z** and redone with **Ctrl+Y**, or with the **Undo** and **Redo** buttons next to Save.
 
 ### From a CSV file
