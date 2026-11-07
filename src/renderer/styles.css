@@ -369,6 +369,13 @@ input.number {
     margin: 0 0 12px;
 }
 
+/* Help under a checkbox or a group of options, e.g. Settings → General →
+   Numbers: as far from it as a description is from its heading. */
+.settings-form > .checkbox + p,
+.settings-form > .checkbox-list + p {
+    margin-top: 8px;
+}
+
 .settings-form fieldset {
     margin: 0 0 16px;
     padding: 10px 14px 4px;
@@ -426,9 +433,11 @@ input.number {
     margin-bottom: 6px;
 }
 
+/* Wide enough for "Arrow (VERICAL)" on one line. */
 .supplier-order span {
     display: inline-block;
-    width: 90px;
+    width: 120px;
+    white-space: nowrap;
 }
 
 .supplier-order button {
