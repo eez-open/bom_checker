@@ -119,8 +119,22 @@ const responseSchema = z.looseObject({
                 })
             )
             .nullish(),
+        // The documentation shows data[].PartList; list searches answer
+        // with data[].resultList[], one entry per part number asked for.
         data: z
-            .array(z.looseObject({ PartList: z.array(partSchema).nullish() }))
+            .array(
+                z.looseObject({
+                    PartList: z.array(partSchema).nullish(),
+                    resultList: z
+                        .array(
+                            z.looseObject({
+                                requestedPartNum: z.string().nullish(),
+                                PartList: z.array(partSchema).nullish()
+                            })
+                        )
+                        .nullish()
+                })
+            )
             .nullish()
     })
 });
@@ -233,12 +247,29 @@ export function parseArrowResponse(
         }
         throw new SupplierError(`Arrow: ${message}`);
     }
-    const parts = (result.data ?? []).flatMap(data => data.PartList ?? []);
+    const answers = (result.data ?? []).flatMap(data => [
+        ...(data.PartList ? [{ requested: null, parts: data.PartList }] : []),
+        ...(data.resultList ?? []).map(entry => ({
+            requested: entry.requestedPartNum ?? null,
+            parts: entry.PartList ?? []
+        }))
+    ]);
+    const parts = answers.flatMap(answer => answer.parts);
     return new Map(
-        partNumbers.map(pn => [
-            partNumberKey(pn),
-            outcomeFor(pn, parts, source)
-        ])
+        partNumbers.map(pn => {
+            // Arrow names the part number each answer is for, written its
+            // way: "ERZE14A431" for ERZ-E14A431.
+            const wanted = looseKey(pn);
+            const answered = answers
+                .filter(a => a.requested && looseKey(a.requested) === wanted)
+                .flatMap(a => a.parts);
+            return [
+                partNumberKey(pn),
+                answered.length > 0
+                    ? offerOutcome(answered, source)
+                    : outcomeFor(pn, parts, source)
+            ];
+        })
     );
 }
 
@@ -279,6 +310,15 @@ function outcomeFor(
             part => wanted !== "" && looseKey(part.partNum ?? "") === wanted
         );
     }
+    return offerOutcome(matching, source);
+}
+
+/** The best offer of these parts in this source: one with prices, then
+ *  the most stock. */
+function offerOutcome(
+    matching: readonly ArrowPart[],
+    source: string
+): LookupOutcome {
     const offers = matching.flatMap(part =>
         sourcesOf(part, source).flatMap(s =>
             (s.sourceParts ?? []).map(sourcePart => ({
@@ -290,7 +330,13 @@ function outcomeFor(
     if (offers.length === 0) {
         return { status: "notFound" };
     }
-    offers.sort((a, b) => b.offer.stockQty - a.offer.stockQty);
+    const priced = (offer: SupplierOffer) =>
+        offer.priceBreaks.length > 0 ? 1 : 0;
+    offers.sort(
+        (a, b) =>
+            priced(b.offer) - priced(a.offer) ||
+            b.offer.stockQty - a.offer.stockQty
+    );
     const [best, ...others] = offers;
     const notes = [
         ...(best!.offer.notes ?? []),
@@ -335,7 +381,12 @@ function toOffer(
         sourcePart.shipsFrom && `Ships from ${sourcePart.shipsFrom}`,
         sourcePart.shipsIn?.trim()
     ].filter(Boolean);
+    // Some packagings have no prices, only e.g. "Call For Quote".
+    const message = sourcePart.Availability?.[0]?.availabilityMessage?.trim();
     const notes = [
+        ...(priceBreaks.length === 0 && message
+            ? [`No price: ${message}`]
+            : []),
         ...(ships.length > 0 ? [ships.join(", ")] : []),
         ...(sourcePart.isNcnr ? ["Non-cancellable, non-returnable"] : [])
     ];

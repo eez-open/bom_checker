@@ -77,7 +77,14 @@ const ARROW_PARTS: Record<string, unknown> = {
     }
 };
 
-function arrowAnswer(parts: unknown[], success = true, returnMsg = "") {
+/** A list search's answer, as Arrow sends it: data[0].resultList[], an
+ *  entry per part number found, with the part number asked for. */
+function arrowAnswer(
+    found: { requested: string; part: unknown }[],
+    asked = found.length,
+    success = true,
+    returnMsg = ""
+) {
     return {
         itemserviceresult: {
             serviceMetaData: [{ version: "4.0.0" }],
@@ -90,7 +97,20 @@ function arrowAnswer(parts: unknown[], success = true, returnMsg = "") {
                     }
                 }
             ],
-            data: [{ PartList: parts }]
+            data: [
+                {
+                    partsRequested: asked,
+                    partsFound: found.length,
+                    partsNotFound: asked - found.length,
+                    partsError: 0,
+                    resultList: found.map(({ requested, part }) => ({
+                        resources: [],
+                        PartList: [part],
+                        requestedPartNum: requested,
+                        numberFound: 1
+                    }))
+                }
+            ]
         }
     };
 }
@@ -310,7 +330,7 @@ export async function startFakeSuppliers() {
                     return send(
                         response,
                         200,
-                        arrowAnswer([], false, "Invalid login or apikey")
+                        arrowAnswer([], 0, false, "Invalid login or apikey")
                     );
                 }
                 return send(
@@ -320,8 +340,11 @@ export async function startFakeSuppliers() {
                         search.parts.flatMap(part => {
                             const found =
                                 ARROW_PARTS[part.partNum.toUpperCase()];
-                            return found ? [found] : [];
-                        })
+                            return found
+                                ? [{ requested: part.partNum, part: found }]
+                                : [];
+                        }),
+                        search.parts.length
                     )
                 );
             }

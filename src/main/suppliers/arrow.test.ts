@@ -278,4 +278,159 @@ describe("Arrow responses (#62)", () => {
         expect(arrowLifecycle("")).toBeNull();
         expect(arrowLifecycle("Something else")).toBeNull();
     });
+
+    it("reads list searches' answers, one per part number asked for", () => {
+        // As Arrow answers list searches (seen in live responses): the
+        // parts in data[0].resultList[], with the part number asked for,
+        // written Arrow's way.
+        const varistor = {
+            ...BAV99,
+            partNum: "ERZ-E14A431",
+            manufacturer: { mfrCd: "PANASONI", mfrName: "Panasonic" },
+            status: "LTB",
+            InvOrg: {
+                webSites: [
+                    {
+                        code: "arrow.com",
+                        name: "arrow.com",
+                        sources: [
+                            {
+                                currency: "EUR",
+                                sourceCd: "EUROPE",
+                                sourceParts: [
+                                    // Stock, but no prices.
+                                    {
+                                        ...sourcePart(5000, []),
+                                        Prices: undefined,
+                                        packSize: 1000,
+                                        minimumOrderQuantity: 1000,
+                                        Availability: [
+                                            {
+                                                fohQty: 5000,
+                                                availabilityCd: "QUOTE",
+                                                availabilityMessage:
+                                                    "Call For Quote"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                currency: "EUR",
+                                sourceCd: "ACNA",
+                                sourceParts: [sourcePart(300, [[1, 0.9]])]
+                            }
+                        ]
+                    }
+                ]
+            }
+        };
+        const body = {
+            itemserviceresult: {
+                transactionArea: [
+                    {
+                        response: {
+                            returnCode: "0",
+                            returnMsg: "",
+                            success: true
+                        }
+                    }
+                ],
+                data: [
+                    {
+                        partsRequested: 3,
+                        partsFound: 2,
+                        partsNotFound: 1,
+                        partsError: 0,
+                        resultList: [
+                            {
+                                resources: [],
+                                PartList: [varistor],
+                                requestedPartNum: "ERZE14A431",
+                                numberFound: 1
+                            },
+                            {
+                                resources: [],
+                                PartList: [RARE],
+                                requestedPartNum: "RARE-1",
+                                numberFound: 1
+                            }
+                        ]
+                    }
+                ]
+            }
+        };
+        const europe = parseArrowResponse(
+            ["ERZ-E14A431", "RARE-1", "NOPE-1"],
+            "EUROPE",
+            200,
+            body
+        );
+        expect(europe.get("ERZ-E14A431")).toMatchObject({
+            status: "found",
+            offer: {
+                supplierPartNumber: "ERZ-E14A431",
+                manufacturer: "Panasonic",
+                stockQty: 5000,
+                moq: 1000,
+                priceBreaks: [],
+                lifecycle: "eol",
+                notes: [
+                    "No price: Call For Quote",
+                    "Ships from Germany, Ships in 1 day"
+                ]
+            }
+        });
+        // Only on Verical, and not answered at all.
+        expect(europe.get("RARE-1")).toEqual({ status: "notFound" });
+        expect(europe.get("NOPE-1")).toEqual({ status: "notFound" });
+        expect(
+            parseArrowResponse(["ERZE14A431"], "ACNA", 200, body).get(
+                "ERZE14A431"
+            )
+        ).toMatchObject({
+            status: "found",
+            offer: { stockQty: 300, priceBreaks: [{ qty: 1, unitPrice: 0.9 }] }
+        });
+        expect(
+            parseArrowResponse(["RARE-1"], "VERICAL", 200, body).get("RARE-1")
+        ).toMatchObject({ status: "found", offer: { stockQty: 5 } });
+    });
+
+    it("prefers a packaging with prices to one with more stock", () => {
+        const quoteOnly = {
+            ...sourcePart(90000, []),
+            containerType: "Reel"
+        };
+        const offer = parseArrowResponse(
+            ["BAV99,215"],
+            "EUROPE",
+            200,
+            answer([
+                {
+                    ...BAV99,
+                    InvOrg: {
+                        webSites: [
+                            {
+                                sources: [
+                                    {
+                                        currency: "EUR",
+                                        sourceCd: "EUROPE",
+                                        sourceParts: [
+                                            quoteOnly,
+                                            sourcePart(10, [[1, 0.1]])
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ])
+        ).get("BAV99,215");
+        expect(offer).toMatchObject({
+            status: "found",
+            offer: { stockQty: 10, packaging: "Cut Tape" }
+        });
+    });
 });
