@@ -185,12 +185,14 @@ export function ListPane() {
                     selected === COMBINED ||
                     selected === list.history
                 }
-                title="Look in the history for other part numbers of the BOM's selected rows, or all rows, with their stock and prices"
+                title={
+                    selectedRows > 0
+                        ? `Look in the history for other part numbers of the ${selectedRows} selected ${selectedRows === 1 ? "row" : "rows"}, with their stock and prices`
+                        : "Look in the history for other part numbers of the BOM's rows, with their stock and prices; select rows to check only those"
+                }
                 onClick={checkHistory}
             >
-                {selectedRows > 0
-                    ? `Check ${selectedRows} selected ${selectedRows === 1 ? "row" : "rows"}…`
-                    : "Check the BOM's rows…"}
+                Check History…
             </button>
             <div className="list-pane-actions">
                 <button

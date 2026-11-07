@@ -295,15 +295,10 @@ export function createMenu(): Menu {
                     { id: "forget-data" }
                 ),
                 listCommand("&Unify Part Numbers…", "unify", { id: "unify" }),
-                command(
-                    "Check Selected Rows Against the &History…",
-                    "check-history",
-                    {
-                        id: "check-history",
-                        enabled:
-                            state.listOpen && state.editable && state.hasRows
-                    }
-                ),
+                command("Check &History…", "check-history", {
+                    id: "check-history",
+                    enabled: state.listOpen && state.editable && state.hasRows
+                }),
                 { type: "separator" },
                 command("&Settings…", "settings", {
                     accelerator: "CmdOrCtrl+,"
