@@ -4,15 +4,15 @@
 
  ![example](images/bom_optimization_example.png)
 
-A desktop app for Linux and Windows that checks a Bill of Materials (BOM) against DigiKey, Mouser, TME, and LCSC, while ensuring that the handling of the collected data complies with the suppliers' Terms of Service (TOS). It reports stock, prices, minimum order quantities (MOQ), lifecycle status and RoHS status, and picks the best-priced supplier for each part. The app was created to help maintain BOMs of multiple modules of a [BB3+](https://github.com/eez-open/eez-bb3plus) project.
+A desktop app for Linux and Windows that checks a Bill of Materials (BOM) against [Arrow](https://arrow.com/), [DigiKey](https://www.digikey.com/), [LCSC](https://www.lcsc.com/), [Mouser](http://mouser.com/), and [TME](https://www.tme.com/), while ensuring that the handling of the collected data complies with the suppliers' Terms of Service (TOS). It reports stock, prices, minimum order quantities (MOQ), lifecycle status and RoHS status, and picks the best-priced supplier for each part. The app was created to help maintain BOMs of multiple modules of a [BB3+](https://github.com/eez-open/eez-bb3plus) project.
 
 ## Features
 * .csv import and direct import of a BOM from a [KiCad](https://www.kicad.org/) 10.x project
 * Updating the KiCad, if imported BOM has been modified in the meantime
 * Synchronizing an imported BOM if the KiCad project has been modified in meantime
-* 1-click information collection of all selected suppliers that have an API
-* "Best price" calculation
-* Graphic representation of the 10 most expensive parts
+* 1-click information collection for all selected suppliers for whom API access has been configured
+* Best price calculation
+* Graphic representation of the 10 most expensive items
 * Adding custom suppliers and custom columns
 * BOM lists for complex projects that have multiple BOMs with optimization by unifying part numbers
 * Export to .xlsx, .ods, and .csv with a warning and password protected, ensuring that the suppliers' TOS is not violated
