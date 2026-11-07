@@ -2,7 +2,7 @@
     "name": "eez-bom-checker",
     "productName": "EEZ BOM checker",
     "desktopName": "eez-bom-checker.desktop",
-    "version": "0.12.0",
+    "version": "0.13.0",
     "description": "BOM checker with .csv import, KiCad import/update/sync, BOM lists, best price calculation and export",
     "author": "Envox <eez@envox.hr>",
     "license": "MIT",

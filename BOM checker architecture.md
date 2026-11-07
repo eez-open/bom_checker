@@ -11,7 +11,7 @@ Based on: `BOM checker project scope.md`, the clarifications in section 2, and r
 |---|---|
 | Platform | Electron + TypeScript, React UI. Windows x64 and Linux x64 (Ubuntu 22.04+ / Mint 21+) builds |
 | Process split | All file access, secrets and supplier API calls run in the Electron **main process**. The UI (renderer) sees an API key only when the user shows or copies it in supplier settings |
-| Suppliers | Built-in plugins behind one interface: **DigiKey** (Product Information API v4), **Mouser** (Search API v1), **TME** (API v2). Nothing to install separately |
+| Suppliers | Built-in plugins behind one interface: **DigiKey** (Product Information API v4), **Mouser** (Search API v1), **TME** (API v2), **LCSC** and **Arrow** (Pricing & Availability API v4, one supplier per inventory source). Nothing to install separately |
 | Storage | One BOM = one project file (`.eezbom`, JSON). App settings and the encrypted credential vault live in the user's app-data folder. No database |
 | Calculated columns | Order Qty, Unit price, Total price, Availability and Best price are **calculated, not stored**, so changing Qty updates them instantly without collecting again |
 | Security | Credentials encrypted with AES-256-GCM using a key derived from the user's password (scrypt). Unlocked once per session |
@@ -145,7 +145,8 @@ No file the app writes holds absolute paths (#34). `source.path` is stored relat
 
 ```ts
 interface Project {
-  schemaVersion: 7;                     // 2 added `collected`, 3 `buildQuantity`, 4 `source.kicadValues`, 5 decimal `qty` and `manualSuppliers`, 6 left `collected` out, 7 price breaks and one-time items of suppliers without an API
+  schemaVersion: 8;                     // 2 added `collected`, 3 `buildQuantity`, 4 `source.kicadValues`, 5 decimal `qty` and `manualSuppliers`, 6 left `collected` out, 7 price breaks and one-time items of suppliers without an API, 8 left their prices out and added `id`
+  id?: string;                          // random; finds the data kept on the computer for a moved BOM (#68)
   source: { kind: 'manual' | 'csv' | 'kicad'; path?: string; variant?: string; importedAt?: string };  // path: relative to the file (#34)
   suppliers: SupplierId[];              // suppliers that have a part-number column in this BOM
   customColumns: ColumnDef[];           // user-defined columns, plus unmapped imported ones
@@ -197,7 +198,10 @@ interface SupplierOffer {
 - **`Row` isn't stored.** It's the display index (1…n), renumbered when rows are sorted or deleted. On CSV import the `#` column maps to it and is otherwise ignored.
 - **Results are stored per supplier part number**, not per row. A part number used in several rows is looked up once, editing a cell shows whatever was collected for its new value, and undoing an edit never loses collected data.
 - **Supplier offers are stored exactly as returned**, in the original currency, plus the normalised fields above.
-- **Supplier data isn't in the file** (format 6). The suppliers' API terms don't allow passing their data on to third parties (DigiKey API User Agreement §3.2(iv), Mouser Search API Terms §4, TME API Terms 8.5, LCSC API Instruction), and BOM files get published, e.g. with open hardware on GitHub. `main/project/supplier-data.ts` keeps each BOM's `collected` in `<userData>/supplier-data/<hash of the BOM's path>.json`. Main reads and writes it with the file (`readBomFile`, `writeBomFile` in `project-files.ts`), so the renderer still has one `Project` and saving works as before. A BOM moved or renamed outside the app is collected again. Files of format 5 or older have the data in them: reading one keeps the data on the computer and opens the BOM with unsaved changes (`supplierDataInFile`), so saving removes it from the file.
+- **Supplier data isn't in the file** (format 6). The suppliers' API terms don't allow passing their data on to third parties (DigiKey API User Agreement §3.2(iv), Mouser Search API Terms §4, TME API Terms 8.5, LCSC API Instruction), and BOM files get published, e.g. with open hardware on GitHub. `main/project/supplier-data.ts` keeps each BOM's `collected` in `<userData>/supplier-data/<hash of the BOM's path>.json`. Main reads and writes it with the file (`readBomFile`, `writeBomFile` in `project-files.ts`), so the renderer still has one `Project` and saving works as before. Files of format 5 or older have the data in them: reading one keeps the data on the computer and opens the BOM with unsaved changes (`supplierDataInFile`), so saving removes it from the file.
+- **Prices of suppliers without an API aren't in the file either** (format 8, #68): `unitPrice`, `priceBreaks`, `stock` and `moq` of `rows[].manual[id]`, which may be confidential; the part number and `oneTime` stay. The supplier data file (version 2) holds them as `manual`, by row id and supplier id (`manualPricesOf`, `withManualPrices` in `shared/project-file.ts`); in memory the rows have them as before. Older files with prices move them out like collected data.
+- **Moved BOMs.** The supplier data file records the BOM's `id`; a BOM whose path has no data takes the newest data recorded for its id (`findSupplierData`), so typed prices survive a move or rename outside the app, and a copy gets the original's. Files before format 8 get an id when read.
+- **Expiry.** Results of a supplier with `maxAgeMs` (Arrow: 48 hours, its terms) are removed by `withoutExpired` whenever a BOM's data is read or written, and from every file at startup (`pruneSupplierData`).
 - **DigiKey's API terms forbid building a parts database** from API data. Results are kept per BOM they were collected for, and the app keeps no shared cache.
 
 ### 5.2 Columns
@@ -348,6 +352,12 @@ interface SupplierContext {
 - **One malformed symbol can fail a whole batch.** The API answers `E_INPUT_PARAMS_VALIDATION_ERROR` for all 50. The plugin then splits the batch in halves until it finds the bad symbol, which is reported as an error.
 - **Net vs gross:** `prices.type` says whether prices are NET or GROSS, which depends on the account's settings. The app warns if prices come back GROSS.
 - **Links:** product page links are built from the symbol. Datasheet links come from `/products/files` (document type `DTE`) and are opened in the browser, never downloaded by the app.
+
+**Arrow notes** (#62; from Arrow's documentation, not yet tried with a real key)
+- **API:** itemservice v4 at `https://api.arrow.com`: `GET /itemservice/v4/en/search/list?req=<JSON>` with `{"request":{"login","apikey","remoteIp","useExact":true,"parts":[{"partNum"}]}}` and `utm_currency`. Up to 1000 part numbers per call (best practices: 100; the setting *Part numbers per request*, default 100). Errors come with HTTP 200 in `transactionArea[0].response`. No published rate limits.
+- **Inventory sources:** each `PartList[]` entry has `InvOrg.webSites[].sources[]` with a `sourceCd` (EUROPE, ACNA, ASIA, VERICAL…), each with `sourceParts[]` (packagings: `packSize`, `minimumOrderQuantity`, `Prices.resaleList[]`, `Availability[].fohQty`). Each source chosen in Arrow's settings is a supplier of its own (`arrow-europe`, …, `SUPPLIERS[].source`), sharing the **account** `arrow` for settings, credentials, counters and test API addresses (`AccountId`, `accountOf`). Its plugin (`arrowPlugin(supplier)`) takes its source's packaging with the most stock; other packagings and manufacturers go to the notes, since Arrow's part numbers are manufacturer part numbers and can't pick one.
+- **Terms:** data may be kept for 48 hours only (`maxAgeMs`, see 5.1), Arrow must be named as the source (the column names do), and the API isn't for bulk data capture.
+- **Data:** resale prices (`priceKind` "list") in `sources[].currency`, trusted as given; `packSize` is the order multiple; `status` is mapped by `arrowLifecycle`; RoHS from `EnvData.compliance` (`eurohs`).
 
 **LCSC notes** (from LCSC's OpenAPI guide; not yet tried with a real key)
 - **API:** the "agent" API at `https://ips.lcsc.com` (sandbox: `https://sandbox-api.lcsc.com`). `GET /rest/api/agent/product/v1/productdetails` for LCSC numbers (`C2040`); `GET …/keywordsearch` for manufacturer part numbers, matched with the rules in 6.2. One part per call.
@@ -507,11 +517,13 @@ The `kicad-cli sch export bom --variant` alternative was rejected. It requires K
 - **Three-way:** `source.kicadValues` (file format 4) keeps KiCad's values at the last import or sync, per reference and column. A difference where the BOM still has that value is a KiCad change (offered, ticked); one where KiCad still has it is a BOM change (kept, not offered); anything else is offered unticked. Without these values (older files), every difference is offered unticked except added parts.
 - **Applying** (one undo step): accepted values are set per reference; a row whose references end up with different values is split, keeping its other cells; removed references leave their row; added parts join the one row of their KiCad row-mates if its values match, or get a new row at the end. Rows whose references KiCad never had are left alone. Then KiCad's current values become `kicadValues`.
 - **Update KiCad…** records the values it wrote in `kicadValues`, so the next sync doesn't see them as changes.
+- **Sorting (#67):** afterwards the rows can be sorted by their lowest reference in natural order (`sortByReference`), ticked by default and remembered.
 - **Joining rows (#55):** comparing by reference splits the parts of one KiCad row over several BOM rows when KiCad renumbers parts. After the ticked changes, `planJoins` finds BOM rows whose references are all in one row of KiCad's BOM and that have the same Value, Footprint and part numbers; other columns and suppliers without an API mustn't differ. The dialog works them out again on every tick (ids come from the KiCad row and the values, not row ids), and `joinRows` makes each group one row in the place of the first.
 
 ### 9.4 Writing back to the KiCad project (GitHub #11)
 
 - **Matching:** the project is read again (`readKicadDesign`) and grouped for the BOM's variant, exactly as on import. A BOM row is used only when its references, ignoring order and spaces, are exactly those of one KiCad row. Everything else is reported with a reason (not in the project, DNP/excluded in the variant, grouped differently now, or a reference in two rows).
+- **Value (#69):** the Value column goes to the symbols' `Value` field like any other; an empty cell never blanks it. The dialog leaves it unticked unless it was ticked last time, since a Value also reaches the PCB.
 - **Fields:** a supplier column goes to the field named like the supplier (or the single field its header pattern matches); it's added as a hidden copy of the symbol's Footprint field when missing. A custom column goes to the field of the same name, only if it exists. Values are compared trimmed, so KiCad's text isn't touched where only spaces differ.
 - **Targets:** every unit of every reference in the row. In a non-default variant, an existing `(variant … (field …))` override is changed; otherwise the symbol's property. Overrides are never added. A symbol on a sheet used several times can belong to two rows; if they want different values, it's left unchanged and reported.
 - **Editing** (`kicad/edit.ts`): a second, position-keeping S-expression parser finds the value tokens; only those are replaced, so the rest of the file stays byte for byte as KiCad wrote it. Each changed file is parsed again and every written value checked before anything is saved.
@@ -597,6 +609,7 @@ These points couldn't be settled from documentation and should be the first thin
 3. **Mouser:** does the Search key return the account's own prices, in EUR? If not, the only documented route is the Cart API. It reads prices by putting parts into a real cart on the account, which would need a separate decision. Also: does `Exact` apply to each part in a batch, and how do missing parts show up?
 4. **Mouser:** does `LifecycleStatus = null` always mean Active?
 5. **TME v2:** what are the real rate limits? Do special prices come back in EUR? Are prices NET? Confirm there's no RoHS data.
+6. **Arrow:** does `utm_currency=EUR` convert prices and change `sources[].currency`? How do list searches answer for part numbers they don't find, and are part numbers with `/` or `%` found when only the whole `req` is URL-encoded? Which `status` texts come back? Is 1000 part numbers per request accepted?
 
 ---
 
@@ -614,6 +627,10 @@ These points couldn't be settled from documentation and should be the first thin
 ---
 
 ## 15. Status
+
+### Version 0.13.0
+
+Arrow as a supplier, one per inventory source, with settings and credentials by account and its data kept for 48 hours (#62, sections 5.1 and 6.3). The prices of suppliers without an API are kept on the computer, and BOM files get an id that finds a moved BOM's data (file format 8, #68). Update KiCad… writes Values (#69). Sync KiCad… sorts the rows by Reference (#67). Cells can be copied, also in a list's Combined BOM (#63). File dialogs open in the folder last used for their kind of file (#59). Check History… (#52), the Linux package's texts (#70) and the price-break mark (#65). Unit tests: 278; end-to-end tests: 27.
 
 ### Version 0.12.0
 
