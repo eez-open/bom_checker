@@ -10,6 +10,7 @@ import type { Numbers } from "../../shared/numbers";
 import { hasAlternatives, isPartNumberDefined } from "../../shared/part-number";
 import type { BomTotals, ColumnTotal } from "../../shared/pricing";
 import { useUi } from "../store/ui";
+import { CopyButton } from "./CopyCell";
 
 /** Passed to the grid as `context`, so cells can read data that isn't in
  *  the rows. */
@@ -29,6 +30,9 @@ export interface TableContext {
     getReferenceProblems: () => ReadonlyMap<string, string>;
     /** Why the Reference being edited can't be entered, or null. */
     onEditError: (message: string | null) => void;
+    /** No cell can be edited, e.g. in a list's Combined BOM: cells get
+     *  copy buttons instead (#63). */
+    isReadOnly: () => boolean;
 }
 
 export interface TableTotals {
@@ -66,8 +70,10 @@ export function PartNumberCell(
 ) {
     const result = resultFor(props.context, props.supplier, props.value);
     const badge = result ? BADGES[result.status] : null;
+    const copyable =
+        !!props.value && (props.context as TableContext).isReadOnly();
     return (
-        <span className="pn-cell">
+        <span className={copyable ? "pn-cell copyable" : "pn-cell"}>
             {badge && result?.status === "ambiguous" ? (
                 // Several supplier items match: let the user choose one.
                 <button
@@ -99,7 +105,8 @@ export function PartNumberCell(
                     </span>
                 )
             )}
-            <span>{props.value}</span>
+            <span className="copyable-text">{props.value}</span>
+            {copyable && <CopyButton text={props.value!} />}
         </span>
     );
 }

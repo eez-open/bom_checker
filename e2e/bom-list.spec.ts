@@ -217,6 +217,20 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
         // It can't be edited.
         await cell(page, 1, "value").dblclick();
         await expect(editor(page, "value")).toHaveCount(0);
+        // Its cells can be copied (#63): with the button shown on hover,
+        // or Ctrl+C on the focused cell.
+        const clipboard = () =>
+            app.evaluate(({ clipboard }) => clipboard.readText());
+        const value = cell(page, 0, "value");
+        await value.hover();
+        await value.getByRole("button", { name: "Copy 10k" }).click();
+        await expect(page.locator("footer [role=status]")).toHaveText(
+            "Copied “10k”"
+        );
+        expect(await clipboard()).toBe("10k");
+        await cell(page, 0, "pn:digikey").click();
+        await page.keyboard.press("Control+C");
+        await expect.poll(clipboard).toBe("D-1");
         await expect(
             page.getByRole("button", { name: "Save", exact: true })
         ).toHaveCount(0);

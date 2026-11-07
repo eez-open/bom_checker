@@ -444,6 +444,40 @@ input.number {
     gap: 6px;
 }
 
+/* A cell with a copy button at the right (#63). */
+.copyable {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+}
+
+.copyable-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+button.cell-copy {
+    display: inline-flex;
+    flex: none;
+    margin-left: auto;
+    padding: 2px;
+    border: none;
+    background: none;
+    color: var(--app-muted);
+    visibility: hidden;
+}
+
+.ag-cell:hover button.cell-copy,
+.ag-cell-focus button.cell-copy {
+    visibility: visible;
+}
+
+button.cell-copy:hover:not(:disabled) {
+    background: var(--button-hover-bg);
+    color: var(--app-fg);
+}
+
 .pn-badge {
     display: inline-flex;
     align-items: center;

@@ -178,6 +178,8 @@ Prices are compared in EUR. If a supplier returns another currency, a yellow bar
 
 **Numbers** look as in the system's regional settings, e.g. *1.234,56* where decimals follow a comma. **Settings → General → Numbers** can choose a decimal point (*1,234.56*) or a decimal comma (*1.234,56*) instead. When typing a number in a cell, either "." or "," works before the decimals.
 
+**Copying:** Ctrl+C copies the text of the selected cell, as shown, and the status bar says what was copied. In a BOM list's Combined BOM, which can't be edited, text in cells can also be selected with the mouse, and Value and part-number cells show a copy button while the pointer is over them.
+
 Changing Qty updates all calculations at once, without collecting again.
 
 ## Exporting

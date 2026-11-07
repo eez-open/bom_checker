@@ -37,6 +37,7 @@ import {
 } from "../../shared/pricing";
 import { SUPPLIERS, supplierName } from "../../shared/suppliers";
 import { ChooseItemCell } from "./ChooseItemCell";
+import { CopyCell } from "./CopyCell";
 import { PartNumberCell, resultFor, type TableContext } from "./PartNumberCell";
 import { PriceBreaksEditor } from "./PriceBreaksEditor";
 
@@ -513,7 +514,8 @@ function bestColumns(project: Project): ColGroupDef<BomRow> {
 function manualColumns(
     supplier: ManualSupplier,
     buildQuantity: number,
-    keys: Map<string, ColumnKey>
+    keys: Map<string, ColumnKey>,
+    readOnly: boolean
 ): ColGroupDef<BomRow> {
     const { id, name } = supplier;
     const lineOfRow = (params: { data?: BomRow; context: unknown }) =>
@@ -560,6 +562,7 @@ function manualColumns(
             typed("partNumber", name, {
                 cellDataType: "text",
                 initialWidth: 170,
+                cellRenderer: readOnly ? CopyCell : undefined,
                 headerTooltip: `${name} part number (typed in; ${name} has no API)`
             }),
             // The price for the order quantity; the editor has the price
@@ -689,15 +692,17 @@ function hideGroup(
  * @param withData suppliers that have collected data; only they get the
  *   calculated columns.
  * @param hidden column groups the user has hidden.
- * @param checkReferences whether references are checked (#58); not in a
- *   list's Combined BOM, where they're by BOM.
+ * @param readOnly no cell can be edited, e.g. in a list's Combined BOM:
+ *   references aren't checked (#58), as they're by BOM, and Value and
+ *   part numbers get copy buttons (#63).
  */
 export function buildColumns(
     project: Project,
     withData: readonly SupplierId[],
     hidden: ReadonlySet<TableGroup> = new Set(),
-    checkReferences = true
+    readOnly = false
 ): TableColumns {
+    const checkReferences = !readOnly;
     const keys = new Map<string, ColumnKey>();
     const columnDefs: (ColDef<BomRow> | ColGroupDef<BomRow>)[] = [];
 
@@ -744,6 +749,8 @@ export function buildColumns(
                 column.field === "reference" || column.field === "value"
                     ? "left"
                     : undefined,
+            cellRenderer:
+                readOnly && column.field === "value" ? CopyCell : undefined,
             ...(checkReferences &&
             (column.field === "reference" || column.field === "qty")
                 ? REFERENCE_CHECKS[column.field]
@@ -799,7 +806,7 @@ export function buildColumns(
     for (const supplier of project.manualSuppliers) {
         columnDefs.push(
             hideGroup(
-                manualColumns(supplier, project.buildQuantity, keys),
+                manualColumns(supplier, project.buildQuantity, keys, readOnly),
                 hidden.has(`manual:${supplier.id}`)
             )
         );
