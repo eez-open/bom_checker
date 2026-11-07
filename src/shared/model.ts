@@ -78,12 +78,16 @@ export interface ProjectSource {
     kicadValues?: Record<string, Record<string, string>>;
 }
 
-export const PROJECT_SCHEMA_VERSION = 7;
+export const PROJECT_SCHEMA_VERSION = 8;
 
 export const MAX_BUILD_QUANTITY = 1_000_000;
 
 export interface Project {
     schemaVersion: typeof PROJECT_SCHEMA_VERSION;
+    /** Random; finds the data kept on the computer for a BOM that was
+     *  moved or renamed outside the app (#68). Files before format 8 get
+     *  one when read. */
+    id?: string;
     source: ProjectSource;
     /** Suppliers that have a part-number column, in `SUPPLIER_IDS` order. */
     suppliers: SupplierId[];

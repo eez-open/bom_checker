@@ -174,7 +174,8 @@ test("unifies part numbers across the BOMs of a list", async () => {
             psu
         );
         expect(
-            supplierData.results.digikey?.["RMCF0805FT100KCT-ND"]?.status
+            supplierData.collected.results.digikey?.["RMCF0805FT100KCT-ND"]
+                ?.status
         ).toBe("found");
         const backups = await readdir(join(folder, "bom-checker-backups"));
         expect(backups).toHaveLength(1);

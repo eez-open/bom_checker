@@ -77,7 +77,8 @@ test("keeps supplier data on the computer, not in the BOM file", async () => {
         schemaVersion: PROJECT_SCHEMA_VERSION
     });
     expect(
-        await readSupplierData(join(userData, SUPPLIER_DATA_FOLDER), bom)
+        (await readSupplierData(join(userData, SUPPLIER_DATA_FOLDER), bom))
+            .collected
     ).toEqual(collected);
 
     // Opened again, the data comes from the computer.

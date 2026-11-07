@@ -1,13 +1,18 @@
+import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import { app, dialog, type BrowserWindow } from "electron";
 import type { OpenedProject, SaveOptions } from "../../shared/ipc";
-import type { CollectedData, Project } from "../../shared/model";
+import type { Project } from "../../shared/model";
 import {
     PROJECT_FILE_EXTENSION,
     hasCollectedData,
+    hasManualPrices,
+    manualPricesOf,
     parseProjectFile,
-    serializeProject
+    serializeProject,
+    withManualPrices,
+    type ManualPrices
 } from "../../shared/project-file";
 import { dialogStart, rememberFolder } from "../dialog-folders";
 import { showError } from "../dialogs";
@@ -17,8 +22,11 @@ import { addRecent } from "../recent";
 import { withAbsoluteSource, withRelativeSource } from "./source-paths";
 import {
     SUPPLIER_DATA_FOLDER,
+    findSupplierData,
+    noSupplierData,
     readSupplierData,
-    writeSupplierData
+    writeSupplierData,
+    type SupplierData
 } from "./supplier-data";
 
 const FILTERS = [
@@ -42,38 +50,71 @@ function supplierDataFolder(): string {
     return join(app.getPath("userData"), SUPPLIER_DATA_FOLDER);
 }
 
-async function cachedSupplierData(path: string): Promise<CollectedData> {
+/** What's kept on this computer for the BOM at `path`, or, for a BOM
+ *  moved or renamed outside the app, for its id (#68). */
+async function keptSupplierData(
+    path: string,
+    bomId: string
+): Promise<{ data: SupplierData; moved: boolean }> {
     try {
-        return await readSupplierData(supplierDataFolder(), path);
+        const data = await readSupplierData(supplierDataFolder(), path);
+        if (hasCollectedData(data.collected) || hasKept(data.manual)) {
+            return { data, moved: false };
+        }
+        const found = await findSupplierData(supplierDataFolder(), bomId);
+        return found ? { data: found, moved: true } : { data, moved: false };
     } catch (error) {
         log.warn("Can't read the supplier data of", path, error);
-        return { results: {}, runs: {} };
+        return { data: noSupplierData(), moved: false };
     }
 }
 
+function hasKept(manual: ManualPrices): boolean {
+    return Object.keys(manual).length > 0;
+}
+
 /**
- * Reads a BOM file, with the supplier data kept for it on this computer.
- * Files saved before format 6 have the data in them: it's kept on the
- * computer from now on, and the file should be saved again to remove it.
+ * Reads a BOM file, with what's kept for it on this computer: collected
+ * supplier data, and the prices typed for suppliers without an API (#68).
+ * Older files have them in the file (collected data before format 6,
+ * prices before format 8): they're kept on the computer from now on, and
+ * the file should be saved again to remove them.
  */
 export async function readBomFile(path: string): Promise<OpenedProject> {
-    const project = withAbsoluteSource(
+    const parsed = withAbsoluteSource(
         parseProjectFile(await readFile(path, "utf8")),
         path
     );
-    if (!hasCollectedData(project.collected)) {
-        return {
-            filePath: path,
-            project: { ...project, collected: await cachedSupplierData(path) }
-        };
+    // Files before format 8 have no id; it's saved with the file.
+    const project = parsed.id ? parsed : { ...parsed, id: randomUUID() };
+    const kept = await keptSupplierData(path, project.id!);
+    const collectedInFile = hasCollectedData(project.collected);
+    const pricesInFile = hasManualPrices(project);
+    const data: SupplierData = {
+        collected: collectedInFile ? project.collected : kept.data.collected,
+        manual: pricesInFile ? manualPricesOf(project) : kept.data.manual
+    };
+    const opened = withManualPrices(
+        { ...project, collected: data.collected },
+        pricesInFile ? {} : data.manual
+    );
+    const inFile = collectedInFile || pricesInFile;
+    if (inFile || kept.moved) {
+        try {
+            await writeSupplierData(
+                supplierDataFolder(),
+                path,
+                data,
+                project.id
+            );
+        } catch (error) {
+            // Saving the BOM tries again.
+            log.warn("Can't keep the supplier data of", path, error);
+        }
     }
-    try {
-        await writeSupplierData(supplierDataFolder(), path, project.collected);
-    } catch (error) {
-        // Saving the BOM tries again.
-        log.warn("Can't keep the supplier data of", path, error);
-    }
-    return { filePath: path, project, supplierDataInFile: true };
+    return inFile
+        ? { filePath: path, project: opened, supplierDataInFile: true }
+        : { filePath: path, project: opened };
 }
 
 /** Writes a BOM file, and keeps its supplier data on this computer. */
@@ -82,8 +123,13 @@ export async function writeBomFile(
     project: Project
 ): Promise<void> {
     // The data first: if the file can't be written, the data kept for the
-    // old one is still right for its part numbers.
-    await writeSupplierData(supplierDataFolder(), path, project.collected);
+    // old one is still right for its part numbers and rows.
+    await writeSupplierData(
+        supplierDataFolder(),
+        path,
+        { collected: project.collected, manual: manualPricesOf(project) },
+        project.id
+    );
     await writeFileAtomic(
         path,
         serializeProject(withRelativeSource(project, path))

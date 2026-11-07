@@ -25,6 +25,7 @@ import { ALL_SUPPLIERS, sortSuppliers } from "./suppliers";
 export function createProject(): Project {
     return {
         schemaVersion: PROJECT_SCHEMA_VERSION,
+        id: crypto.randomUUID(),
         source: { kind: "manual" },
         suppliers: [],
         customColumns: [],

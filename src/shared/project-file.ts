@@ -1,6 +1,6 @@
 // The .eezbom project file: the Project as JSON, without the collected
-// supplier data, which is kept on the computer (main/project/
-// supplier-data.ts). When the format changes, bump PROJECT_SCHEMA_VERSION,
+// supplier data and the prices typed for suppliers without an API, which
+// are kept on the computer (main/project/supplier-data.ts). When the format changes, bump PROJECT_SCHEMA_VERSION,
 // update the schema below and add a migration from the previous version to
 // MIGRATIONS, with a test using an old file.
 
@@ -10,7 +10,9 @@ import {
     MAX_MANUAL_PRICE_BREAKS,
     PROJECT_SCHEMA_VERSION,
     SUPPLIER_IDS,
+    type BomRow,
     type CollectedData,
+    type ManualOffer,
     type Project
 } from "./model";
 
@@ -22,6 +24,28 @@ export class ProjectFileError extends Error {
 
 const supplierId = z.enum(SUPPLIER_IDS);
 
+const manualOfferSchema = z.object({
+    partNumber: z.string().optional(),
+    unitPrice: z.number().nonnegative().optional(),
+    priceBreaks: z
+        .array(
+            z.object({
+                qty: z.number().gt(1),
+                unitPrice: z.number().nonnegative()
+            })
+        )
+        .max(MAX_MANUAL_PRICE_BREAKS)
+        .refine(
+            breaks =>
+                breaks.every((b, i) => i === 0 || b.qty > breaks[i - 1]!.qty),
+            "price break quantities must go up"
+        )
+        .optional(),
+    stock: z.number().nonnegative().optional(),
+    moq: z.number().positive().optional(),
+    oneTime: z.literal(true).optional()
+});
+
 const rowSchema = z.object({
     id: z.string().min(1),
     reference: z.string(),
@@ -30,35 +54,126 @@ const rowSchema = z.object({
     footprint: z.string(),
     partNumbers: z.partialRecord(supplierId, z.string()),
     custom: z.record(z.string(), z.union([z.string(), z.number()])),
-    manual: z
-        .record(
-            z.string(),
-            z.object({
-                partNumber: z.string().optional(),
-                unitPrice: z.number().nonnegative().optional(),
-                priceBreaks: z
-                    .array(
-                        z.object({
-                            qty: z.number().gt(1),
-                            unitPrice: z.number().nonnegative()
-                        })
-                    )
-                    .max(MAX_MANUAL_PRICE_BREAKS)
-                    .refine(
-                        breaks =>
-                            breaks.every(
-                                (b, i) => i === 0 || b.qty > breaks[i - 1]!.qty
-                            ),
-                        "price break quantities must go up"
-                    )
-                    .optional(),
-                stock: z.number().nonnegative().optional(),
-                moq: z.number().positive().optional(),
-                oneTime: z.literal(true).optional()
-            })
-        )
-        .optional()
+    manual: z.record(z.string(), manualOfferSchema).optional()
 });
+
+/**
+ * What's typed for a supplier without an API that's kept on the computer,
+ * not in the file (#68): its prices, stock and MOQ, which the suppliers'
+ * customers may not want to publish. Its part number and whether it's a
+ * one-time item stay in the file, like the other suppliers' part numbers.
+ */
+export const MANUAL_PRICE_FIELDS = [
+    "unitPrice",
+    "priceBreaks",
+    "stock",
+    "moq"
+] as const;
+
+export type ManualPriceFields = Pick<
+    ManualOffer,
+    (typeof MANUAL_PRICE_FIELDS)[number]
+>;
+
+/** By row id, then by the id of the supplier without an API. */
+export type ManualPrices = Record<string, Record<string, ManualPriceFields>>;
+
+export const manualPricesSchema: z.ZodType<ManualPrices> = z.record(
+    z.string(),
+    z.record(
+        z.string(),
+        manualOfferSchema.pick({
+            unitPrice: true,
+            priceBreaks: true,
+            stock: true,
+            moq: true
+        })
+    )
+);
+
+function priceFields(offer: ManualOffer): ManualPriceFields | null {
+    const fields: ManualPriceFields = {};
+    for (const field of MANUAL_PRICE_FIELDS) {
+        if (offer[field] !== undefined) {
+            (fields as Record<string, unknown>)[field] = offer[field];
+        }
+    }
+    return Object.keys(fields).length > 0 ? fields : null;
+}
+
+/** The prices, stock and MOQ typed for suppliers without an API (#68). */
+export function manualPricesOf(project: Project): ManualPrices {
+    const prices: ManualPrices = {};
+    for (const row of project.rows) {
+        for (const [supplier, offer] of Object.entries(row.manual ?? {})) {
+            const fields = priceFields(offer);
+            if (fields) {
+                (prices[row.id] ??= {})[supplier] = fields;
+            }
+        }
+    }
+    return prices;
+}
+
+export function hasManualPrices(project: Project): boolean {
+    return Object.keys(manualPricesOf(project)).length > 0;
+}
+
+/** The project without them, as the file has it. */
+export function withoutManualPrices(project: Project): Project {
+    if (!hasManualPrices(project)) {
+        return project;
+    }
+    return {
+        ...project,
+        rows: project.rows.map(row => {
+            if (!row.manual) {
+                return row;
+            }
+            const manual: Record<string, ManualOffer> = {};
+            for (const [supplier, offer] of Object.entries(row.manual)) {
+                const kept: ManualOffer = { ...offer };
+                for (const field of MANUAL_PRICE_FIELDS) {
+                    delete kept[field];
+                }
+                if (Object.keys(kept).length > 0) {
+                    manual[supplier] = kept;
+                }
+            }
+            if (Object.keys(manual).length > 0) {
+                return { ...row, manual };
+            }
+            const next: BomRow = { ...row };
+            delete next.manual;
+            return next;
+        })
+    };
+}
+
+/** The project with the prices kept on the computer, for its rows and
+ *  suppliers. */
+export function withManualPrices(
+    project: Project,
+    prices: ManualPrices
+): Project {
+    const suppliers = new Set(project.manualSuppliers.map(s => s.id));
+    let changed = false;
+    const rows = project.rows.map(row => {
+        const kept = Object.entries(prices[row.id] ?? {}).filter(([supplier]) =>
+            suppliers.has(supplier)
+        );
+        if (kept.length === 0) {
+            return row;
+        }
+        changed = true;
+        const manual = { ...row.manual };
+        for (const [supplier, fields] of kept) {
+            manual[supplier] = { ...manual[supplier], ...fields };
+        }
+        return { ...row, manual };
+    });
+    return changed ? { ...project, rows } : project;
+}
 
 const offerSchema = z.object({
     supplierPartNumber: z.string(),
@@ -134,6 +249,7 @@ export const collectedSchema = z.object({
 const projectSchema: z.ZodType<Project> = z
     .object({
         schemaVersion: z.literal(PROJECT_SCHEMA_VERSION),
+        id: z.string().min(1).optional(),
         source: z.object({
             kind: z.enum(["manual", "csv", "kicad"]),
             path: z.string().optional(),
@@ -192,7 +308,11 @@ const MIGRATIONS: Partial<Record<number, Migration>> = {
     5: data => data,
     // Version 7 adds price breaks (#51) and one-time items (#53) to
     // suppliers without an API.
-    6: data => data
+    6: data => data,
+    // Version 8 leaves out the prices, stock and MOQ typed for suppliers
+    // without an API (#68), and adds the BOM's id. An older file's prices
+    // are still read, for main to move them out.
+    7: data => data
 };
 
 const NO_COLLECTED_DATA = { results: {}, runs: {} };
@@ -253,10 +373,17 @@ export function validateProject(data: unknown): Project {
     return result.data;
 }
 
-/** The file's text: the project without its collected supplier data. */
+/** The file's text: the project without its collected supplier data and
+ *  the prices of suppliers without an API (#68). */
 export function serializeProject(project: Project): string {
     // JSON leaves out undefined properties.
-    return JSON.stringify({ ...project, collected: undefined }, null, 2) + "\n";
+    return (
+        JSON.stringify(
+            { ...withoutManualPrices(project), collected: undefined },
+            null,
+            2
+        ) + "\n"
+    );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

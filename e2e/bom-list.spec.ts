@@ -71,7 +71,6 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
         ]),
         "Shop"
     );
-    shop.project.rows[1]!.manual = { [shop.supplier.id]: { unitPrice: 0.5 } };
     await writeFile(psu, serializeProject(shop.project));
     await writeFile(
         mcu,
@@ -85,8 +84,19 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
     // Both BOMs were collected before, psu later.
     const userData = await mkdtemp(join(tmpdir(), "eez-bom-list-profile-"));
     const supplierData = join(userData, SUPPLIER_DATA_FOLDER);
-    await writeSupplierData(supplierData, psu, d1("2026-10-02T10:00:00Z"));
-    await writeSupplierData(supplierData, mcu, d1("2026-10-01T10:00:00Z"));
+    await writeSupplierData(supplierData, psu, {
+        collected: d1("2026-10-02T10:00:00Z"),
+        // C1's price at the shop is kept there too, not in the file (#68).
+        manual: {
+            [shop.project.rows[1]!.id]: {
+                [shop.supplier.id]: { unitPrice: 0.5 }
+            }
+        }
+    });
+    await writeSupplierData(supplierData, mcu, {
+        collected: d1("2026-10-01T10:00:00Z"),
+        manual: {}
+    });
     const { app, page } = await launchApp({ userData });
     try {
         // A new list gets a history BOM next to it.
