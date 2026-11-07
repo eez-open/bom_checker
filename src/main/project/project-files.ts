@@ -9,6 +9,7 @@ import {
     parseProjectFile,
     serializeProject
 } from "../../shared/project-file";
+import { dialogStart, rememberFolder } from "../dialog-folders";
 import { showError } from "../dialogs";
 import { writeFileAtomic } from "../files";
 import { log } from "../logging";
@@ -97,12 +98,15 @@ export async function pickProjectFiles(
 ): Promise<string[] | null> {
     const result = await dialog.showOpenDialog(window, {
         title,
+        defaultPath: dialogStart("bom"),
         filters: FILTERS,
         properties: multiple ? ["openFile", "multiSelections"] : ["openFile"]
     });
-    return result.canceled || result.filePaths.length === 0
-        ? null
-        : result.filePaths;
+    if (result.canceled || result.filePaths.length === 0) {
+        return null;
+    }
+    rememberFolder("bom", result.filePaths[0]!);
+    return result.filePaths;
 }
 
 /** Reads a BOM; shows why when it can't. */
@@ -136,7 +140,12 @@ export async function saveProject(
             // Only a name is taken from the renderer, never a folder.
             defaultPath:
                 filePath ??
-                basename(suggestedName ?? `Untitled.${PROJECT_FILE_EXTENSION}`),
+                dialogStart(
+                    "bom",
+                    basename(
+                        suggestedName ?? `Untitled.${PROJECT_FILE_EXTENSION}`
+                    )
+                ),
             filters: FILTERS.slice(0, 1)
         });
         if (result.canceled || !result.filePath) {
@@ -147,6 +156,7 @@ export async function saveProject(
             extname(result.filePath) === ""
                 ? `${result.filePath}.${PROJECT_FILE_EXTENSION}`
                 : result.filePath;
+        rememberFolder("bom", target);
     }
     try {
         await writeBomFile(target, project);

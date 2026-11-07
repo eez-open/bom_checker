@@ -71,7 +71,7 @@ The LCSC column takes LCSC part numbers (C2040) or manufacturer part numbers. Pr
 
 ## Creating a BOM
 
-The app starts on a start page: **Open BOM…**, or drop a file on the window (a BOM `.eezbom`, a KiCad project `.kicad_pro` or a CSV file). Below are the **recent documents**: BOMs you opened or saved, and the files you imported from. Click one to open it again; the × that appears on hover removes it from the list. The same list is in **File → Open Recent**. **File → Close** (Ctrl+W) goes back to the start page.
+The app starts on a start page: **Open BOM…**, or drop a file on the window (a BOM `.eezbom`, a KiCad project `.kicad_pro` or a CSV file). Below are the **recent documents**: BOMs you opened or saved, and the files you imported from. Click one to open it again; the × that appears on hover removes it from the list. The same list is in **File → Open Recent**. **File → Close** (Ctrl+W) goes back to the start page. File dialogs open in the folder of the file last chosen in one of their kind, also after a restart: one folder for BOMs and BOM lists (open, save, new list, add BOMs), one for CSV files, one for KiCad projects and one for exports and saved pictures.
 
 ### By hand
 

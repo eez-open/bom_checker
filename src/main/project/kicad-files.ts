@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { dialog, type BrowserWindow } from "electron";
 import type { KicadProjectData } from "../../shared/ipc";
+import { dialogStart, rememberFolder } from "../dialog-folders";
 import { showError } from "../dialogs";
 import { loadKicadProject } from "../kicad/project";
 import { log } from "../logging";
@@ -14,6 +15,7 @@ export async function openKicadProject(
 ): Promise<KicadProjectData | null> {
     const result = await dialog.showOpenDialog(window, {
         title: "Import KiCad project",
+        defaultPath: dialogStart("kicad"),
         filters: [
             { name: "KiCad project", extensions: ["kicad_pro"] },
             { name: "All files", extensions: ["*"] }
@@ -24,6 +26,7 @@ export async function openKicadProject(
     if (result.canceled || !projectPath) {
         return null;
     }
+    rememberFolder("kicad", projectPath);
     return readKicadProject(window, projectPath);
 }
 

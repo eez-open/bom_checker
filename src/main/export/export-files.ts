@@ -1,6 +1,7 @@
 import { basename, extname } from "node:path";
 import { dialog, shell, type BrowserWindow } from "electron";
 import type { ExportFormat, ExportSheet } from "../../shared/export";
+import { dialogStart, rememberFolder } from "../dialog-folders";
 import { showError } from "../dialogs";
 import { writeFileAtomic } from "../files";
 import { log } from "../logging";
@@ -24,7 +25,10 @@ export async function saveExport(
 ): Promise<string | null> {
     const result = await dialog.showSaveDialog(window, {
         title: "Export BOM",
-        defaultPath: `${basename(suggestedName)}.${format}`,
+        defaultPath: dialogStart(
+            "export",
+            `${basename(suggestedName)}.${format}`
+        ),
         filters: [FILTERS[format]]
     });
     if (result.canceled || !result.filePath) {
@@ -34,6 +38,7 @@ export async function saveExport(
         extname(result.filePath) === ""
             ? `${result.filePath}.${format}`
             : result.filePath;
+    rememberFolder("export", path);
     try {
         await writeFileAtomic(
             path,
@@ -71,7 +76,7 @@ export async function saveImage(
 ): Promise<string | null> {
     const result = await dialog.showSaveDialog(window, {
         title: "Save Picture",
-        defaultPath: `${basename(suggestedName)}.png`,
+        defaultPath: dialogStart("export", `${basename(suggestedName)}.png`),
         filters: [{ name: "PNG image", extensions: ["png"] }]
     });
     if (result.canceled || !result.filePath) {
@@ -81,6 +86,7 @@ export async function saveImage(
         extname(result.filePath) === ""
             ? `${result.filePath}.png`
             : result.filePath;
+    rememberFolder("export", path);
     try {
         await writeFileAtomic(path, png);
         exported.add(path);
