@@ -151,7 +151,8 @@ export function cell(page: Page, rowIndex: number | string, columnId: string) {
  * on a busy machine the grid sometimes misses a hover.
  */
 export async function tooltipOf(page: Page, target: Locator): Promise<Locator> {
-    const tooltip = page.locator(".ag-tooltip");
+    // Not one that's still fading out, e.g. an editor's.
+    const tooltip = page.locator(".ag-tooltip:not(.ag-tooltip-hiding)");
     await expect(async () => {
         await page.mouse.move(0, 0);
         await target.hover();
