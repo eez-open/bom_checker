@@ -1330,3 +1330,10 @@ path.cost-slice {
     width: 220px;
     margin-right: 12px;
 }
+
+/* Several options of a setting, e.g. Arrow's inventory sources (#62). */
+.checkbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}

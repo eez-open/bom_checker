@@ -117,6 +117,23 @@ function recentItems(): MenuItemConstructorOptions[] {
     ];
 }
 
+/** Ctrl+1 to Ctrl+4 for DigiKey to LCSC and Ctrl+5 for Best price, as
+ *  before Arrow, whose inventory sources come next (#62). */
+function columnsShortcut(group: ColumnGroup): string | undefined {
+    const order: ColumnGroup[] = [
+        "digikey",
+        "mouser",
+        "tme",
+        "lcsc",
+        "best",
+        ...COLUMN_GROUPS.filter(
+            g => !["digikey", "mouser", "tme", "lcsc", "best"].includes(g)
+        )
+    ];
+    const index = order.indexOf(group);
+    return index >= 0 && index < 9 ? `CmdOrCtrl+${index + 1}` : undefined;
+}
+
 function columnItems(): MenuItemConstructorOptions[] {
     const { availableColumns, hiddenColumns, tabs } = state;
     const name = (group: ColumnGroup) =>
@@ -133,13 +150,13 @@ function columnItems(): MenuItemConstructorOptions[] {
         }),
         { type: "separator" },
         // With tabs, they choose the tab.
-        ...COLUMN_GROUPS.map((group, index) =>
+        ...COLUMN_GROUPS.map(group =>
             command(`&${name(group)} Columns`, `toggle-columns:${group}`, {
                 id: `columns:${group}`,
                 type: tabs ? "radio" : "checkbox",
                 checked: !hiddenColumns.includes(group),
                 enabled: availableColumns.includes(group),
-                accelerator: `CmdOrCtrl+${index + 1}`
+                accelerator: columnsShortcut(group)
             })
         ),
         command("Show &All Columns", "show-all-columns", {

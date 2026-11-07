@@ -26,7 +26,7 @@ EEZ BOM checker takes a bill of materials (BOM) and checks every part at DigiKey
 
 ## Setting up supplier access
 
-The app reads supplier data through each supplier's API, with your own API credentials. Your credentials are stored encrypted on your computer, protected by a password you choose.
+The app reads supplier data through each supplier's API (DigiKey, Mouser, TME, LCSC and Arrow), with your own API credentials. Your credentials are stored encrypted on your computer, protected by a password you choose.
 
 1. Open **Settings** (toolbar, or Ctrl+,) and go to **Suppliers**.
 2. The first time, choose a password (at least 8 characters). You need it to change supplier settings, and once per session to collect data. **It can't be recovered**: if you forget it, *Forgot the password?* deletes the stored credentials so you can start over.
@@ -66,6 +66,17 @@ LCSC's API is free, but LCSC reviews each application, and it answers only calls
 4. LCSC sends a **Key** and a **Secret**. Enter them, set **API environment** to *Sandbox*, and click **Test connection**. New keys work only in the sandbox until LCSC activates them for production; switch to *Production* once they have.
 
 The LCSC column takes LCSC part numbers (C2040) or manufacturer part numbers. Prices are LCSC's standard prices in EUR or USD. LCSC allows about 60 requests per minute and 1,000 per day, one part per request. LCSC only says whether a part is on sale: *Active* or *Not orderable*.
+
+### Arrow
+
+Arrow's Pricing & Availability API needs a login and an API key from Arrow.
+
+1. Request access on [developers.arrow.com](https://developers.arrow.com/api/) (*Getting Started*). Arrow sends a **Login** and an **API key** for the Pricing & Availability API; the Order API has a key of its own, which doesn't work here.
+2. Enter them under **Arrow**, choose the **Inventory sources** you buy from, click **Save Arrow settings**, then **Test connection**.
+
+Arrow keeps stock in several **inventory sources**: Arrow Europe (EUROPE), Arrow North America (ACNA), Arrow Asia (ASIA) and the Verical marketplace (VERICAL). Each source you choose is a supplier of its own in the app, e.g. **Arrow (EUROPE)**: **Columns…** offers a part-number column for it, and it has its own stock, prices, Availability and place in the best price, so Arrow (EUROPE) and Arrow (ASIA) can be compared side by side. A part that's in Arrow's catalogue but not in a source's stock is *not found* there. The columns take manufacturer part numbers, as Arrow lists them; when Arrow has several packagings in a source, the one with the most stock is shown and the tooltip lists the others.
+
+Prices are Arrow's resale prices; with **Currency** EUR, Arrow converts prices from USD. **Part numbers per request** is 100 by default, the most Arrow's best practices name; Arrow's list search accepts up to 1000, so *1000* checks most BOMs in one request. Arrow's terms allow keeping its data for 48 hours only: older Arrow data is removed when the app starts and when a BOM is opened or saved, so collect again before ordering.
 
 **Request limits** for each supplier are preset to the supplier's published limits. The app spaces out requests and counts them per day, also across projects and restarts. Lower the limits if you share an API key with other tools.
 
@@ -151,9 +162,9 @@ Each supplier has a group of columns. Click the arrow in the group header to sho
 
 **Searching and filtering:** above the table, **Search** (Ctrl+F, or Edit → Find…) shows only the rows that contain the text in any column, e.g. a reference, a value or a part number; Escape clears it. In a BOM list, the search stays when another BOM is shown. Once supplier data has been collected, **Rows** shows only the rows where one supplier has the best price, or *Best price: None in stock* for the parts no supplier can deliver. While a filter is on, the Total row adds up the shown rows, and **Show all** turns the filters off. The Row column keeps each row's number in the BOM.
 
-To hide all columns of a supplier, or the Best price columns, uncheck them under **Columns** at the right of the bar above the table. Suppliers with an API and Best price are also in the **View** menu (Ctrl+1 to Ctrl+5). Hiding only changes the view: the data stays, still counts for the best price, and can still be exported. The status bar lists hidden groups, with **Show all** to bring them back. The app remembers hidden groups for next time.
+To hide all columns of a supplier, or the Best price columns, uncheck them under **Columns** at the right of the bar above the table. Suppliers with an API and Best price are also in the **View** menu: Ctrl+1 to Ctrl+4 for DigiKey, Mouser, TME and LCSC, Ctrl+5 for Best price, and Ctrl+6 to Ctrl+9 for Arrow's inventory sources. Hiding only changes the view: the data stays, still counts for the best price, and can still be exported. The status bar lists hidden groups, with **Show all** to bring them back. The app remembers hidden groups for next time.
 
-**Tabs:** to see one supplier at a time, tick **Tabs** at the right of the bar (or **View → Suppliers as Tabs**). Each supplier, and Best price, then has a tab above the table; the tab shows its columns with the BOM's own columns, and your own columns stay at the right. Ctrl+1 to Ctrl+5 choose the tab. The app remembers the layout and the tab.
+**Tabs:** to see one supplier at a time, tick **Tabs** at the right of the bar (or **View → Suppliers as Tabs**). Each supplier, and Best price, then has a tab above the table; the tab shows its columns with the BOM's own columns, and your own columns stay at the right. The same shortcuts choose the tab. The app remembers the layout and the tab.
 
 | Column | Meaning |
 |---|---|

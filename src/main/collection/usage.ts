@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
-import type { SupplierId } from "../../shared/model";
+import type { AccountId } from "../../shared/supplier-config";
 import { isFileNotFound, writeFileAtomic } from "../files";
 import type { DailyCounter } from "./rate-limiter";
 
-type UsageData = Partial<Record<SupplierId, { day: string; count: number }>>;
+type UsageData = Partial<Record<AccountId, { day: string; count: number }>>;
 
 /**
  * Requests sent per supplier today (usage.json). Daily limits apply to the
@@ -34,14 +34,14 @@ export class UsageStore {
         }
     }
 
-    used(supplier: SupplierId): number {
+    used(supplier: AccountId): number {
         const entry = this.data[supplier];
         return entry?.day === this.today() && Number.isFinite(entry.count)
             ? entry.count
             : 0;
     }
 
-    counter(supplier: SupplierId): DailyCounter {
+    counter(supplier: AccountId): DailyCounter {
         return {
             used: () => this.used(supplier),
             add: count => this.set(supplier, this.used(supplier) + count)
@@ -49,11 +49,7 @@ export class UsageStore {
     }
 
     /** Uses the supplier's own count of requests left today. */
-    setRemaining(
-        supplier: SupplierId,
-        remaining: number,
-        perDay: number
-    ): void {
+    setRemaining(supplier: AccountId, remaining: number, perDay: number): void {
         if (perDay > 0) {
             this.set(supplier, Math.max(0, perDay - remaining));
         }
@@ -71,7 +67,7 @@ export class UsageStore {
         return this.saving;
     }
 
-    private set(supplier: SupplierId, count: number): void {
+    private set(supplier: AccountId, count: number): void {
         this.data[supplier] = { day: this.today(), count };
         this.dirty = true;
     }

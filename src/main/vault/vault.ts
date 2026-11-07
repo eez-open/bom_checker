@@ -4,9 +4,12 @@ import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { app } from "electron";
 import type { SecretStatus, VaultState } from "../../shared/ipc";
-import { SUPPLIER_IDS, type SupplierId } from "../../shared/model";
 import { MIN_PASSWORD_LENGTH } from "../../shared/password";
-import { secretFields } from "../../shared/supplier-config";
+import {
+    ACCOUNT_IDS,
+    secretFields,
+    type AccountId
+} from "../../shared/supplier-config";
 import { isFileNotFound, writeFileAtomic } from "../files";
 import { log } from "../logging";
 import {
@@ -159,7 +162,7 @@ export function closeSettings(token: string): void {
 export function getSecretStatus(token: string): SecretStatus {
     checkSession(token);
     return Object.fromEntries(
-        SUPPLIER_IDS.map(supplier => [
+        ACCOUNT_IDS.map(supplier => [
             supplier,
             Object.fromEntries(
                 secretFields(supplier).map(field => [
@@ -175,7 +178,7 @@ export function getSecretStatus(token: string): SecretStatus {
  *  isn't set. */
 export function getSecret(
     token: string,
-    supplier: SupplierId,
+    supplier: AccountId,
     key: string
 ): string | null {
     checkSession(token);
@@ -191,7 +194,7 @@ export function getSecret(
 /** Sets (string) or removes (null) secrets of one supplier. */
 export async function saveSecrets(
     token: string,
-    supplier: SupplierId,
+    supplier: AccountId,
     changes: Record<string, string | null>
 ): Promise<void> {
     checkSession(token);
@@ -242,7 +245,7 @@ export async function changePassword(
 
 /** Secrets of one supplier, for collecting data; null while locked. */
 export function getSupplierSecrets(
-    supplier: SupplierId
+    supplier: AccountId
 ): Record<string, string> | null {
     return secrets ? { ...secrets[supplier] } : null;
 }

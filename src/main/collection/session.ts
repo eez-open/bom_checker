@@ -7,11 +7,15 @@ import {
     partNumberKey,
     type SupplierId
 } from "../../shared/model";
-import { SUPPLIER_SETTINGS } from "../../shared/supplier-config";
-import { SUPPLIERS } from "../../shared/suppliers";
+import {
+    SUPPLIER_SETTINGS,
+    arrowSources,
+    type AccountId
+} from "../../shared/supplier-config";
+import { ACCOUNT_NAMES, SUPPLIERS, accountOf } from "../../shared/suppliers";
 import { log } from "../logging";
 import { getSettings } from "../settings/settings-store";
-import { PLUGINS } from "../suppliers";
+import { PLUGINS, batchSizeOf } from "../suppliers";
 import { AuthError, type SupplierContext } from "../suppliers/types";
 import { getSupplierSecrets } from "../vault/vault";
 import { apiUrlOverride } from "./api-urls";
@@ -40,7 +44,8 @@ function limitsOf(config: Record<string, unknown>): RateLimits {
 
 /** Why `supplier` can't be collected now, or null. */
 function problemOf(supplier: SupplierId): string | null {
-    const secrets = getSupplierSecrets(supplier);
+    const account = accountOf(supplier);
+    const secrets = getSupplierSecrets(account);
     if (!secrets) {
         return "The stored credentials are locked.";
     }
@@ -50,7 +55,7 @@ function problemOf(supplier: SupplierId): string | null {
     if (missing.length === 0) {
         return null;
     }
-    const labels = SUPPLIER_SETTINGS[supplier].fields
+    const labels = SUPPLIER_SETTINGS[account].fields
         .filter(field => missing.includes(field.key))
         .map(field => field.label);
     return `Not set up: enter the ${labels.join(" and ")} in Settings.`;
@@ -63,15 +68,17 @@ export async function getReadiness(): Promise<
     const store = await usageStore();
     return Object.fromEntries(
         SUPPLIER_IDS.map(supplier => {
-            const { perDay } = limitsOf(settings.suppliers[supplier]);
+            const account = accountOf(supplier);
+            const config = settings.suppliers[account];
+            const { perDay } = limitsOf(config);
             const plugin = PLUGINS[supplier];
             const readiness: SupplierReadiness = {
                 problem: problemOf(supplier),
-                batchSize: plugin.batchSize,
+                batchSize: batchSizeOf(plugin, config),
                 requestsPerBatch: plugin.requestsPerBatch,
                 remainingToday:
                     perDay > 0
-                        ? Math.max(0, perDay - store.used(supplier))
+                        ? Math.max(0, perDay - store.used(account))
                         : null
             };
             return [supplier, readiness];
@@ -90,15 +97,17 @@ export async function openSupplierSession(
         throw new AuthError(problem);
     }
     const settings = await getSettings();
-    const config = settings.suppliers[supplier];
-    const secrets = getSupplierSecrets(supplier)!;
+    const account = accountOf(supplier);
+    const config = settings.suppliers[account];
+    const secrets = getSupplierSecrets(account)!;
     const store = await usageStore();
     const limits = limitsOf(config);
     const redactor = new Redactor();
     Object.values(secrets).forEach(value => redactor.add(value));
     const http = createHttp({
         name: SUPPLIERS[supplier].name,
-        limiter: new RateLimiter(limits, store.counter(supplier)),
+        // Arrow's sources count against Arrow's limits (#62).
+        limiter: new RateLimiter(limits, store.counter(account)),
         signal,
         redactor,
         logBodies: settings.general.logApiResponses,
@@ -109,10 +118,10 @@ export async function openSupplierSession(
         secrets,
         http,
         signal,
-        baseUrl: defaultUrl => apiUrlOverride(supplier) ?? defaultUrl,
+        baseUrl: defaultUrl => apiUrlOverride(account) ?? defaultUrl,
         addSecret: value => redactor.add(value),
         reportRemaining: remaining =>
-            store.setRemaining(supplier, remaining, limits.perDay)
+            store.setRemaining(account, remaining, limits.perDay)
     };
     return { context, close: () => store.flush() };
 }
@@ -123,12 +132,27 @@ const PRICE_KINDS = {
     unknown: "the supplier doesn't say whether these are your account's prices"
 };
 
+/** The supplier "Test connection" uses for an account: for Arrow, its
+ *  first inventory source chosen (#62). */
+async function testSupplier(account: AccountId): Promise<SupplierId> {
+    if (account !== "arrow") {
+        return account;
+    }
+    const settings = await getSettings();
+    const code = arrowSources(settings.suppliers.arrow)[0];
+    return (
+        SUPPLIER_IDS.find(id => SUPPLIERS[id].source === code) ?? "arrow-europe"
+    );
+}
+
 /** Looks up the plugin's test part number and describes what came back. */
 export async function testConnection(
-    supplier: SupplierId
+    account: AccountId
 ): Promise<ConnectionTest> {
+    const supplier = await testSupplier(account);
     const plugin = PLUGINS[supplier];
-    const name = SUPPLIERS[supplier].name;
+    const name =
+        account === "arrow" ? SUPPLIERS[supplier].name : ACCOUNT_NAMES[account];
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60_000);
     let session: SupplierSession | undefined;

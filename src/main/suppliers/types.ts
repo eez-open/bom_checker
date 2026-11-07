@@ -25,6 +25,8 @@ export interface SupplierPlugin {
     id: SupplierId;
     /** Part numbers per `lookup` call. */
     batchSize: number;
+    /** When the settings choose it (Arrow, #62). */
+    batchSizeFor?: (config: SupplierConfig) => number;
     /** HTTP requests per batch, for estimates shown before collecting. */
     requestsPerBatch: number;
     /** Secret fields that must be set before collecting. */

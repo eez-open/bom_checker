@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import { app, dialog, type BrowserWindow } from "electron";
 import type { OpenedProject, SaveOptions } from "../../shared/ipc";
+import { withoutExpired } from "../../shared/collection";
 import type { Project } from "../../shared/model";
 import {
     PROJECT_FILE_EXTENSION,
@@ -90,16 +91,19 @@ export async function readBomFile(path: string): Promise<OpenedProject> {
     const kept = await keptSupplierData(path, project.id!);
     const collectedInFile = hasCollectedData(project.collected);
     const pricesInFile = hasManualPrices(project);
+    const collected = collectedInFile ? project.collected : kept.data.collected;
     const data: SupplierData = {
-        collected: collectedInFile ? project.collected : kept.data.collected,
+        // Arrow's data only for 48 hours (#62).
+        collected: withoutExpired(collected, Date.now()),
         manual: pricesInFile ? manualPricesOf(project) : kept.data.manual
     };
+    const expired = data.collected !== collected;
     const opened = withManualPrices(
         { ...project, collected: data.collected },
         pricesInFile ? {} : data.manual
     );
     const inFile = collectedInFile || pricesInFile;
-    if (inFile || kept.moved) {
+    if (inFile || kept.moved || expired) {
         try {
             await writeSupplierData(
                 supplierDataFolder(),
@@ -127,7 +131,10 @@ export async function writeBomFile(
     await writeSupplierData(
         supplierDataFolder(),
         path,
-        { collected: project.collected, manual: manualPricesOf(project) },
+        {
+            collected: withoutExpired(project.collected, Date.now()),
+            manual: manualPricesOf(project)
+        },
         project.id
     );
     await writeFileAtomic(

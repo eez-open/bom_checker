@@ -1,7 +1,18 @@
 // BOM data model shared by the main process and the UI. The project file
 // format (project-file.ts) stores exactly these types.
 
-export const SUPPLIER_IDS = ["digikey", "mouser", "tme", "lcsc"] as const;
+/** Suppliers with an API. Arrow has one per inventory source (#62), e.g.
+ *  "Arrow (EUROPE)", which share Arrow's settings. */
+export const SUPPLIER_IDS = [
+    "digikey",
+    "mouser",
+    "tme",
+    "lcsc",
+    "arrow-europe",
+    "arrow-acna",
+    "arrow-asia",
+    "arrow-verical"
+] as const;
 export type SupplierId = (typeof SUPPLIER_IDS)[number];
 
 export type ColumnType = "text" | "number";

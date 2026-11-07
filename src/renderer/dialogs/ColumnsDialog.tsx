@@ -18,7 +18,9 @@ import {
     supplierHasValues,
     validateColumnName
 } from "../../shared/project-ops";
+import { arrowSources } from "../../shared/supplier-config";
 import { ALL_SUPPLIERS, type SupplierInfo } from "../../shared/suppliers";
+import { useAppSettings } from "../store/settings";
 import { useDocument } from "../store/document";
 import { Modal } from "./Modal";
 
@@ -26,6 +28,17 @@ import { Modal } from "./Modal";
 
 export function ColumnsDialog({ onClose }: { onClose: () => void }) {
     const project = useDocument(state => state.project);
+    // Arrow's inventory sources chosen in Settings (#62), and any the BOM
+    // has anyway.
+    const sources = useAppSettings(state =>
+        arrowSources(state.settings.suppliers.arrow).join(",")
+    ).split(",");
+    const offered = ALL_SUPPLIERS.filter(
+        supplier =>
+            !supplier.source ||
+            sources.includes(supplier.source) ||
+            project.suppliers.includes(supplier.id)
+    );
 
     return (
         <Modal
@@ -41,7 +54,7 @@ export function ColumnsDialog({ onClose }: { onClose: () => void }) {
             <section>
                 <h3>Supplier part numbers</h3>
                 <div className="supplier-options">
-                    {ALL_SUPPLIERS.map(supplier => (
+                    {offered.map(supplier => (
                         <SupplierOption
                             key={supplier.id}
                             supplier={supplier}
@@ -49,6 +62,10 @@ export function ColumnsDialog({ onClose }: { onClose: () => void }) {
                         />
                     ))}
                 </div>
+                <p className="muted">
+                    Arrow&apos;s inventory sources, e.g. Arrow (EUROPE), are
+                    chosen in Settings → Suppliers → Arrow.
+                </p>
             </section>
             <section>
                 <h3>Suppliers without an API</h3>

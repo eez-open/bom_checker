@@ -7,6 +7,7 @@ import {
     summarizeRun,
     supplierWork,
     valueMatches,
+    withoutExpired,
     withoutResults
 } from "./collection";
 import { digikeyLifecycle, mouserLifecycle, tmeLifecycle } from "./lifecycle";
@@ -376,5 +377,32 @@ describe("forgetting the data of rows (#40)", () => {
         // Row 3 has the same part number as row 1.
         expect(collectedKeysOf({ ...project, collected }, ids(3)).rows).toBe(0);
         expect(withoutResults(collected, keys)).toBe(collected);
+    });
+});
+
+describe("expired supplier data (#62)", () => {
+    it("drops Arrow's results older than 48 hours, keeps the others", () => {
+        const at = (fetchedAt: string): LookupResult => ({
+            status: "notFound",
+            runId: "r",
+            fetchedAt
+        });
+        const now = Date.parse("2026-11-07T12:00:00Z");
+        const collected = {
+            results: {
+                "arrow-europe": {
+                    OLD: at("2026-11-05T11:59:00Z"),
+                    NEW: at("2026-11-05T12:01:00Z")
+                },
+                mouser: { OLD: at("2026-01-01T00:00:00Z") }
+            },
+            runs: {}
+        };
+        expect(withoutExpired(collected, now).results).toEqual({
+            "arrow-europe": { NEW: at("2026-11-05T12:01:00Z") },
+            mouser: { OLD: at("2026-01-01T00:00:00Z") }
+        });
+        const fresh = withoutExpired(collected, now);
+        expect(withoutExpired(fresh, now)).toBe(fresh);
     });
 });

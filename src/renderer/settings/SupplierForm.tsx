@@ -1,14 +1,14 @@
 import { useEffect, useId, useState } from "react";
 import type { ConnectionTest, SecretChanges } from "../../shared/ipc";
-import type { SupplierId } from "../../shared/model";
 import type { AppSettings } from "../../shared/settings";
 import {
     SUPPLIER_SETTINGS,
     validateSupplierConfig,
+    type AccountId,
     type ConfigField,
     type SupplierConfig
 } from "../../shared/supplier-config";
-import { SUPPLIERS } from "../../shared/suppliers";
+import { ACCOUNT_NAMES } from "../../shared/suppliers";
 import { errorMessage, isSettingsLocked } from "../errors";
 import { CheckIcon, CopyIcon, EyeIcon, EyeOffIcon } from "../icons";
 
@@ -19,7 +19,8 @@ const GROUPS = [
 ] as const;
 
 interface SupplierFormProps {
-    supplier: SupplierId;
+    /** Arrow's inventory sources share Arrow's settings (#62). */
+    supplier: AccountId;
     token: string;
     config: SupplierConfig;
     /** Which secret fields have a stored value. */
@@ -201,7 +202,7 @@ export function SupplierForm({
                                         )
                                     }
                                 >
-                                    Get {SUPPLIERS[supplier].name} API access
+                                    Get {ACCOUNT_NAMES[supplier]} API access
                                 </button>
                             </p>
                         )}
@@ -267,7 +268,7 @@ export function SupplierForm({
                     className="primary"
                     disabled={!changed || Object.keys(errors).length > 0}
                 >
-                    Save {SUPPLIERS[supplier].name} settings
+                    Save {ACCOUNT_NAMES[supplier]} settings
                 </button>
             </div>
             {test && test !== "running" && (
@@ -394,6 +395,48 @@ function ConfigInput({
     onChange: (value: string) => void;
 }) {
     const id = useId();
+    if (field.kind === "multiselect") {
+        // Checkboxes, saved as "A,B" in the options' order.
+        const chosen = new Set(value.split(",").filter(Boolean));
+        return (
+            <div className="form-row">
+                <span id={id}>{field.label}</span>
+                <div className="form-field">
+                    <div
+                        className="checkbox-list"
+                        role="group"
+                        aria-labelledby={id}
+                    >
+                        {field.options.map(option => (
+                            <label key={option.value} className="checkbox">
+                                <input
+                                    type="checkbox"
+                                    checked={chosen.has(option.value)}
+                                    onChange={event => {
+                                        const next = new Set(chosen);
+                                        if (event.target.checked) {
+                                            next.add(option.value);
+                                        } else {
+                                            next.delete(option.value);
+                                        }
+                                        onChange(
+                                            field.options
+                                                .map(o => o.value)
+                                                .filter(v => next.has(v))
+                                                .join(",")
+                                        );
+                                    }}
+                                />
+                                {option.label}
+                            </label>
+                        ))}
+                    </div>
+                    {error && <div className="field-error">{error}</div>}
+                    {field.help && <div className="muted">{field.help}</div>}
+                </div>
+            </div>
+        );
+    }
     return (
         <div className="form-row">
             <label htmlFor={id}>{field.label}</label>

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import type { SecretStatus, VaultState } from "../../shared/ipc";
-import type { SupplierId } from "../../shared/model";
 import {
     DECIMAL_SEPARATORS,
     numberLocale,
@@ -8,7 +7,8 @@ import {
     type DecimalSeparator
 } from "../../shared/numbers";
 import type { AppSettings } from "../../shared/settings";
-import { ALL_SUPPLIERS, SUPPLIERS } from "../../shared/suppliers";
+import { ACCOUNT_IDS, type AccountId } from "../../shared/supplier-config";
+import { ACCOUNT_NAMES, SUPPLIERS } from "../../shared/suppliers";
 import { Modal } from "../dialogs/Modal";
 import { errorMessage, isSettingsLocked } from "../errors";
 import { setAppSettings, useAppSettings } from "../store/settings";
@@ -258,7 +258,8 @@ function PasswordGate({ onOpened }: { onOpened: (token: string) => void }) {
     );
 }
 
-type Section = SupplierId;
+/** Arrow's inventory sources share Arrow's settings (#62). */
+type Section = AccountId;
 
 function SuppliersPanel({
     token,
@@ -295,9 +296,10 @@ function SuppliersPanel({
             .catch((caught: unknown) => setError(errorMessage(caught)));
     }, [token]);
 
-    const sections: { id: Section; label: string }[] = ALL_SUPPLIERS.map(
-        supplier => ({ id: supplier.id, label: supplier.name })
-    );
+    const sections: { id: Section; label: string }[] = ACCOUNT_IDS.map(id => ({
+        id,
+        label: ACCOUNT_NAMES[id]
+    }));
 
     return (
         <div className="settings-split">

@@ -1,8 +1,38 @@
 // Settings each supplier needs. The Settings dialog is generated from these
 // definitions; main validates against them. Fields of kind "secret" are
 // stored only in the encrypted vault and never sent to the UI.
+//
+// Settings belong to an account: each supplier's own, except that Arrow's
+// inventory sources ("Arrow (EUROPE)", …) share Arrow's (#62).
 
 import { SUPPLIER_IDS, type SupplierId } from "./model";
+
+/** What has settings and credentials. */
+export const ACCOUNT_IDS = [
+    "digikey",
+    "mouser",
+    "tme",
+    "lcsc",
+    "arrow"
+] as const;
+export type AccountId = (typeof ACCOUNT_IDS)[number];
+
+export function isAccountId(value: unknown): value is AccountId {
+    return ACCOUNT_IDS.includes(value as AccountId);
+}
+
+/** Arrow's inventory sources (#62): the `sourceCd` of its API, and the
+ *  supplier each one is in the BOM. API keys search these four. */
+export const ARROW_SOURCES = [
+    { code: "EUROPE", supplier: "arrow-europe", label: "Arrow Europe" },
+    { code: "ACNA", supplier: "arrow-acna", label: "Arrow North America" },
+    { code: "ASIA", supplier: "arrow-asia", label: "Arrow Asia" },
+    { code: "VERICAL", supplier: "arrow-verical", label: "Verical marketplace" }
+] as const satisfies readonly {
+    code: string;
+    supplier: SupplierId;
+    label: string;
+}[];
 
 export type ConfigValue = string | number;
 export type SupplierConfig = Record<string, ConfigValue>;
@@ -26,6 +56,12 @@ export type ConfigField =
       })
     | (FieldBase & {
           kind: "select";
+          default: string;
+          options: readonly { value: string; label: string }[];
+      })
+    | (FieldBase & {
+          /** Several of the options, as "A,B"; at least one. */
+          kind: "multiselect";
           default: string;
           options: readonly { value: string; label: string }[];
       });
@@ -96,7 +132,7 @@ const DIGIKEY_SITES = [
     ["US", "United States"]
 ].map(([value, label]) => ({ value: value!, label: `${label} (${value})` }));
 
-export const SUPPLIER_SETTINGS: Record<SupplierId, SupplierSettingsInfo> = {
+export const SUPPLIER_SETTINGS: Record<AccountId, SupplierSettingsInfo> = {
     digikey: {
         docsUrl: "https://developer.digikey.com/",
         fields: [
@@ -273,26 +309,82 @@ export const SUPPLIER_SETTINGS: Record<SupplierId, SupplierSettingsInfo> = {
                 perDay: 1000
             })
         ]
+    },
+    arrow: {
+        docsUrl: "https://developers.arrow.com/api/",
+        fields: [
+            {
+                key: "login",
+                label: "Login",
+                kind: "secret",
+                group: "credentials",
+                help: "The login of your Pricing & Availability API key, from developers.arrow.com."
+            },
+            {
+                key: "apiKey",
+                label: "API key",
+                kind: "secret",
+                group: "credentials",
+                help: "The Pricing & Availability API key, not the Order API key."
+            },
+            {
+                key: "sources",
+                label: "Inventory sources",
+                kind: "multiselect",
+                group: "options",
+                default: "EUROPE",
+                options: ARROW_SOURCES.map(source => ({
+                    value: source.code,
+                    label: `${source.label} (${source.code})`
+                })),
+                help: "Each one is a supplier of its own, e.g. Arrow (EUROPE), with its own part-number column, stock and prices."
+            },
+            {
+                key: "currency",
+                label: "Currency",
+                kind: "select",
+                group: "options",
+                default: "EUR",
+                options: [
+                    { value: "EUR", label: "EUR" },
+                    { value: "USD", label: "USD" }
+                ],
+                help: "Arrow converts prices from USD."
+            },
+            {
+                key: "partsPerRequest",
+                label: "Part numbers per request",
+                kind: "select",
+                group: "limits",
+                default: "100",
+                options: ["10", "20", "50", "100", "1000"].map(value => ({
+                    value,
+                    label: value === "1000" ? "1000 (all of most BOMs)" : value
+                })),
+                help: "Arrow's best practices say up to 100; its list search accepts up to 1000."
+            },
+            ...rateLimitFields({ minIntervalMs: 1000, perMinute: 0, perDay: 0 })
+        ]
     }
 };
 
-export function secretFields(supplier: SupplierId): ConfigField[] {
-    return SUPPLIER_SETTINGS[supplier].fields.filter(f => f.kind === "secret");
+export function secretFields(account: AccountId): ConfigField[] {
+    return SUPPLIER_SETTINGS[account].fields.filter(f => f.kind === "secret");
 }
 
-export function defaultSupplierConfig(supplier: SupplierId): SupplierConfig {
-    return normalizeSupplierConfig(supplier, {});
+export function defaultSupplierConfig(account: AccountId): SupplierConfig {
+    return normalizeSupplierConfig(account, {});
 }
 
 /** Takes valid values from `raw` and defaults for the rest; secrets and
  *  unknown keys are dropped. Used for files written by older versions. */
 export function normalizeSupplierConfig(
-    supplier: SupplierId,
+    account: AccountId,
     raw: unknown
 ): SupplierConfig {
     const values = isRecord(raw) ? raw : {};
     const config: SupplierConfig = {};
-    for (const field of SUPPLIER_SETTINGS[supplier].fields) {
+    for (const field of SUPPLIER_SETTINGS[account].fields) {
         if (field.kind !== "secret") {
             const value = values[field.key];
             config[field.key] =
@@ -306,11 +398,11 @@ export function normalizeSupplierConfig(
 
 /** Errors by field key; empty when `config` can be saved. */
 export function validateSupplierConfig(
-    supplier: SupplierId,
+    account: AccountId,
     config: Record<string, unknown>
 ): Record<string, string> {
     const errors: Record<string, string> = {};
-    for (const field of SUPPLIER_SETTINGS[supplier].fields) {
+    for (const field of SUPPLIER_SETTINGS[account].fields) {
         const error =
             field.kind === "secret"
                 ? null
@@ -337,6 +429,15 @@ function fieldError(field: ConfigField, value: unknown): string | null {
             return field.options.some(option => option.value === value)
                 ? null
                 : "Choose a value.";
+        case "multiselect": {
+            const chosen = typeof value === "string" ? value.split(",") : [];
+            return chosen.length > 0 &&
+                chosen.every(part =>
+                    field.options.some(option => option.value === part)
+                )
+                ? null
+                : "Choose at least one.";
+        }
         case "number":
             if (typeof value !== "number" || !Number.isInteger(value)) {
                 return "Enter a whole number.";
@@ -353,4 +454,12 @@ export function isSupplierId(value: unknown): value is SupplierId {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** The Arrow inventory sources chosen in Arrow's settings (#62). */
+export function arrowSources(config: SupplierConfig | undefined): string[] {
+    const chosen = String(config?.sources ?? "").split(",");
+    return ARROW_SOURCES.map(source => source.code).filter(code =>
+        chosen.includes(code)
+    );
 }

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { z } from "zod";
+import { withoutExpired } from "../../shared/collection";
 import type { CollectedData } from "../../shared/model";
 import {
     collectedSchema,
@@ -147,4 +148,44 @@ export async function writeSupplierData(
             manual: data.manual
         }) + "\n"
     );
+}
+
+/**
+ * Removes data older than its supplier's terms allow (#62: Arrow's, 48
+ * hours) from every file in `folder`, also of BOMs that aren't opened
+ * again. Files that can't be read are left alone. Returns how many files
+ * changed.
+ */
+export async function pruneSupplierData(
+    folder: string,
+    now: number
+): Promise<number> {
+    let names: string[];
+    try {
+        names = await readdir(folder);
+    } catch {
+        return 0;
+    }
+    let changed = 0;
+    for (const name of names.filter(name => name.endsWith(".json"))) {
+        const file = join(folder, name);
+        try {
+            const cache = cacheSchema.parse(
+                JSON.parse(await readFile(file, "utf8"))
+            );
+            const collected = withoutExpired(cache.collected, now);
+            if (collected !== cache.collected) {
+                await writeSupplierData(
+                    folder,
+                    cache.bomPath,
+                    { collected, manual: cache.manual ?? {} },
+                    cache.bomId
+                );
+                changed++;
+            }
+        } catch {
+            // Damaged or being written: left for when it's read.
+        }
+    }
+    return changed;
 }

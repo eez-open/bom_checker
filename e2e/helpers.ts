@@ -183,6 +183,13 @@ export async function setUpCredentials(page: Page) {
                 Token: FAKE_CREDENTIALS.tme.token,
                 "App secret": FAKE_CREDENTIALS.tme.appSecret
             }
+        ],
+        [
+            "Arrow",
+            {
+                Login: FAKE_CREDENTIALS.arrow.login,
+                "API key": FAKE_CREDENTIALS.arrow.apiKey
+            }
         ]
     ];
     for (const [supplier, fields] of suppliers) {

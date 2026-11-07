@@ -6,6 +6,7 @@ import type { CollectedData } from "../../shared/model";
 import {
     findSupplierData,
     noSupplierData,
+    pruneSupplierData,
     readSupplierData,
     supplierDataFile,
     writeSupplierData,
@@ -114,5 +115,36 @@ describe("supplier data kept on the computer", () => {
         await expect(
             readSupplierData(store, "/boms/psu.eezbom")
         ).rejects.toThrow();
+    });
+});
+
+describe("expired supplier data (#62)", () => {
+    it("is removed from every BOM's file", async () => {
+        const store = await folder();
+        const now = Date.parse("2026-11-07T12:00:00Z");
+        const arrow: CollectedData = {
+            results: {
+                "arrow-europe": {
+                    BAV99: {
+                        status: "notFound",
+                        runId: "r",
+                        fetchedAt: "2026-11-01T00:00:00Z"
+                    }
+                }
+            },
+            runs: {}
+        };
+        await writeSupplierData(store, "/boms/old.eezbom", {
+            collected: arrow,
+            manual: data.manual
+        });
+        await writeSupplierData(store, "/boms/psu.eezbom", data);
+        expect(await pruneSupplierData(store, now)).toBe(1);
+        expect(await readSupplierData(store, "/boms/old.eezbom")).toEqual({
+            collected: { results: { "arrow-europe": {} }, runs: {} },
+            manual: data.manual
+        });
+        expect(await readSupplierData(store, "/boms/psu.eezbom")).toEqual(data);
+        expect(await pruneSupplierData(store, now)).toBe(0);
     });
 });

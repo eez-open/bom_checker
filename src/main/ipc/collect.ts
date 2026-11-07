@@ -2,6 +2,7 @@ import type { BrowserWindow } from "electron";
 import { z } from "zod";
 import { IpcChannel, type CollectEvent } from "../../shared/ipc";
 import { SUPPLIER_IDS } from "../../shared/model";
+import { ACCOUNT_IDS } from "../../shared/supplier-config";
 import { realClock } from "../collection/clock";
 import { CollectionEngine } from "../collection/engine";
 import {
@@ -65,6 +66,6 @@ export function registerCollectHandlers(): void {
 
     handle(IpcChannel.CollectTestConnection, (_context, token, supplier) => {
         checkSession(z.string().parse(token));
-        return testConnection(supplierId.parse(supplier));
+        return testConnection(z.enum(ACCOUNT_IDS).parse(supplier));
     });
 }
