@@ -179,12 +179,12 @@ export interface KicadProjectData {
 
 /** A BOM column to write into the KiCad project it was imported from. */
 export interface KicadUpdateColumn {
-    /** "pn:<supplier>" or "custom:<column id>". */
+    /** "value", "pn:<supplier>" or "custom:<column id>". */
     key: string;
     label: string;
     /** For a part-number column: its supplier's field is found by name. */
     supplier?: SupplierId;
-    /** For a custom column: the KiCad field of the same name. */
+    /** For Value and a custom column: the KiCad field of that name. */
     field?: string;
 }
 

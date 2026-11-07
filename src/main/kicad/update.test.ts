@@ -83,6 +83,54 @@ describe("updating a KiCad project", () => {
         ]);
     });
 
+    it("writes a changed Value, but never an empty one (#69)", async () => {
+        const design = await readKicadDesign(PROJECT, readGzipped);
+        const { table, rows } = await importedRows("Default");
+        const withValues = rows.map(row => ({
+            ...row,
+            values: {
+                ...row.values,
+                value: cellOf(table, row.reference.split(",")[0]!, "Value")
+            }
+        }));
+        const rowOf = (reference: string) =>
+            withValues.find(row =>
+                row.reference.split(",").includes(reference)
+            )!;
+        rowOf("C1").values.value = "1n 50V";
+        rowOf("C5").values.value = "";
+
+        const { plan, edits } = planKicadUpdate(design, {
+            projectPath: PROJECT,
+            variant: "Default",
+            columns: [
+                { key: "value", label: "Value", field: "Value" },
+                ...COLUMNS
+            ],
+            rows: withValues
+        });
+        expect(plan.changes).toEqual([
+            {
+                key: "value",
+                references: "C1,C2,C3,C4,C32,C59",
+                field: "Value",
+                from: "1n",
+                to: "1n 50V"
+            }
+        ]);
+        expect(plan.columns[0]).toMatchObject({ field: "Value", changes: 1 });
+
+        const changed = applyEdits(edits, original);
+        const after = await loadKicadProject(PROJECT, path =>
+            Promise.resolve(changed.get(path) ?? original.get(path)!)
+        );
+        const updated = after.variants.find(v => v.name === "Default")!.table;
+        expect(cellOf(updated, "C59", "Value")).toBe("1n 50V");
+        expect(cellOf(updated, "C5", "Value")).toBe(
+            cellOf(table, "C5", "Value")
+        );
+    });
+
     it("writes a changed part number to every symbol of the row", async () => {
         const design = await readKicadDesign(PROJECT, readGzipped);
         const { table, rows } = await importedRows("Default");

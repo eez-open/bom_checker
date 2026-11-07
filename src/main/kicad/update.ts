@@ -1,5 +1,5 @@
-// Writes BOM columns (supplier part numbers, custom columns) back into the
-// KiCad project the BOM was imported from. A BOM row is used only when its
+// Writes BOM columns (Value, supplier part numbers, custom columns) back
+// into the KiCad project the BOM was imported from. A BOM row is used only when its
 // references are exactly those of a row of KiCad's own BOM for the variant,
 // so nothing is written to parts that changed in KiCad since the import.
 
@@ -23,6 +23,9 @@ export interface KicadUpdate {
 }
 
 const referenceKey = joinReferences;
+
+/** KiCad's field for a part's Value. */
+const VALUE_FIELD = "Value";
 
 /** A field's value as the BOM shows it: trimmed (the import trims cells),
  *  with KiCad's "~" for empty. Values that differ only in spaces count as
@@ -166,6 +169,10 @@ export function planKicadUpdate(
 
         for (const column of columns) {
             const value = (row.values[column.key] ?? "").trim();
+            // Every symbol has a Value (#69); an empty cell keeps KiCad's.
+            if (value === "" && column.field === VALUE_FIELD) {
+                continue;
+            }
             let changed = false;
             for (const part of group) {
                 for (const unit of part.units) {

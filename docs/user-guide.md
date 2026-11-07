@@ -213,7 +213,7 @@ BOMs imported with version 0.4 or older don't have that yet: there, every differ
 
 ## Updating the KiCad project
 
-For a BOM imported from a KiCad 10 project, **Update KiCad…** on the toolbar (or **File → Update KiCad Project…**) writes the part numbers back into the project's schematics, e.g. after choosing items, fixing part numbers or finding them from the Value.
+For a BOM imported from a KiCad 10 project, **Update KiCad…** on the toolbar (or **File → Update KiCad Project…**) writes the part numbers, and Values if you choose, back into the project's schematics, e.g. after choosing items, fixing part numbers, finding them from the Value or unifying Values. Sync KiCad… only brings KiCad's changes into the BOM; Update KiCad… takes the BOM's changes to KiCad.
 
 1. **Close the schematic in KiCad** (Schematic Editor). If KiCad still has it open, the dialog warns: saving it in KiCad would overwrite the update.
 2. The dialog reads the project again and shows each change: references, field, the value in KiCad now and the new value. Untick a column to leave it out.
@@ -222,6 +222,7 @@ For a BOM imported from a KiCad 10 project, **Update KiCad…** on the toolbar (
 What's written:
 
 - **Only rows that match exactly.** A row is used only when its references are exactly those of a row of KiCad's BOM for the same design variant, e.g. *C1,C2,C3* in both. Rows whose references differ, because a part was added, removed or regrouped in KiCad, or a reference was edited in the table, are listed as *left out*, with the reason. Import the project again to bring the BOM up to date.
+- **Values** go to the symbols' Value field, when **Value** is ticked in the dialog. It isn't at first, because a Value also goes to the PCB (its silkscreen and fabrication layers) once the PCB is updated from the schematic; the app remembers your choice. An empty Value in the BOM leaves KiCad's.
 - **Supplier part numbers** go to the KiCad field of the same name (*DigiKey*, *Mouser*, *TME*, *LCSC*). A field that doesn't exist yet is added as a hidden field. Custom columns go to the KiCad field of the same name, if there is one.
 - **Every symbol of a row** gets the value, including all units of multi-unit parts.
 - **Design variants:** for a BOM imported from a variant other than Default, values the variant overrides in KiCad are changed in that variant. Other values are changed in the symbols themselves, so the other variants get them too; the dialog warns about that.
