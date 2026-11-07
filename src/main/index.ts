@@ -1,7 +1,12 @@
+import { join } from "node:path";
 import { app, Menu } from "electron";
 import { registerIpcHandlers } from "./ipc";
 import { initLogging, log } from "./logging";
 import { createMenu } from "./menu";
+import {
+    SUPPLIER_DATA_FOLDER,
+    pruneSupplierData
+} from "./project/supplier-data";
 import { denyPermissionRequests, hardenWebContents } from "./security";
 import { createMainWindow } from "./window";
 
@@ -27,6 +32,22 @@ app.whenReady()
         registerIpcHandlers();
         Menu.setApplicationMenu(createMenu());
         createMainWindow();
+        // Arrow's data is kept for 48 hours only (#62), also of BOMs that
+        // aren't opened again.
+        pruneSupplierData(
+            join(app.getPath("userData"), SUPPLIER_DATA_FOLDER),
+            Date.now()
+        )
+            .then(changed => {
+                if (changed > 0) {
+                    log.info(
+                        `Removed expired supplier data of ${changed} BOMs`
+                    );
+                }
+            })
+            .catch((error: unknown) =>
+                log.warn("Can't remove expired supplier data:", error)
+            );
     })
     .catch((error: unknown) => {
         log.error("Startup failed:", error);

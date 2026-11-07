@@ -444,6 +444,40 @@ input.number {
     gap: 6px;
 }
 
+/* A cell with a copy button at the right (#63). */
+.copyable {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+}
+
+.copyable-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+button.cell-copy {
+    display: inline-flex;
+    flex: none;
+    margin-left: auto;
+    padding: 2px;
+    border: none;
+    background: none;
+    color: var(--app-muted);
+    visibility: hidden;
+}
+
+.ag-cell:hover button.cell-copy,
+.ag-cell-focus button.cell-copy {
+    visibility: visible;
+}
+
+button.cell-copy:hover:not(:disabled) {
+    background: var(--button-hover-bg);
+    color: var(--app-fg);
+}
+
 .pn-badge {
     display: inline-flex;
     align-items: center;
@@ -856,6 +890,9 @@ button.recent-remove:focus-visible {
         var(--app-accent) 5px,
         transparent 5px
     );
+    /* One mark: repeated, it showed slivers at the cell's edges (#65). */
+    background-origin: border-box;
+    background-repeat: no-repeat;
 }
 
 .price-breaks-editor {
@@ -1292,4 +1329,11 @@ path.cost-slice {
 .unify-other {
     width: 220px;
     margin-right: 12px;
+}
+
+/* Several options of a setting, e.g. Arrow's inventory sources (#62). */
+.checkbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }

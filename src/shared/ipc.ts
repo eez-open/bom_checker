@@ -12,7 +12,7 @@ import {
     type SupplierId
 } from "./model";
 import type { AppSettings, GeneralSettings } from "./settings";
-import type { SupplierConfig } from "./supplier-config";
+import type { AccountId, SupplierConfig } from "./supplier-config";
 
 export interface AppInfo {
     name: string;
@@ -179,12 +179,12 @@ export interface KicadProjectData {
 
 /** A BOM column to write into the KiCad project it was imported from. */
 export interface KicadUpdateColumn {
-    /** "pn:<supplier>" or "custom:<column id>". */
+    /** "value", "pn:<supplier>" or "custom:<column id>". */
     key: string;
     label: string;
     /** For a part-number column: its supplier's field is found by name. */
     supplier?: SupplierId;
-    /** For a custom column: the KiCad field of the same name. */
+    /** For Value and a custom column: the KiCad field of that name. */
     field?: string;
 }
 
@@ -263,7 +263,7 @@ export interface DocumentState {
 export type VaultState = "none" | "locked" | "unlocked";
 
 /** Which secret fields have a value, by supplier and field key. */
-export type SecretStatus = Record<SupplierId, Record<string, boolean>>;
+export type SecretStatus = Record<AccountId, Record<string, boolean>>;
 
 /** New secret values by field key; null removes one. Others don't change. */
 export type SecretChanges = Record<string, string | null>;
@@ -334,7 +334,7 @@ export interface Api {
         /** `token` comes from `vault.create` or `vault.openSettings`. */
         saveSupplier(
             token: string,
-            supplier: SupplierId,
+            supplier: AccountId,
             config: SupplierConfig,
             secrets: SecretChanges
         ): Promise<AppSettings>;
@@ -351,7 +351,7 @@ export interface Api {
         /** A stored secret, for Show and Copy; null if it isn't set. */
         getSecret(
             token: string,
-            supplier: SupplierId,
+            supplier: AccountId,
             key: string
         ): Promise<string | null>;
         /** False if the current password is wrong. */
@@ -380,7 +380,7 @@ export interface Api {
          *  settings. `token` is a supplier settings session. */
         testConnection(
             token: string,
-            supplier: SupplierId
+            supplier: AccountId
         ): Promise<ConnectionTest>;
     };
     project: {

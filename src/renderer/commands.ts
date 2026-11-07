@@ -35,10 +35,12 @@ import {
     saveAllInList,
     unsavedPaths
 } from "./list-commands";
+import { errorMessage } from "./errors";
 import { documentName, isDirty, useDocument } from "./store/document";
 import {
     resetTableView,
     setHiddenColumns,
+    showNotice,
     setTableLayout,
     setTableTab,
     useUi,
@@ -408,6 +410,17 @@ function hasRows(): boolean {
 export function openExport(): void {
     if (hasRows()) {
         useUi.setState({ dialog: { kind: "export" } });
+    }
+}
+
+/** Copies a cell's text (#63) and says so in the status bar. */
+export async function copyToClipboard(text: string): Promise<void> {
+    try {
+        await window.api.app.copyText(text);
+        const shown = text.length > 60 ? `${text.slice(0, 59)}…` : text;
+        showNotice(`Copied “${shown}”`);
+    } catch (error) {
+        showNotice(`Can't copy: ${errorMessage(error)}`);
     }
 }
 

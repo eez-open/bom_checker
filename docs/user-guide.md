@@ -26,7 +26,7 @@ EEZ BOM checker takes a bill of materials (BOM) and checks every part at DigiKey
 
 ## Setting up supplier access
 
-The app reads supplier data through each supplier's API, with your own API credentials. Your credentials are stored encrypted on your computer, protected by a password you choose.
+The app reads supplier data through each supplier's API (DigiKey, Mouser, TME, LCSC and Arrow), with your own API credentials. Your credentials are stored encrypted on your computer, protected by a password you choose.
 
 1. Open **Settings** (toolbar, or Ctrl+,) and go to **Suppliers**.
 2. The first time, choose a password (at least 8 characters). You need it to change supplier settings, and once per session to collect data. **It can't be recovered**: if you forget it, *Forgot the password?* deletes the stored credentials so you can start over.
@@ -67,11 +67,22 @@ LCSC's API is free, but LCSC reviews each application, and it answers only calls
 
 The LCSC column takes LCSC part numbers (C2040) or manufacturer part numbers. Prices are LCSC's standard prices in EUR or USD. LCSC allows about 60 requests per minute and 1,000 per day, one part per request. LCSC only says whether a part is on sale: *Active* or *Not orderable*.
 
+### Arrow
+
+Arrow's Pricing & Availability API needs a login and an API key from Arrow.
+
+1. Request access on [developers.arrow.com](https://developers.arrow.com/api/) (*Getting Started*). Arrow sends a **Login** and an **API key** for the Pricing & Availability API; the Order API has a key of its own, which doesn't work here.
+2. Enter them under **Arrow**, choose the **Inventory sources** you buy from, click **Save Arrow settings**, then **Test connection**.
+
+Arrow keeps stock in several **inventory sources**: Arrow Europe (EUROPE), Arrow North America (ACNA), Arrow Asia (ASIA) and the Verical marketplace (VERICAL). Each source you choose is a supplier of its own in the app, e.g. **Arrow (EUROPE)**: **Columns…** offers a part-number column for it, and it has its own stock, prices, Availability and place in the best price, so Arrow (EUROPE) and Arrow (ASIA) can be compared side by side. A part that's in Arrow's catalogue but not in a source's stock is *not found* there. The columns take manufacturer part numbers, as Arrow lists them; when Arrow has several packagings in a source, the one with the most stock is shown and the tooltip lists the others.
+
+Prices are Arrow's resale prices; with **Currency** EUR, Arrow converts prices from USD. **Part numbers per request** is 100 by default, the most Arrow's best practices name; Arrow's list search accepts up to 1000, so *1000* checks most BOMs in one request. Arrow's terms allow keeping its data for 48 hours only: older Arrow data is removed when the app starts and when a BOM is opened or saved, so collect again before ordering.
+
 **Request limits** for each supplier are preset to the supplier's published limits. The app spaces out requests and counts them per day, also across projects and restarts. Lower the limits if you share an API key with other tools.
 
 ## Creating a BOM
 
-The app starts on a start page: **Open BOM…**, or drop a file on the window (a BOM `.eezbom`, a KiCad project `.kicad_pro` or a CSV file). Below are the **recent documents**: BOMs you opened or saved, and the files you imported from. Click one to open it again; the × that appears on hover removes it from the list. The same list is in **File → Open Recent**. **File → Close** (Ctrl+W) goes back to the start page.
+The app starts on a start page: **Open BOM…**, or drop a file on the window (a BOM `.eezbom`, a KiCad project `.kicad_pro` or a CSV file). Below are the **recent documents**: BOMs you opened or saved, and the files you imported from. Click one to open it again; the × that appears on hover removes it from the list. The same list is in **File → Open Recent**. **File → Close** (Ctrl+W) goes back to the start page. File dialogs open in the folder of the file last chosen in one of their kind, also after a restart: one folder for BOMs and BOM lists (open, save, new list, add BOMs), one for CSV files, one for KiCad projects and one for exports and saved pictures.
 
 ### By hand
 
@@ -109,7 +120,7 @@ Some parts don't come from DigiKey, Mouser, TME or LCSC: a TFT display from a sp
 
 **Price breaks:** double-click the Unit price cell (or start typing in it) to open its prices: the unit price from 1, and up to three more, each from a quantity, e.g. 1.10 from 1, 1.00 from 25, 0.80 from 100 and 0.65 from 300. The price whose quantity the order quantity reaches applies to all of it: 5 cost 5.50, 25 cost 25.00 and 500 cost 325.00. Tab moves between the fields, Enter keeps the prices and Escape cancels; the rows may be typed in any order. The cell then shows the unit price for the order quantity, with a blue corner; hover for all prices. Exports have them in a *Price breaks* column.
 
-Order Qty, Total price and Availability are calculated as for the other suppliers, and these suppliers take part in the best price: the cheapest total with enough stock wins; on equal totals, a supplier with an API is preferred. They're included in the Total row, the Rows filter and exports. Renaming or deleting one is done in **Columns…**; deleting removes what was typed for it (Ctrl+Z undoes it).
+Order Qty, Total price and Availability are calculated as for the other suppliers, and these suppliers take part in the best price: the cheapest total with enough stock wins; on equal totals, a supplier with an API is preferred. They're included in the Total row, the Rows filter and exports. Renaming or deleting one is done in **Columns…**; deleting removes what was typed for it (Ctrl+Z undoes it). The BOM file keeps such a supplier's name, part numbers and One-time ticks; its prices, stock and MOQ are kept on your computer with the collected supplier data, so a published BOM doesn't show them.
 
 ## Collecting supplier data
 
@@ -151,9 +162,9 @@ Each supplier has a group of columns. Click the arrow in the group header to sho
 
 **Searching and filtering:** above the table, **Search** (Ctrl+F, or Edit → Find…) shows only the rows that contain the text in any column, e.g. a reference, a value or a part number; Escape clears it. In a BOM list, the search stays when another BOM is shown. Once supplier data has been collected, **Rows** shows only the rows where one supplier has the best price, or *Best price: None in stock* for the parts no supplier can deliver. While a filter is on, the Total row adds up the shown rows, and **Show all** turns the filters off. The Row column keeps each row's number in the BOM.
 
-To hide all columns of a supplier, or the Best price columns, uncheck them under **Columns** at the right of the bar above the table. Suppliers with an API and Best price are also in the **View** menu (Ctrl+1 to Ctrl+5). Hiding only changes the view: the data stays, still counts for the best price, and can still be exported. The status bar lists hidden groups, with **Show all** to bring them back. The app remembers hidden groups for next time.
+To hide all columns of a supplier, or the Best price columns, uncheck them under **Columns** at the right of the bar above the table. Suppliers with an API and Best price are also in the **View** menu: Ctrl+1 to Ctrl+4 for DigiKey, Mouser, TME and LCSC, Ctrl+5 for Best price, and Ctrl+6 to Ctrl+9 for Arrow's inventory sources. Hiding only changes the view: the data stays, still counts for the best price, and can still be exported. The status bar lists hidden groups, with **Show all** to bring them back. The app remembers hidden groups for next time.
 
-**Tabs:** to see one supplier at a time, tick **Tabs** at the right of the bar (or **View → Suppliers as Tabs**). Each supplier, and Best price, then has a tab above the table; the tab shows its columns with the BOM's own columns, and your own columns stay at the right. Ctrl+1 to Ctrl+5 choose the tab. The app remembers the layout and the tab.
+**Tabs:** to see one supplier at a time, tick **Tabs** at the right of the bar (or **View → Suppliers as Tabs**). Each supplier, and Best price, then has a tab above the table; the tab shows its columns with the BOM's own columns, and your own columns stay at the right. The same shortcuts choose the tab. The app remembers the layout and the tab.
 
 | Column | Meaning |
 |---|---|
@@ -177,6 +188,8 @@ The **Total** row at the top adds up each *Total price* column, for every suppli
 Prices are compared in EUR. If a supplier returns another currency, a yellow bar says so; those prices aren't included in totals and the best price.
 
 **Numbers** look as in the system's regional settings, e.g. *1.234,56* where decimals follow a comma. **Settings → General → Numbers** can choose a decimal point (*1,234.56*) or a decimal comma (*1.234,56*) instead. When typing a number in a cell, either "." or "," works before the decimals.
+
+**Copying:** Ctrl+C copies the text of the selected cell, as shown, and the status bar says what was copied. In a BOM list's Combined BOM, which can't be edited, text in cells can also be selected with the mouse, and Value and part-number cells show a copy button while the pointer is over them.
 
 Changing Qty updates all calculations at once, without collecting again.
 
@@ -205,13 +218,13 @@ For a BOM imported from a KiCad 10 project, the toolbar's **Import KiCad…** be
 - **Changed in KiCad:** a Value, Footprint, part number or other field that changed in KiCad. When only some parts of a row changed, they get a row of their own.
 - **Rows to join into one:** parts that KiCad lists in one row but that are in several BOM rows with the same Value, Footprint and part numbers. That happens when KiCad renumbers parts (Annotate Schematic): a sync compares each reference with the part that had it before, so a renumbered part leaves its row for a row of its own. Ticked, the rows become one, in the place of the first, with their references and quantities together. Rows with different values in another column, e.g. one of your own, stay apart.
 
-Tick what to bring into the BOM and click **Apply**; Ctrl+Z undoes it. What was done in the BOM is kept: rows and columns added by hand, and values changed in the BOM, e.g. a chosen item or a corrected part number, which aren't listed. The BOM file remembers what KiCad had at the import or the last sync to tell the two apart. A value changed on both sides is listed unticked, so the BOM's value stays unless you tick it.
+Tick what to bring into the BOM and click **Apply**; Ctrl+Z undoes it. With **Sort the rows by Reference** ticked (the app remembers the choice), the rows are then in the order of their lowest reference, as KiCad lists them (C2 before C10 before R1), so added parts are where their references put them instead of at the end; rows without a reference come last. What was done in the BOM is kept: rows and columns added by hand, and values changed in the BOM, e.g. a chosen item or a corrected part number, which aren't listed. The BOM file remembers what KiCad had at the import or the last sync to tell the two apart. A value changed on both sides is listed unticked, so the BOM's value stays unless you tick it.
 
 BOMs imported with version 0.4 or older don't have that yet: there, every difference is listed, and only additions are ticked. After the first sync, they work like the others.
 
 ## Updating the KiCad project
 
-For a BOM imported from a KiCad 10 project, **Update KiCad…** on the toolbar (or **File → Update KiCad Project…**) writes the part numbers back into the project's schematics, e.g. after choosing items, fixing part numbers or finding them from the Value.
+For a BOM imported from a KiCad 10 project, **Update KiCad…** on the toolbar (or **File → Update KiCad Project…**) writes the part numbers, and Values if you choose, back into the project's schematics, e.g. after choosing items, fixing part numbers, finding them from the Value or unifying Values. Sync KiCad… only brings KiCad's changes into the BOM; Update KiCad… takes the BOM's changes to KiCad.
 
 1. **Close the schematic in KiCad** (Schematic Editor). If KiCad still has it open, the dialog warns: saving it in KiCad would overwrite the update.
 2. The dialog reads the project again and shows each change: references, field, the value in KiCad now and the new value. Untick a column to leave it out.
@@ -220,6 +233,7 @@ For a BOM imported from a KiCad 10 project, **Update KiCad…** on the toolbar (
 What's written:
 
 - **Only rows that match exactly.** A row is used only when its references are exactly those of a row of KiCad's BOM for the same design variant, e.g. *C1,C2,C3* in both. Rows whose references differ, because a part was added, removed or regrouped in KiCad, or a reference was edited in the table, are listed as *left out*, with the reason. Import the project again to bring the BOM up to date.
+- **Values** go to the symbols' Value field, when **Value** is ticked in the dialog. It isn't at first, because a Value also goes to the PCB (its silkscreen and fabrication layers) once the PCB is updated from the schematic; the app remembers your choice. An empty Value in the BOM leaves KiCad's.
 - **Supplier part numbers** go to the KiCad field of the same name (*DigiKey*, *Mouser*, *TME*, *LCSC*). A field that doesn't exist yet is added as a hidden field. Custom columns go to the KiCad field of the same name, if there is one.
 - **Every symbol of a row** gets the value, including all units of multi-unit parts.
 - **Design variants:** for a BOM imported from a variant other than Default, values the variant overrides in KiCad are changed in that variant. Other values are changed in the symbols themselves, so the other variants get them too; the dialog warns about that.
@@ -243,7 +257,7 @@ The modules of one device often have their own BOMs, made at different times, an
 
 **The history BOM** remembers every component (Value and Footprint) with each combination of supplier part numbers used in the list's BOMs, also ones they no longer use, so they can be offered again. It gets new combinations when a BOM is added, after Unify's Apply, and whenever a BOM of the list is saved; *Used in* names the BOMs. It isn't unified itself. **Choose…** uses another `.eezbom` as the history.
 
-**Checking rows against the history:** a part number may be in the history because it was out of stock when another, dearer one was chosen; it may be in stock now. Select rows of a BOM in the list and click **Check N selected rows…** under *History* (or **Tools → Check Selected Rows Against the History…**); with no rows selected, all rows of the BOM are checked. The dialog lists the rows whose components (same Value and Footprint; untick **Same footprint** to match by Value alone) have other part numbers in the history, per supplier, with the row's own. **Collect…** gets their stock and prices for the row's quantity (with the BOM's Build qty), the cheapest in stock is marked *Best price*, and **Choose suggestions** picks it. **Apply** changes the BOM shown, with the collected data, without saving it; Ctrl+Z undoes it.
+**Checking rows against the history:** a part number may be in the history because it was out of stock when another, dearer one was chosen; it may be in stock now. Select rows of a BOM in the list and click **Check History…** under *History* (or **Tools → Check History…**); with no rows selected, all rows of the BOM are checked. The dialog lists the rows whose components (same Value and Footprint; untick **Same footprint** to match by Value alone) have other part numbers in the history, per supplier, with the row's own. **Collect…** gets their stock and prices for the row's quantity (with the BOM's Build qty), the cheapest in stock is marked *Best price*, and **Choose suggestions** picks it. **Apply** changes the BOM shown, with the collected data, without saving it; Ctrl+Z undoes it.
 
 ### Unifying part numbers
 
@@ -261,7 +275,7 @@ The history BOM isn't changed by Unify, but gets the new part numbers. BOMs impo
 ## Files and security
 
 - **Save** (Ctrl+S) stores the BOM in an `.eezbom` file: its rows, columns and part numbers, and what you typed for suppliers without an API. The app asks before closing, or before opening another BOM, if there are unsaved changes. Dropping a file on the window opens it too.
-- **Supplier data stays on your computer.** What is collected from the suppliers (stock, prices, descriptions, lifecycle and so on) isn't saved in the `.eezbom` file but in the app's data folder, with the BOM's path, and is saved together with the BOM. The suppliers' API terms don't allow passing their data on, so this keeps BOM files safe to publish, e.g. on GitHub; whoever opens a published BOM collects the data with their own credentials. A BOM moved or renamed outside the app has to be collected again.
+- **Supplier data stays on your computer.** What is collected from the suppliers (stock, prices, descriptions, lifecycle and so on) isn't saved in the `.eezbom` file but in the app's data folder, and is saved together with the BOM. So are the prices, stock and MOQ typed for suppliers without an API, which you may not want to publish. The suppliers' API terms don't allow passing their data on, so this keeps BOM files safe to publish, e.g. on GitHub; whoever opens a published BOM collects the data with their own credentials, and sees no prices of suppliers without an API. A BOM moved or renamed outside the app finds its data again on this computer, by an id in the file; a copy gets the data of the original. BOMs saved by 0.12.0 or earlier with such prices open with unsaved changes: saving them removes the prices from the file.
   - BOMs saved by version 0.8.0 or earlier still have the data in the file. They open with unsaved changes (an orange dot in a list); saving them removes it.
   - Exports with supplier columns contain supplier data, and *bom-checker-backups* folders may hold copies of such older BOMs: keep both out of what you publish, e.g. with `.gitignore`.
 - **BOM lists** (`.eezbom-list`) only name their BOMs and history BOM; the rows are in those `.eezbom` files.

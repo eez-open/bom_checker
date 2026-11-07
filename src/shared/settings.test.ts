@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { SUPPLIER_IDS } from "./model";
 import { defaultSettings, normalizeOrder, normalizeSettings } from "./settings";
 import {
+    arrowSources,
     defaultSupplierConfig,
+    normalizeSupplierConfig,
     secretFields,
     validateSupplierConfig
 } from "./supplier-config";
@@ -9,13 +12,14 @@ import {
 describe("settings", () => {
     it("has defaults for every supplier", () => {
         const settings = defaultSettings();
-        expect(settings.general.supplierOrder).toEqual([
-            "digikey",
-            "mouser",
-            "tme",
-            "lcsc"
-        ]);
+        expect(settings.general.supplierOrder).toEqual([...SUPPLIER_IDS]);
         expect(settings.general.decimalSeparator).toBe("system");
+        // Arrow's inventory sources share Arrow's settings (#62).
+        expect(settings.suppliers.arrow).toMatchObject({
+            sources: "EUROPE",
+            currency: "EUR",
+            partsPerRequest: "100"
+        });
         expect(settings.suppliers.digikey).toMatchObject({
             site: "SI",
             currency: "EUR",
@@ -47,9 +51,7 @@ describe("settings", () => {
         });
         expect(settings.general.supplierOrder).toEqual([
             "tme",
-            "digikey",
-            "mouser",
-            "lcsc"
+            ...SUPPLIER_IDS.filter(id => id !== "tme")
         ]);
         expect(settings.general.decimalSeparator).toBe("system");
         expect(
@@ -66,12 +68,7 @@ describe("settings", () => {
 
     it("survives a file that isn't an object", () => {
         expect(normalizeSettings(null)).toEqual(defaultSettings());
-        expect(normalizeOrder("tme")).toEqual([
-            "digikey",
-            "mouser",
-            "tme",
-            "lcsc"
-        ]);
+        expect(normalizeOrder("tme")).toEqual([...SUPPLIER_IDS]);
     });
 });
 
@@ -103,6 +100,30 @@ describe("supplier config", () => {
         expect(secretFields("tme").map(f => f.key)).toEqual([
             "token",
             "appSecret"
+        ]);
+    });
+});
+
+describe("Arrow's settings (#62)", () => {
+    it("choose several inventory sources", () => {
+        const config = normalizeSupplierConfig("arrow", {
+            sources: "ASIA,EUROPE"
+        });
+        expect(config.sources).toBe("ASIA,EUROPE");
+        // In Arrow's order.
+        expect(arrowSources(config)).toEqual(["EUROPE", "ASIA"]);
+        expect(
+            validateSupplierConfig("arrow", { ...config, sources: "" })
+        ).toMatchObject({ sources: "Choose at least one." });
+        expect(
+            validateSupplierConfig("arrow", { ...config, sources: "MARS" })
+        ).toMatchObject({ sources: "Choose at least one." });
+        expect(
+            normalizeSupplierConfig("arrow", { sources: "MARS" }).sources
+        ).toBe("EUROPE");
+        expect(secretFields("arrow").map(field => field.key)).toEqual([
+            "login",
+            "apiKey"
         ]);
     });
 });

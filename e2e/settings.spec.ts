@@ -23,7 +23,12 @@ test("protects supplier credentials with a password", async () => {
             "DigiKey",
             "TME",
             "Mouser",
-            "LCSC"
+            "LCSC",
+            // Each of Arrow's inventory sources (#62).
+            "Arrow (EUROPE)",
+            "Arrow (ACNA)",
+            "Arrow (ASIA)",
+            "Arrow (VERICAL)"
         ]);
         await dialog.getByRole("button", { name: "Close" }).click();
 
@@ -70,7 +75,16 @@ test("protects supplier credentials with a password", async () => {
         expect(settingsText).not.toContain(MOUSER_KEY);
         expect(JSON.parse(settingsText)).toMatchObject({
             general: {
-                supplierOrder: ["digikey", "tme", "mouser", "lcsc"]
+                supplierOrder: [
+                    "digikey",
+                    "tme",
+                    "mouser",
+                    "lcsc",
+                    "arrow-europe",
+                    "arrow-acna",
+                    "arrow-asia",
+                    "arrow-verical"
+                ]
             },
             suppliers: { mouser: { perDay: 500 } }
         });

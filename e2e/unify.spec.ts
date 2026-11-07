@@ -174,7 +174,8 @@ test("unifies part numbers across the BOMs of a list", async () => {
             psu
         );
         expect(
-            supplierData.results.digikey?.["RMCF0805FT100KCT-ND"]?.status
+            supplierData.collected.results.digikey?.["RMCF0805FT100KCT-ND"]
+                ?.status
         ).toBe("found");
         const backups = await readdir(join(folder, "bom-checker-backups"));
         expect(backups).toHaveLength(1);
@@ -244,9 +245,7 @@ test("offers the history's part numbers for selected rows (#52)", async () => {
         await page
             .locator('.ag-row[row-index="0"] .ag-selection-checkbox input')
             .check();
-        await pane
-            .getByRole("button", { name: "Check 1 selected row…" })
-            .click();
+        await pane.getByRole("button", { name: "Check History…" }).click();
 
         const dialog = page.getByRole("dialog", {
             name: "Part numbers from the history"

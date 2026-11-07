@@ -4,6 +4,27 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-07
+
+### Added
+
+- **Arrow** as a supplier, through Arrow's Pricing & Availability API (Settings → Suppliers → Arrow: login and API key). Arrow keeps stock in inventory sources; each one chosen under **Inventory sources** (Arrow Europe, North America, Asia, Verical) is a supplier of its own, e.g. **Arrow (EUROPE)**, with its own part-number column, stock, prices and place in the best price, so several can be compared. **Part numbers per request** is 100 by default (up to 1000). Arrow's terms allow keeping its data for 48 hours, so older Arrow data is removed when the app starts and when a BOM is opened or saved. Built from Arrow's documentation; not yet tried with a real key (#62).
+- **Copying cells:** Ctrl+C copies the selected cell's text, and the status bar says what was copied. In a BOM list's Combined BOM, text can be selected with the mouse, and Value and part-number cells show a copy button while the pointer is over them (#63).
+- **Update KiCad…** can write Values too: tick **Value** in the dialog. It isn't ticked at first, since a Value also goes to the PCB; the app remembers the choice. An empty Value leaves KiCad's (#69).
+- **Sync KiCad…** sorts the rows by Reference afterwards, so parts added in KiCad are where their references put them, not at the end; untick **Sort the rows by Reference** to keep the order (#67).
+- File dialogs open in the folder last used for their kind of file, also after a restart: BOMs and lists, CSV files, KiCad projects, and exports (#59).
+
+### Changed
+
+- The prices, stock and MOQ typed for suppliers without an API are kept on the computer with the collected supplier data, not in the BOM file; the file keeps their part numbers and One-time ticks. BOMs saved with such prices open with unsaved changes; saving removes the prices from the file. A BOM moved or renamed outside the app finds its data again by an id in the file. BOM files are now format 8: earlier versions can't open BOMs saved by this one (#68).
+- **Check History…** is the new name of *Check Selected Rows Against the History…* (#52).
+- The Linux package's title and description in software centres: "BOM checker with multi-vendor API integration" (#70).
+- View menu: Ctrl+1 to Ctrl+4 stay DigiKey, Mouser, TME and LCSC, Ctrl+5 Best price; Ctrl+6 to Ctrl+9 are Arrow's inventory sources.
+
+### Fixed
+
+- The blue corner of a Unit price cell with price breaks showed small marks at the cell's edges when it wasn't selected (#65).
+
 ## [0.12.0] - 2026-11-03
 
 ### Added

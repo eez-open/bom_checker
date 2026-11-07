@@ -11,9 +11,9 @@ import { errorMessage } from "../errors";
 import { useDocument } from "../store/document";
 import { Modal } from "./Modal";
 
-// Writes the BOM's part numbers (and custom columns) back into the KiCad
-// project it was imported from: a preview first, then a backup and the
-// update, which can be rolled back from here.
+// Writes the BOM's Values (#69), part numbers and custom columns back into
+// the KiCad project it was imported from: a preview first, then a backup
+// and the update, which can be rolled back from here.
 
 type State =
     | { kind: "planning" }
@@ -26,6 +26,7 @@ function updateRequest(project: Project): KicadUpdateRequest {
         projectPath: project.source.path ?? "",
         variant: project.source.variant ?? "Default",
         columns: [
+            { key: VALUE, label: "Value", field: "Value" },
             ...project.suppliers.map(supplier => ({
                 key: `pn:${supplier}`,
                 label: SUPPLIERS[supplier].name,
@@ -40,6 +41,7 @@ function updateRequest(project: Project): KicadUpdateRequest {
         rows: project.rows.map(row => ({
             reference: row.reference,
             values: {
+                [VALUE]: row.value,
                 ...Object.fromEntries(
                     project.suppliers.map(supplier => [
                         `pn:${supplier}`,
@@ -55,6 +57,28 @@ function updateRequest(project: Project): KicadUpdateRequest {
             }
         }))
     };
+}
+
+/** The Value column's key, as Sync KiCad… has it. */
+const VALUE = "value";
+const WRITE_VALUES_KEY = "kicad-update-values";
+
+/** Whether to write Values: a Value goes to the PCB too, so only when
+ *  ticked last time. */
+function loadWriteValues(): boolean {
+    try {
+        return localStorage.getItem(WRITE_VALUES_KEY) === "true";
+    } catch {
+        return false;
+    }
+}
+
+function saveWriteValues(write: boolean): void {
+    try {
+        localStorage.setItem(WRITE_VALUES_KEY, String(write));
+    } catch {
+        // Only a convenience.
+    }
 }
 
 function plural(n: number, noun: string): string {
@@ -77,7 +101,11 @@ export function KicadUpdateDialog({ onClose }: { onClose: () => void }) {
                 setSelected(
                     new Set(
                         plan.columns
-                            .filter(column => column.changes > 0)
+                            .filter(
+                                column =>
+                                    column.changes > 0 &&
+                                    (column.key !== VALUE || loadWriteValues())
+                            )
                             .map(column => column.key)
                     )
                 );
@@ -211,12 +239,18 @@ function Preview({
                                 } else {
                                     next.delete(column.key);
                                 }
+                                if (column.key === VALUE) {
+                                    saveWriteValues(event.target.checked);
+                                }
                                 onSelect(next);
                             }}
                         />
                         {column.label} → field &quot;{column.field}&quot;
                         {column.newField && " (added where needed)"}:{" "}
                         {plural(column.changes, "change")}
+                        {column.key === VALUE &&
+                            column.changes > 0 &&
+                            " · also on the PCB, once it's updated from the schematic"}
                     </label>
                 ))}
             </fieldset>

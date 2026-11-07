@@ -14,8 +14,86 @@ export const FAKE_CREDENTIALS = {
     digikey: { clientId: "dk-client", clientSecret: "dk-secret" },
     mouser: { apiKey: "mouser-key" },
     tme: { token: "tme-token", appSecret: "tme-secret" },
-    lcsc: { apiKey: "lcsc-key", apiSecret: "lcsc-secret" }
+    lcsc: { apiKey: "lcsc-key", apiSecret: "lcsc-secret" },
+    arrow: { login: "arrow-login", apiKey: "arrow-key" }
 };
+
+/** Arrow's parts by part number (#62): BAV99 in Europe's stock in EUR,
+ *  and in Asia's in USD. */
+const ARROW_PARTS: Record<string, unknown> = {
+    BAV99: {
+        itemId: 1,
+        partNum: "BAV99",
+        manufacturer: { mfrCd: "ONSEMI", mfrName: "onsemi" },
+        desc: "Diode Switching 70V 0.2A",
+        status: "Active",
+        EnvData: {
+            compliance: [{ displayLabel: "eurohs", displayValue: "Compliant" }]
+        },
+        InvOrg: {
+            webSites: [
+                {
+                    code: "Arrow",
+                    name: "Arrow",
+                    sources: [
+                        {
+                            currency: "EUR",
+                            sourceCd: "EUROPE",
+                            displayName: "Europe",
+                            sourceParts: [
+                                {
+                                    packSize: 1,
+                                    minimumOrderQuantity: 1,
+                                    Prices: {
+                                        resaleList: [
+                                            { price: 0.05, minQty: 1 },
+                                            { price: 0.03, minQty: 100 }
+                                        ]
+                                    },
+                                    Availability: [{ fohQty: 5000 }],
+                                    shipsFrom: "Germany"
+                                }
+                            ]
+                        },
+                        {
+                            currency: "USD",
+                            sourceCd: "ASIA",
+                            displayName: "Asia",
+                            sourceParts: [
+                                {
+                                    packSize: 1,
+                                    minimumOrderQuantity: 1,
+                                    Prices: {
+                                        resaleList: [{ price: 0.02, minQty: 1 }]
+                                    },
+                                    Availability: [{ fohQty: 100 }]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+};
+
+function arrowAnswer(parts: unknown[], success = true, returnMsg = "") {
+    return {
+        itemserviceresult: {
+            serviceMetaData: [{ version: "4.0.0" }],
+            transactionArea: [
+                {
+                    response: {
+                        returnCode: success ? "0" : "1",
+                        returnMsg,
+                        success
+                    }
+                }
+            ],
+            data: [{ PartList: parts }]
+        }
+    };
+}
 
 /** A Mouser part number that triggers the daily limit once. */
 export const MOUSER_LIMIT_ONCE = "LIMIT-NOW";
@@ -212,6 +290,42 @@ export async function startFakeSuppliers() {
                 });
             }
 
+            if (
+                supplier === "arrow" &&
+                path === "/itemservice/v4/en/search/list"
+            ) {
+                const { request: search } = JSON.parse(
+                    url.searchParams.get("req") ?? "{}"
+                ) as {
+                    request: {
+                        login: string;
+                        apikey: string;
+                        parts: { partNum: string }[];
+                    };
+                };
+                if (
+                    search.login !== FAKE_CREDENTIALS.arrow.login ||
+                    search.apikey !== FAKE_CREDENTIALS.arrow.apiKey
+                ) {
+                    return send(
+                        response,
+                        200,
+                        arrowAnswer([], false, "Invalid login or apikey")
+                    );
+                }
+                return send(
+                    response,
+                    200,
+                    arrowAnswer(
+                        search.parts.flatMap(part => {
+                            const found =
+                                ARROW_PARTS[part.partNum.toUpperCase()];
+                            return found ? [found] : [];
+                        })
+                    )
+                );
+            }
+
             if (supplier === "tme" && path === "/auth/token") {
                 const expected = Buffer.from(
                     `${FAKE_CREDENTIALS.tme.token}:${FAKE_CREDENTIALS.tme.appSecret}`
@@ -360,7 +474,8 @@ export async function startFakeSuppliers() {
             digikey: `${base}/digikey`,
             mouser: `${base}/mouser`,
             tme: `${base}/tme`,
-            lcsc: `${base}/lcsc`
+            lcsc: `${base}/lcsc`,
+            arrow: `${base}/arrow`
         },
         close: () => new Promise<void>(resolve => server.close(() => resolve()))
     };

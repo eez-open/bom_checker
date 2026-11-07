@@ -202,3 +202,21 @@ describe("CollectionEngine", () => {
         expect(engine.running).toBe(false);
     });
 });
+
+describe("batch sizes from the settings (#62)", () => {
+    it("uses the plugin's batch size for the session's settings", async () => {
+        const arrow = {
+            ...fakePlugin("arrow-europe", 100),
+            batchSizeFor: () => 2
+        };
+        const { engine } = setup({ "arrow-europe": arrow });
+        await engine.run([
+            {
+                supplier: "arrow-europe",
+                runId: "a1",
+                partNumbers: ["A", "B", "C"]
+            }
+        ]);
+        expect(arrow.batches).toEqual([["A", "B"], ["C"]]);
+    });
+});

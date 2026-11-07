@@ -2,6 +2,7 @@ import { readFile, stat } from "node:fs/promises";
 import { basename } from "node:path";
 import { dialog, type BrowserWindow } from "electron";
 import type { OpenedFile } from "../../shared/ipc";
+import { dialogStart, rememberFolder } from "../dialog-folders";
 import { showError } from "../dialogs";
 import { log } from "../logging";
 import { addRecent } from "../recent";
@@ -16,6 +17,7 @@ export async function openCsvFile(
 ): Promise<OpenedFile | null> {
     const result = await dialog.showOpenDialog(window, {
         title: "Import CSV",
+        defaultPath: dialogStart("csv"),
         filters: [
             { name: "CSV files", extensions: ["csv", "txt"] },
             { name: "All files", extensions: ["*"] }
@@ -26,6 +28,7 @@ export async function openCsvFile(
     if (result.canceled || !filePath) {
         return null;
     }
+    rememberFolder("csv", filePath);
     return readCsvFile(window, filePath);
 }
 

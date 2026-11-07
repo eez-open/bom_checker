@@ -17,6 +17,7 @@ import {
     valueAsPartNumber
 } from "./part-number";
 import { orderQuantity } from "./pricing";
+import { SUPPLIERS } from "./suppliers";
 
 export type CollectMode = "all" | "missing" | "continue";
 
@@ -355,4 +356,32 @@ export function valueMatches(
         }
     }
     return matches;
+}
+
+/**
+ * `collected` without results older than their supplier's terms allow
+ * (#62: Arrow's, 48 hours). The same object when none are. Main applies it
+ * whenever a BOM's data is read or written.
+ */
+export function withoutExpired(
+    collected: CollectedData,
+    now: number
+): CollectedData {
+    let results = collected.results;
+    for (const supplier of SUPPLIER_IDS) {
+        const maxAge = SUPPLIERS[supplier].maxAgeMs;
+        const kept = collected.results[supplier];
+        if (!maxAge || !kept) {
+            continue;
+        }
+        const fresh = Object.entries(kept).filter(
+            ([, result]) => now - Date.parse(result.fetchedAt) <= maxAge
+        );
+        if (fresh.length < Object.keys(kept).length) {
+            results = { ...results, [supplier]: Object.fromEntries(fresh) };
+        }
+    }
+    return results === collected.results
+        ? collected
+        : { ...collected, results };
 }

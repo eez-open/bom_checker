@@ -3,6 +3,7 @@ import {
     ModuleRegistry,
     themeQuartz,
     type CellEditRequestEvent,
+    type CellKeyDownEvent,
     type EditableCallbackParams,
     type GridApi,
     type GridReadyEvent,
@@ -32,6 +33,7 @@ import {
 import type { Numbers } from "../../shared/numbers";
 import { duplicateReferences } from "../../shared/references";
 import type { TableGroup } from "../store/ui";
+import { copyToClipboard } from "../commands";
 import { buildColumns, TOTALS_ROW_ID } from "./columns";
 import type { TableContext, TableTotals } from "./PartNumberCell";
 
@@ -147,6 +149,10 @@ export function BomTable({
     );
     const totalsRef = useRef(totals);
     const rows = useRef(project.rows);
+    const readOnlyRef = useRef(readOnly);
+    useEffect(() => {
+        readOnlyRef.current = readOnly;
+    }, [readOnly]);
     // References another row has too (#58).
     const duplicates = useMemo(
         () => duplicateReferences(project.rows),
@@ -174,7 +180,8 @@ export function BomTable({
             getNumbers: () => numbersRef.current,
             getRows: () => rows.current,
             getReferenceProblems: () => duplicatesRef.current,
-            onEditError: reportEditError
+            onEditError: reportEditError,
+            isReadOnly: () => readOnlyRef.current
         }),
         [reportEditError]
     );
@@ -243,7 +250,7 @@ export function BomTable({
                 project,
                 withData ? (withData.split(",") as SupplierId[]) : [],
                 new Set(hidden.split(",") as TableGroup[]),
-                !readOnly
+                readOnly
             ),
         // Columns change only when suppliers, custom columns, the
         // suppliers with data, their collection times, the build quantity
@@ -379,6 +386,33 @@ export function BomTable({
             onRowDataUpdated={startPendingEdit}
             onFirstDataRendered={autoSizeTotals}
             onCellEditingStopped={() => reportEditError(null)}
+            // Ctrl+C copies the focused cell's text (#63); selected text is
+            // left to the browser.
+            onCellKeyDown={(event: CellKeyDownEvent<BomRow>) => {
+                const key = event.event;
+                if (
+                    !(key instanceof KeyboardEvent) ||
+                    !(key.ctrlKey || key.metaKey) ||
+                    key.shiftKey ||
+                    key.altKey ||
+                    key.key.toLowerCase() !== "c" ||
+                    event.api.getEditingCells().length > 0 ||
+                    window.getSelection()?.toString()
+                ) {
+                    return;
+                }
+                const text = event.api.getCellValue({
+                    rowNode: event.node,
+                    colKey: event.column,
+                    useFormatter: true
+                });
+                if (text !== null && text !== undefined && text !== "") {
+                    void copyToClipboard(String(text));
+                }
+            }}
+            // In views that can't be edited, text can be selected (#63).
+            enableCellTextSelection={readOnly}
+            ensureDomOrder={readOnly}
             onCellEditRequest={(event: CellEditRequestEvent<BomRow>) => {
                 const key = keys.get(event.column.getColId());
                 if (key && event.data) {

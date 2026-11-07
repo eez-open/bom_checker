@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import { buildBomSheet, builtInPresets } from "./export";
 import type { LookupResult, Project, SupplierOffer } from "./model";
 import { bestSupplier, bomTotals, manualLine, manualTotal } from "./pricing";
-import { parseProjectFile, serializeProject } from "./project-file";
+import {
+    hasManualPrices,
+    manualPricesOf,
+    parseProjectFile,
+    serializeProject,
+    withManualPrices,
+    withoutManualPrices
+} from "./project-file";
 import {
     addCustomColumn,
     addManualSupplier,
@@ -165,18 +172,35 @@ describe("suppliers without an API", () => {
         expect(deleted.rows[0]!.manual).toEqual({});
     });
 
-    it("are saved in the BOM file", () => {
+    it("are saved in the BOM file, their prices on the computer (#68)", () => {
         const { project, shop, rowId } = bom();
         const typed = type(project, rowId, shop, {
             partNumber: "TFT-35",
             unitPrice: 12.5,
-            moq: 1
+            moq: 1,
+            oneTime: true
         });
-        // What was typed is the user's own; only collected data stays out.
-        expect(parseProjectFile(serializeProject(typed))).toEqual({
+        // The file has the part number and one-time, not prices, stock or
+        // MOQ: those may be confidential, like the suppliers' data.
+        const saved = parseProjectFile(serializeProject(typed));
+        expect(saved.rows[0]!.manual).toEqual({
+            [shop]: { partNumber: "TFT-35", oneTime: true }
+        });
+        const prices = manualPricesOf(typed);
+        expect(prices).toEqual({
+            [rowId]: { [shop]: { unitPrice: 12.5, moq: 1 } }
+        });
+        expect(hasManualPrices(saved)).toBe(false);
+        // Kept apart, they come back.
+        expect(withManualPrices(saved, prices)).toEqual({
             ...typed,
             collected: { results: {}, runs: {} }
         });
+        // Only for rows and suppliers the BOM has.
+        expect(
+            withManualPrices(saved, { other: { [shop]: { unitPrice: 1 } } })
+        ).toBe(saved);
+        expect(withoutManualPrices(saved)).toBe(saved);
 
         // Files before format 5 have none.
         const old: Record<string, unknown> = {
@@ -289,7 +313,8 @@ describe("suppliers without an API", () => {
         it("are saved in the BOM file and exported", () => {
             const { project, shop, rowId } = bom();
             const typed = type(project, rowId, shop, { unitPrice: breaks });
-            expect(parseProjectFile(serializeProject(typed)).rows).toEqual(
+            const saved = parseProjectFile(serializeProject(typed));
+            expect(withManualPrices(saved, manualPricesOf(typed)).rows).toEqual(
                 typed.rows
             );
             const sheet = buildBomSheet(
@@ -326,9 +351,10 @@ describe("suppliers without an API", () => {
             const every = type(typed, rowId, shop, { oneTime: false });
             expect(every.rows[0]!.manual?.[shop]).toEqual({ unitPrice: 40 });
             expect(line(every)).toMatchObject({ orderQty: 50, total: 2000 });
-            expect(parseProjectFile(serializeProject(typed)).rows).toEqual(
-                typed.rows
-            );
+            // One-time stays in the file.
+            expect(
+                parseProjectFile(serializeProject(typed)).rows[0]!.manual
+            ).toEqual({ [shop]: { oneTime: true } });
             const sheet = buildBomSheet(
                 typed,
                 [],

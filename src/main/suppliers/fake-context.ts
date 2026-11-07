@@ -2,6 +2,7 @@
 // plugin tests. Not used by the app.
 
 import { defaultSupplierConfig } from "../../shared/supplier-config";
+import { accountOf } from "../../shared/suppliers";
 import type { SupplierId } from "../../shared/model";
 import type { HttpRequest } from "../collection/http";
 import type { SupplierContext } from "./types";
@@ -22,7 +23,7 @@ export function fakeContext(
     return {
         requests,
         remaining,
-        config: defaultSupplierConfig(supplier),
+        config: defaultSupplierConfig(accountOf(supplier)),
         secrets,
         baseUrl: () => "https://api.test",
         addSecret: () => undefined,

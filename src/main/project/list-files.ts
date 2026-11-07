@@ -28,6 +28,7 @@ import {
     serializeProject
 } from "../../shared/project-file";
 import { exists, MANIFEST, newBackupFolder } from "../backups";
+import { dialogStart, rememberFolder } from "../dialog-folders";
 import { showError } from "../dialogs";
 import { isFileNotFound, writeFileAtomic } from "../files";
 import { log } from "../logging";
@@ -144,7 +145,7 @@ export async function createBomList(
 ): Promise<OpenedList | null> {
     const result = await dialog.showSaveDialog(window, {
         title: "New BOM List",
-        defaultPath: `BOM list.${BOM_LIST_FILE_EXTENSION}`,
+        defaultPath: dialogStart("bom", `BOM list.${BOM_LIST_FILE_EXTENSION}`),
         filters: FILTERS
     });
     if (result.canceled || !result.filePath) {
@@ -155,6 +156,7 @@ export async function createBomList(
         extname(result.filePath) === ""
             ? `${result.filePath}.${BOM_LIST_FILE_EXTENSION}`
             : result.filePath;
+    rememberFolder("bom", path);
     const historyPath = join(
         dirname(path),
         `${basename(path, extname(path))} history.${PROJECT_FILE_EXTENSION}`

@@ -71,7 +71,6 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
         ]),
         "Shop"
     );
-    shop.project.rows[1]!.manual = { [shop.supplier.id]: { unitPrice: 0.5 } };
     await writeFile(psu, serializeProject(shop.project));
     await writeFile(
         mcu,
@@ -85,8 +84,19 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
     // Both BOMs were collected before, psu later.
     const userData = await mkdtemp(join(tmpdir(), "eez-bom-list-profile-"));
     const supplierData = join(userData, SUPPLIER_DATA_FOLDER);
-    await writeSupplierData(supplierData, psu, d1("2026-10-02T10:00:00Z"));
-    await writeSupplierData(supplierData, mcu, d1("2026-10-01T10:00:00Z"));
+    await writeSupplierData(supplierData, psu, {
+        collected: d1("2026-10-02T10:00:00Z"),
+        // C1's price at the shop is kept there too, not in the file (#68).
+        manual: {
+            [shop.project.rows[1]!.id]: {
+                [shop.supplier.id]: { unitPrice: 0.5 }
+            }
+        }
+    });
+    await writeSupplierData(supplierData, mcu, {
+        collected: d1("2026-10-01T10:00:00Z"),
+        manual: {}
+    });
     const { app, page } = await launchApp({ userData });
     try {
         // A new list gets a history BOM next to it.
@@ -217,6 +227,20 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
         // It can't be edited.
         await cell(page, 1, "value").dblclick();
         await expect(editor(page, "value")).toHaveCount(0);
+        // Its cells can be copied (#63): with the button shown on hover,
+        // or Ctrl+C on the focused cell.
+        const clipboard = () =>
+            app.evaluate(({ clipboard }) => clipboard.readText());
+        const value = cell(page, 0, "value");
+        await value.hover();
+        await value.getByRole("button", { name: "Copy 10k" }).click();
+        await expect(page.locator("footer [role=status]")).toHaveText(
+            "Copied “10k”"
+        );
+        expect(await clipboard()).toBe("10k");
+        await cell(page, 0, "pn:digikey").click();
+        await page.keyboard.press("Control+C");
+        await expect.poll(clipboard).toBe("D-1");
         await expect(
             page.getByRole("button", { name: "Save", exact: true })
         ).toHaveCount(0);

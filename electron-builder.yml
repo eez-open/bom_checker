@@ -32,7 +32,9 @@ linux:
       arch: [x64]
   artifactName: EEZ-BOM-checker-${version}-${arch}.${ext}
   category: Development
-  synopsis: Check KiCad BOMs against DigiKey, Mouser and TME
+  # The package's title and description in software centres (#70).
+  synopsis: BOM checker with multi-vendor API integration
+  description: BOM checker with .csv import, KiCad import/update/sync, BOM lists, best price calculation and export
   maintainer: Envox <eez@envox.hr>
   # Lets desktops match the running window to the menu entry.
   syncDesktopName: true

@@ -5,6 +5,7 @@ import { BOM_LIST_FILE_EXTENSION } from "../../shared/bom-list-file";
 import { documentKind } from "../../shared/document-kind";
 import type { OpenedDocument } from "../../shared/ipc";
 import { PROJECT_FILE_EXTENSION } from "../../shared/project-file";
+import { dialogStart, rememberFolder } from "../dialog-folders";
 import { showError } from "../dialogs";
 import { isFileNotFound } from "../files";
 import { removeRecent } from "../recent";
@@ -19,6 +20,7 @@ export async function openDocumentDialog(
 ): Promise<Extract<OpenedDocument, { kind: "project" | "list" }> | null> {
     const result = await dialog.showOpenDialog(window, {
         title: "Open BOM",
+        defaultPath: dialogStart("bom"),
         filters: [
             {
                 name: "BOMs and BOM lists",
@@ -32,6 +34,7 @@ export async function openDocumentDialog(
     if (result.canceled || !path) {
         return null;
     }
+    rememberFolder("bom", path);
     if (documentKind(path) === "list") {
         const list = await readBomList(window, path);
         return list && { kind: "list", list };

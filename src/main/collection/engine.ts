@@ -88,10 +88,15 @@ export class CollectionEngine {
 
         try {
             session = await this.dependencies.openSession(supplier, signal);
+            const batchSize = Math.max(
+                1,
+                plugin.batchSizeFor?.(session.context.config) ??
+                    plugin.batchSize
+            );
             let failedBatches = 0;
-            for (let i = 0; i < total; i += plugin.batchSize) {
+            for (let i = 0; i < total; i += batchSize) {
                 signal.throwIfAborted();
-                const batch = partNumbers.slice(i, i + plugin.batchSize);
+                const batch = partNumbers.slice(i, i + batchSize);
                 emit({
                     type: "progress",
                     supplier,

@@ -4,8 +4,10 @@ import { exportPresetSchema, type ExportPreset } from "./export";
 import { SUPPLIER_IDS, type SupplierId } from "./model";
 import { DECIMAL_SEPARATORS, type DecimalSeparator } from "./numbers";
 import {
+    ACCOUNT_IDS,
     isSupplierId,
     normalizeSupplierConfig,
+    type AccountId,
     type SupplierConfig
 } from "./supplier-config";
 
@@ -22,7 +24,8 @@ export interface GeneralSettings {
 
 export interface AppSettings {
     general: GeneralSettings;
-    suppliers: Record<SupplierId, SupplierConfig>;
+    /** By account: Arrow's inventory sources share Arrow's (#62). */
+    suppliers: Record<AccountId, SupplierConfig>;
 }
 
 export const SETTINGS_SCHEMA_VERSION = 1;
@@ -54,11 +57,11 @@ export function normalizeSettings(raw: unknown): AppSettings {
                 : "system"
         },
         suppliers: Object.fromEntries(
-            SUPPLIER_IDS.map(id => [
+            ACCOUNT_IDS.map(id => [
                 id,
                 normalizeSupplierConfig(id, suppliers[id])
             ])
-        ) as Record<SupplierId, SupplierConfig>
+        ) as Record<AccountId, SupplierConfig>
     };
 }
 

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { exportPresetSchema } from "../../shared/export";
 import { IpcChannel } from "../../shared/ipc";
 import { SUPPLIER_IDS } from "../../shared/model";
+import { ACCOUNT_IDS } from "../../shared/supplier-config";
 import { DECIMAL_SEPARATORS } from "../../shared/numbers";
 import { normalizeOrder } from "../../shared/settings";
 import { validateSupplierConfig } from "../../shared/supplier-config";
@@ -24,6 +25,7 @@ import {
 import { handle, on } from "./handle";
 
 const supplierId = z.enum(SUPPLIER_IDS);
+const accountId = z.enum(ACCOUNT_IDS);
 const token = z.string().min(1);
 const password = z.string();
 const generalSchema = z.object({
@@ -52,7 +54,7 @@ export function registerSettingsHandlers(): void {
     handle(
         IpcChannel.SettingsSaveSupplier,
         async (_context, sessionToken, supplier, config, secrets) => {
-            const id = supplierId.parse(supplier);
+            const id = accountId.parse(supplier);
             const values = configSchema.parse(config);
             const errors = validateSupplierConfig(id, values);
             if (Object.keys(errors).length > 0) {
@@ -89,7 +91,7 @@ export function registerSettingsHandlers(): void {
     handle(IpcChannel.VaultGetSecret, (_context, sessionToken, supplier, key) =>
         getSecret(
             token.parse(sessionToken),
-            supplierId.parse(supplier),
+            accountId.parse(supplier),
             z.string().parse(key)
         )
     );

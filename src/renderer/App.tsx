@@ -120,6 +120,7 @@ export function App() {
     const search = useUi(state => state.search);
     const shownRows = useUi(state => state.shownRows);
     const editError = useUi(state => state.editError);
+    const notice = useUi(state => state.notice);
     // A filter for a supplier without data any more shows all rows.
     const chosenView = useUi(state => state.rowView);
     const rowView = rowViews(project).some(([value]) => value === chosenView)
@@ -354,7 +355,10 @@ export function App() {
                         {editError}
                     </span>
                 )}
-                <span hidden={open && !!editError}>
+                {open && !editError && notice && (
+                    <span role="status">{notice}</span>
+                )}
+                <span hidden={open && (!!editError || !!notice)}>
                     {open && (
                         <span data-testid="bom-summary">
                             {count(project.rows.length, "row")}

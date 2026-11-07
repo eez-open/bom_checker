@@ -46,6 +46,10 @@ test("writes changed part numbers back into the KiCad project", async () => {
         await cell(page, 0, "pn:mouser").dblclick();
         await fillEditor(page, "pn:mouser", "81-NEW-PART");
         await page.keyboard.press("Enter");
+        // And its Value (#69).
+        await cell(page, 0, "value").dblclick();
+        await fillEditor(page, "value", "1n 50V");
+        await page.keyboard.press("Enter");
 
         await page.getByRole("button", { name: "Update KiCad…" }).click();
         const dialog = page.getByRole("dialog", {
@@ -57,6 +61,11 @@ test("writes changed part numbers back into the KiCad project", async () => {
         await expect(
             dialog.getByRole("checkbox", { name: /^Mouser → field "Mouser"/ })
         ).toBeChecked();
+        // A Value goes to the PCB too: not written unless ticked.
+        const values = dialog.getByRole("checkbox", {
+            name: /^Value → field "Value": 1 change · also on the PCB/
+        });
+        await expect(values).not.toBeChecked();
         await expect(dialog.getByRole("row")).toHaveText([
             "ReferencesFieldIn KiCadNew value",
             "C1,C2,C3,C4,C32,C59Mouser81-GRT1885C2A102JA2D81-NEW-PART"
@@ -105,6 +114,25 @@ test("writes changed part numbers back into the KiCad project", async () => {
             "The KiCad project is back as it was before the update."
         );
         expect(await schematics(folder)).toEqual(before);
+        await dialog.getByRole("button", { name: "Close" }).click();
+
+        // Ticked, the Value is written to every symbol of the row.
+        await page.getByRole("button", { name: "Update KiCad…" }).click();
+        await values.check();
+        await expect(
+            dialog.getByRole("row", {
+                name: "C1,C2,C3,C4,C32,C59 Value 1n 1n 50V"
+            })
+        ).toBeVisible();
+        await dialog
+            .getByRole("button", { name: "Update KiCad project" })
+            .click();
+        await expect(dialog.getByRole("status")).toContainText("Updated");
+        let symbols = 0;
+        for (const text of (await schematics(folder)).values()) {
+            symbols += count(text, '(property "Value" "1n 50V"');
+        }
+        expect(symbols).toBe(6);
     } finally {
         await closeApp(app);
     }

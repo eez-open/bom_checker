@@ -76,6 +76,25 @@ export function mouserLifecycle(
     return MOUSER[status.trim().toLowerCase()] ?? null;
 }
 
+/** Arrow's `status` (#62), the part's lifecycle as text, e.g. "Active",
+ *  "Obsolete" or "Not Recommended for New Designs". */
+export function arrowLifecycle(
+    status: string | null | undefined
+): Lifecycle | null {
+    const text = status?.trim().toLowerCase() ?? "";
+    if (text === "") {
+        return null;
+    }
+    const rules: [RegExp, Lifecycle][] = [
+        [/obsolete|discontinued|inactive/, "obsolete"],
+        [/end of life|\beol\b|last time buy|\bltb\b/, "eol"],
+        [/not recommended|\bnrnd\b/, "nrnd"],
+        [/\bnew\b|preliminary|introduc/, "new"],
+        [/active|production/, "active"]
+    ];
+    return rules.find(([pattern]) => pattern.test(text))?.[1] ?? null;
+}
+
 /** LCSC only says whether a product is on sale. */
 export function lcscLifecycle(
     isOnSale: boolean | null | undefined

@@ -54,6 +54,8 @@ interface UiStore {
     shownRows: number | null;
     /** Why the value being edited in the table can't be entered (#58). */
     editError: string | null;
+    /** A short message in the status bar, e.g. what was copied (#63). */
+    notice: string | null;
 }
 
 const HIDDEN_COLUMNS_KEY = "hidden-columns";
@@ -106,8 +108,18 @@ export const useUi = create<UiStore>()(() => ({
     search: "",
     rowView: "all",
     shownRows: null,
-    editError: null
+    editError: null,
+    notice: null
 }));
+
+let noticeTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Shows `text` in the status bar for a few seconds. */
+export function showNotice(text: string): void {
+    clearTimeout(noticeTimer);
+    useUi.setState({ notice: text });
+    noticeTimer = setTimeout(() => useUi.setState({ notice: null }), 3000);
+}
 
 /** Another BOM starts unfiltered and with no rows selected. Another BOM
  *  of the same list keeps the search text, to find it there too (#60). */

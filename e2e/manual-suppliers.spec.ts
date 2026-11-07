@@ -1,8 +1,12 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rename, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { parseProjectFile, serializeProject } from "../src/shared/project-file";
+import {
+    SUPPLIER_DATA_FOLDER,
+    readSupplierData
+} from "../src/main/project/supplier-data";
+import { parseProjectFile } from "../src/shared/project-file";
 import {
     addManualSupplier,
     addRow,
@@ -122,14 +126,26 @@ test("price breaks and one-time items of suppliers without an API", async () => 
     const { project: withShop, supplier } = addManualSupplier(project, "Shop");
     withShop.rows[0]!.manual = { [supplier.id]: { unitPrice: 1.1 } };
     withShop.rows[1]!.manual = { [supplier.id]: { unitPrice: 40 } };
-    await writeFile(filePath, serializeProject(withShop));
+    // Saved by 0.12.0: the prices in the file (format 7), no id.
+    await writeFile(
+        filePath,
+        JSON.stringify({
+            ...withShop,
+            schemaVersion: 7,
+            id: undefined,
+            collected: undefined
+        })
+    );
     const column = (field: string) => `manual:${supplier.id}:${field}`;
 
-    const { app, page } = await launchApp();
+    const { app, page, userData } = await launchApp();
     try {
         await answerOpenDialog(app, filePath);
         await page.getByRole("button", { name: "Open…" }).click();
         await expect(cell(page, 0, column("totalPrice"))).toHaveText("2.20");
+        // The prices are kept on the computer now (#68); saving removes
+        // them from the file.
+        await expect(page).toHaveTitle("*shop - EEZ BOM checker");
 
         // Lower prices from 25, 100 and 300 (#51), typed in any order.
         const unitPrice = cell(page, 0, column("unitPrice"));
@@ -185,19 +201,49 @@ test("price breaks and one-time items of suppliers without an API", async () => 
 
         await page.getByRole("button", { name: "Save", exact: true }).click();
         await expect(page).toHaveTitle("shop - EEZ BOM checker");
-        const saved = parseProjectFile(await readFile(filePath, "utf8"));
+        // The file says what the items are; their prices are on the
+        // computer, with the collected data.
+        const text = await readFile(filePath, "utf8");
+        expect(text).not.toContain("unitPrice");
+        const saved = parseProjectFile(text);
+        expect(saved.id).toEqual(expect.any(String));
         expect(saved.rows.map(row => row.manual?.[supplier.id])).toEqual([
-            {
-                unitPrice: 1.1,
-                priceBreaks: [
-                    { qty: 25, unitPrice: 1 },
-                    { qty: 100, unitPrice: 0.8 },
-                    { qty: 300, unitPrice: 0.65 }
-                ]
-            },
-            { unitPrice: 40, oneTime: true }
+            undefined,
+            { oneTime: true }
         ]);
+        const kept = await readSupplierData(
+            join(userData, SUPPLIER_DATA_FOLDER),
+            filePath
+        );
+        expect(kept.manual).toEqual({
+            [saved.rows[0]!.id]: {
+                [supplier.id]: {
+                    unitPrice: 1.1,
+                    priceBreaks: [
+                        { qty: 25, unitPrice: 1 },
+                        { qty: 100, unitPrice: 0.8 },
+                        { qty: 300, unitPrice: 0.65 }
+                    ]
+                }
+            },
+            [saved.rows[1]!.id]: { [supplier.id]: { unitPrice: 40 } }
+        });
     } finally {
         await closeApp(app);
+    }
+
+    // Moved outside the app, the BOM finds its prices by its id.
+    const moved = join(folder, "moved.eezbom");
+    await rename(filePath, moved);
+    const again = await launchApp({ userData });
+    try {
+        await answerOpenDialog(again.app, moved);
+        await again.page.getByRole("button", { name: "Open…" }).click();
+        await expect(again.page).toHaveTitle("moved - EEZ BOM checker");
+        await expect(cell(again.page, 0, column("totalPrice"))).toHaveText(
+            "325.00 (1.30)"
+        );
+    } finally {
+        await closeApp(again.app);
     }
 });
