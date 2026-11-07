@@ -856,6 +856,9 @@ button.recent-remove:focus-visible {
         var(--app-accent) 5px,
         transparent 5px
     );
+    /* One mark: repeated, it showed slivers at the cell's edges (#65). */
+    background-origin: border-box;
+    background-repeat: no-repeat;
 }
 
 .price-breaks-editor {
