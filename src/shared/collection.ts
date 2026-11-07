@@ -54,6 +54,10 @@ export function formatDateTime(iso: string): string {
 export interface CollectScope {
     /** Also the Values of rows without a part number ("Look up the Value"). */
     byValue?: boolean;
+    /** Also, for an empty cell of an Arrow inventory source, the part
+     *  number of another source (`sharedPartNumber`); on where the cells
+     *  can be filled in afterwards. */
+    shared?: boolean;
     /** Only these rows, e.g. the ones selected in the table (#17); all rows
      *  when not given. */
     rowIds?: ReadonlySet<string>;
@@ -79,20 +83,58 @@ function rowsIn(project: Project, scope: CollectScope): readonly BomRow[] {
         : project.rows;
 }
 
+/** The part numbers in a row's other columns of `supplier`'s account
+ *  (Arrow's inventory sources), in column order; alternatives too. */
+function otherSourcesCells(row: BomRow, supplier: SupplierId): string[] {
+    const account = SUPPLIERS[supplier].account;
+    return SUPPLIER_IDS.filter(
+        other => other !== supplier && SUPPLIERS[other].account === account
+    )
+        .map(other => row.partNumbers[other])
+        .filter(isPartNumberDefined)
+        .map(normalizeCell);
+}
+
+/**
+ * For a row without a part number for `supplier`, the part number of
+ * another supplier of the same account: Arrow's inventory sources sell by
+ * manufacturer part number, so one typed for Arrow (EUROPE) is looked up
+ * for Arrow (ACNA) too. The first in column order that doesn't list
+ * alternatives; null if the cell isn't empty ("-" means the supplier has no
+ * such part) or no other source of the account has one.
+ */
+export function sharedPartNumber(
+    row: BomRow,
+    supplier: SupplierId
+): string | null {
+    return normalizeCell(row.partNumbers[supplier]) === ""
+        ? (otherSourcesCells(row, supplier).find(
+              cell => !hasAlternatives(cell)
+          ) ?? null)
+        : null;
+}
+
 /**
  * The Value to look up for a row without a part number for the supplier
  * (the "Look up the Value" option); null if the cell isn't empty ("-" means
- * the supplier has no such part) or the Value isn't a part number.
+ * the supplier has no such part), the Value isn't a part number, or (with
+ * `shared`) another Arrow source has a part number, which comes first.
  */
-function valueQuery(row: BomRow, supplier: SupplierId): string | null {
-    return normalizeCell(row.partNumbers[supplier]) === ""
+function valueQuery(
+    row: BomRow,
+    supplier: SupplierId,
+    shared: boolean
+): string | null {
+    return normalizeCell(row.partNumbers[supplier]) === "" &&
+        !(shared && otherSourcesCells(row, supplier).length > 0)
         ? valueAsPartNumber(row.value)
         : null;
 }
 
 /** Distinct part numbers of a supplier in the rows of `scope`, keyed by
  *  `partNumberKey`, with the text of the first cell that has it; with
- *  `byValue`, also the Values of rows without a part number. */
+ *  `shared`, also other Arrow sources' part numbers for empty cells, and
+ *  with `byValue`, the Values of rows still without one. */
 function partNumbers(
     project: Project,
     supplier: SupplierId,
@@ -115,13 +157,23 @@ function partNumbers(
             byKey.set(key, value!.trim());
         }
     }
+    const add = (query: string) => {
+        if (!byKey.has(partNumberKey(query))) {
+            byKey.set(partNumberKey(query), query);
+        }
+    };
     let valueRows = 0;
     for (const row of rows) {
-        const query = valueQuery(row, supplier);
+        const shared = scope.shared ? sharedPartNumber(row, supplier) : null;
+        if (shared) {
+            add(shared);
+            continue;
+        }
+        const query = valueQuery(row, supplier, scope.shared ?? false);
         if (query) {
             valueRows++;
-            if (scope.byValue && !byKey.has(partNumberKey(query))) {
-                byKey.set(partNumberKey(query), query);
+            if (scope.byValue) {
+                add(query);
             }
         }
     }
@@ -272,6 +324,7 @@ export function collectedKeysOf(
                 isPartNumberDefined(cell) && !hasAlternatives(cell)
                     ? cell!
                     : null,
+                sharedPartNumber(row, supplier),
                 value
             ]) {
                 const key = text === null ? null : partNumberKey(text);
@@ -320,8 +373,9 @@ export interface ValueMatches {
 
 /**
  * What was found for the Values of rows (in `rowIds`, if given) without a
- * part number. Results of earlier runs count too: "Only part numbers
- * without data" doesn't look them up again (#18).
+ * part number, other than rows that take another Arrow source's part
+ * number (`sharedMatches`). Results of earlier runs count too: "Only part
+ * numbers without data" doesn't look them up again (#18).
  */
 export function valueMatches(
     project: Project,
@@ -336,7 +390,7 @@ export function valueMatches(
     };
     const results = project.collected.results[supplier] ?? {};
     for (const row of rowsIn(project, { rowIds })) {
-        const query = valueQuery(row, supplier);
+        const query = valueQuery(row, supplier, true);
         const result = query ? results[partNumberKey(query)] : undefined;
         if (!query || !result) {
             continue;
@@ -356,6 +410,29 @@ export function valueMatches(
         }
     }
     return matches;
+}
+
+/**
+ * Empty cells of an Arrow inventory source (in rows `rowIds`, if given)
+ * that get another source's part number (`sharedPartNumber`): the ones it
+ * was looked up for, found or not, so the column shows what the source
+ * has. Not after an error: the next collect tries again.
+ */
+export function sharedMatches(
+    project: Project,
+    supplier: SupplierId,
+    rowIds?: ReadonlySet<string>
+): { rowId: string; partNumber: string }[] {
+    const results = project.collected.results[supplier] ?? {};
+    return rowsIn(project, { rowIds }).flatMap(row => {
+        const partNumber = sharedPartNumber(row, supplier);
+        const result = partNumber
+            ? results[partNumberKey(partNumber)]
+            : undefined;
+        return partNumber && result && result.status !== "error"
+            ? [{ rowId: row.id, partNumber }]
+            : [];
+    });
 }
 
 /**

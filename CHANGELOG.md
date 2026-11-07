@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+
+- A part number typed in one Arrow column counts for all of Arrow's inventory sources: Collect looks it up for a source whose cell is empty and puts it in the cell afterwards, found or not. The Value is looked up only for rows without any Arrow part number.
+
+### Fixed
+
+- Arrow found nothing: the app read the parts where Arrow's documentation puts them, not where Arrow's list search answers with them. When a packaging has no prices (e.g. *Call For Quote*), one with prices is shown first.
+- Settings → General: the help under the Numbers choices and the Troubleshooting checkbox had no space above it, and the longer Arrow names in Preferred suppliers took two lines.
+
 ## [0.13.0] - 2026-11-07
 
 ### Added

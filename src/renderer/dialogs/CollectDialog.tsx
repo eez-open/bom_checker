@@ -3,6 +3,7 @@ import {
     formatDateTime,
     lastCollectedAt,
     partNumbersToCollect,
+    sharedMatches,
     summarizeRun,
     supplierWork,
     valueMatches,
@@ -69,6 +70,8 @@ type Step =
           jobs: CollectJob[];
           /** What the Value lookups found, when that option was on. */
           values?: Partial<Record<SupplierId, ValueMatches>>;
+          /** Empty cells given another Arrow source's part number. */
+          shared?: Partial<Record<SupplierId, number>>;
       };
 
 const BY_VALUE_KEY = "collect-by-value";
@@ -109,57 +112,90 @@ function countFor(work: SupplierWork, mode: CollectMode): number {
 }
 
 /**
- * Puts what the Value lookups of `jobs` found into the empty part-number
- * cells of the rows in `rowIds` (all if not given), as one undo step, and
- * returns the counts per supplier.
+ * Fills the empty part-number cells of the rows in `scope` that `jobs`
+ * looked up: with another Arrow source's part number, and with what the
+ * Value lookups found. One undo step; returns the counts per supplier.
  */
-function fillFromValues(
+function fillEmptyCells(
     target: CollectTarget,
     jobs: readonly CollectJob[],
-    rowIds: ReadonlySet<string> | undefined
-): Partial<Record<SupplierId, ValueMatches>> {
+    scope: CollectScope
+): {
+    values?: Partial<Record<SupplierId, ValueMatches>>;
+    shared?: Partial<Record<SupplierId, number>>;
+} {
     const { project, applyCollected, edit } = target.get();
-    const matches = Object.fromEntries(
-        jobs.map(job => [
-            job.supplier,
-            valueMatches(project, job.supplier, rowIds)
-        ])
-    ) as Partial<Record<SupplierId, ValueMatches>>;
+    const { rowIds } = scope;
+    const shared = new Map(
+        scope.shared
+            ? jobs.map(job => [
+                  job.supplier,
+                  sharedMatches(project, job.supplier, rowIds)
+              ])
+            : []
+    );
+    const values = scope.byValue
+        ? (Object.fromEntries(
+              jobs.map(job => [
+                  job.supplier,
+                  valueMatches(project, job.supplier, rowIds)
+              ])
+          ) as Partial<Record<SupplierId, ValueMatches>>)
+        : undefined;
 
-    // The result also under the supplier's part number put in the cell.
-    applyCollected(collected => {
-        const results = { ...collected.results };
-        for (const job of jobs) {
-            const copies: Record<string, LookupResult> = {};
-            for (const { partNumber, result } of matches[job.supplier]!.cells) {
-                if (result.status === "found") {
-                    copies[partNumberKey(partNumber)] = {
-                        ...result,
-                        matchedBy: "supplierPartNumber"
-                    };
-                }
+    // A Value's result also under the supplier's part number put in the
+    // cell. Another source's part number is already its result's key.
+    const copies = jobs.map(job => {
+        const found: Record<string, LookupResult> = {};
+        for (const { partNumber, result } of values?.[job.supplier]?.cells ??
+            []) {
+            if (result.status === "found") {
+                found[partNumberKey(partNumber)] = {
+                    ...result,
+                    matchedBy: "supplierPartNumber"
+                };
             }
-            results[job.supplier] = { ...results[job.supplier], ...copies };
         }
-        return { ...collected, results };
+        return [job.supplier, found] as const;
     });
+    if (copies.some(([, found]) => Object.keys(found).length > 0)) {
+        applyCollected(collected => {
+            const results = { ...collected.results };
+            for (const [supplier, found] of copies) {
+                results[supplier] = { ...results[supplier], ...found };
+            }
+            return { ...collected, results };
+        });
+    }
+    const cells = jobs.flatMap(job =>
+        [
+            ...(shared.get(job.supplier) ?? []),
+            ...(values?.[job.supplier]?.cells ?? [])
+        ].map(cell => ({ ...cell, supplier: job.supplier }))
+    );
     edit(current =>
-        jobs.reduce(
-            (filled, job) =>
-                matches[job.supplier]!.cells.reduce(
-                    (next, cell) =>
-                        setCell(
-                            next,
-                            cell.rowId,
-                            { kind: "partNumber", supplier: job.supplier },
-                            cell.partNumber
-                        ),
-                    filled
+        cells.reduce(
+            (next, cell) =>
+                setCell(
+                    next,
+                    cell.rowId,
+                    { kind: "partNumber", supplier: cell.supplier },
+                    cell.partNumber
                 ),
             current
         )
     );
-    return matches;
+    return {
+        values,
+        shared: scope.shared
+            ? Object.fromEntries(
+                  [...shared].map(([supplier, filled]) => [
+                      supplier,
+                      filled.length
+                  ])
+              )
+            : undefined
+    };
 }
 
 function defaultChoice(
@@ -286,9 +322,7 @@ export function CollectDialog({
                     setStep({
                         kind: "done",
                         jobs,
-                        values: scope.byValue
-                            ? fillFromValues(target, jobs, scope.rowIds)
-                            : undefined
+                        ...fillEmptyCells(target, jobs, scope)
                     });
                 }
             }),
@@ -393,6 +427,11 @@ export function CollectDialog({
                                 ? step.values?.[job.supplier]
                                 : undefined
                         }
+                        shared={
+                            step.kind === "done"
+                                ? step.shared?.[job.supplier]
+                                : undefined
+                        }
                     />
                 ))}
         </Modal>
@@ -481,6 +520,9 @@ function ChooseSuppliers({
     const [onlySelected, setOnlySelected] = useState(selection.size > 0);
     const scopeOf = (lookUpValues: boolean, selected: boolean) => ({
         byValue: lookUpValues,
+        // Another Arrow source's part number for an empty cell, which
+        // gets it afterwards.
+        shared: !readOnly,
         rowIds: selected ? selection : undefined
     });
     const scope = scopeOf(byValue, onlySelected);
@@ -576,7 +618,9 @@ function ChooseSuppliers({
                     searched as a manufacturer part number, e.g. TPS54331DDA.
                     Generic values such as 100n or 10k are skipped. One match
                     fills in the supplier&apos;s part number; when several items
-                    match, the cell gets the Value and you choose the item.
+                    match, the cell gets the Value and you choose the item. For
+                    Arrow&apos;s inventory sources, the part number in another
+                    Arrow column comes first, also without this option.
                 </p>
             </div>
             {suppliers.map(supplier => (
@@ -758,7 +802,8 @@ function JobStatus({
     progress,
     run,
     finished,
-    values
+    values,
+    shared
 }: {
     target: CollectTarget;
     job: CollectJob;
@@ -766,6 +811,7 @@ function JobStatus({
     run: CollectionRun | undefined;
     finished: boolean;
     values: ValueMatches | undefined;
+    shared: number | undefined;
 }) {
     const project = target.useProject();
     const name = SUPPLIERS[job.supplier].name;
@@ -821,6 +867,11 @@ function JobStatus({
                         found
                     </p>
                 )}
+            {shared !== undefined && shared > 0 && (
+                <p>
+                    From another Arrow source&apos;s column: {shared} filled in
+                </p>
+            )}
             {ended.state === "interrupted" && (
                 <p className="warning">
                     Stopped: {ended.reason} Open Collect again to continue where

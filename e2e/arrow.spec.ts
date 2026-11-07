@@ -62,11 +62,10 @@ test("collects from Arrow's inventory sources (#62)", async () => {
         await columns.getByLabel("Arrow (ASIA)").check();
         await expect(columns.getByLabel("Arrow (ACNA)")).toHaveCount(0);
         await columns.getByRole("button", { name: "Close" }).click();
-        for (const supplier of ["arrow-europe", "arrow-asia"]) {
-            await cell(page, 0, `pn:${supplier}`).dblclick();
-            await fillEditor(page, `pn:${supplier}`, "BAV99");
-            await page.keyboard.press("Enter");
-        }
+        // Typed for Europe only: Asia looks it up too.
+        await cell(page, 0, "pn:arrow-europe").dblclick();
+        await fillEditor(page, "pn:arrow-europe", "BAV99");
+        await page.keyboard.press("Enter");
 
         await page.getByRole("button", { name: "Collect…" }).click();
         const collect = page.getByRole("dialog", {
@@ -75,11 +74,24 @@ test("collects from Arrow's inventory sources (#62)", async () => {
         await expect(
             collect.getByRole("checkbox", { name: "Arrow (EUROPE)" })
         ).toBeChecked();
-        await collect.getByRole("button", { name: "Start" }).click();
         await expect(
-            collect.getByRole("region", { name: "Arrow (ASIA) summary" })
-        ).toBeVisible();
+            collect.getByRole("checkbox", {
+                name: "Look up the Value where a part number is missing"
+            })
+        ).not.toBeChecked();
+        await expect(
+            collect.getByRole("checkbox", { name: "Arrow (ASIA)" })
+        ).toBeChecked();
+        await collect.getByRole("button", { name: "Start" }).click();
+        const asia = collect.getByRole("region", {
+            name: "Arrow (ASIA) summary"
+        });
+        await expect(asia).toContainText(
+            "From another Arrow source's column: 1 filled in"
+        );
         await collect.getByRole("button", { name: "Close" }).click();
+        // Found: the cell has the ✓ of collected data.
+        await expect(cell(page, 0, "pn:arrow-asia")).toHaveText("✓BAV99");
 
         // Each source with its own stock and prices; Asia's are in USD.
         await expect(cell(page, 0, "data:arrow-europe:stockQty")).toHaveText(

@@ -4,6 +4,8 @@ import {
     formatDateTime,
     lastCollectedAt,
     partNumbersToCollect,
+    sharedMatches,
+    sharedPartNumber,
     summarizeRun,
     supplierWork,
     valueMatches,
@@ -11,7 +13,13 @@ import {
     withoutResults
 } from "./collection";
 import { digikeyLifecycle, mouserLifecycle, tmeLifecycle } from "./lifecycle";
-import type { LookupResult, Project, SupplierOffer } from "./model";
+import {
+    partNumberKey,
+    type LookupResult,
+    type Project,
+    type SupplierId,
+    type SupplierOffer
+} from "./model";
 import { addRow, createProject, createRow } from "./project-ops";
 
 const AT = "2026-10-26T10:00:00Z";
@@ -330,6 +338,98 @@ describe("looking up Values", () => {
         expect(valueMatches(collected, "mouser", first)).toMatchObject({
             found: 1,
             ambiguous: 0,
+            notFound: 0
+        });
+    });
+});
+
+describe("Arrow's inventory sources share part numbers", () => {
+    const rows: [string, Partial<Record<SupplierId, string>>][] = [
+        // Typed for EUROPE only: ACNA looks it up too, not the Value.
+        [
+            "B3P-VH-FB-B",
+            { "arrow-europe": "B3P-VH-FB-B(LF)(SN)", "arrow-acna": "" }
+        ],
+        // No Arrow part number: the Value, when asked.
+        ["SN74LVC1G3157DCK", { mouser: "595-SN74LVC1G3157DCKR" }],
+        // "-" isn't a part number; ASIA's is.
+        ["BAV99", { "arrow-europe": "-", "arrow-asia": " BAV99,215 " }],
+        // Alternatives are never looked up.
+        ["NE555", { "arrow-europe": "NE555P or NE555DR" }]
+    ];
+    const project = rows.reduce(
+        (bom, [value, partNumbers]) =>
+            addRow(bom, createRow({ value, partNumbers })),
+        {
+            ...createProject(),
+            suppliers: ["mouser", "arrow-europe", "arrow-acna", "arrow-asia"]
+        } as Project
+    );
+    const [b3p, sn74, bav99, ne555] = project.rows;
+
+    it("takes another source's part number for an empty cell", () => {
+        expect(sharedPartNumber(b3p!, "arrow-acna")).toBe(
+            "B3P-VH-FB-B(LF)(SN)"
+        );
+        expect(sharedPartNumber(b3p!, "arrow-europe")).toBeNull();
+        expect(sharedPartNumber(bav99!, "arrow-acna")).toBe("BAV99,215");
+        expect(sharedPartNumber(bav99!, "arrow-europe")).toBeNull();
+        expect(sharedPartNumber(ne555!, "arrow-acna")).toBeNull();
+        // Only within Arrow.
+        expect(sharedPartNumber(sn74!, "arrow-acna")).toBeNull();
+        expect(sharedPartNumber(sn74!, "digikey")).toBeNull();
+    });
+
+    it("looks them up before the Value", () => {
+        expect(
+            partNumbersToCollect(project, "arrow-acna", "all", {
+                shared: true
+            })
+        ).toEqual(["B3P-VH-FB-B(LF)(SN)", "BAV99,215"]);
+        expect(
+            partNumbersToCollect(project, "arrow-acna", "all", {
+                shared: true,
+                byValue: true
+            })
+        ).toEqual(["B3P-VH-FB-B(LF)(SN)", "SN74LVC1G3157DCK", "BAV99,215"]);
+        // NE555's Value isn't looked up either: EUROPE has part numbers,
+        // to choose from first.
+        expect(
+            supplierWork(project, "arrow-acna", { shared: true })
+        ).toMatchObject({ total: 2, valueRows: 1 });
+        // Where cells can't be filled in, e.g. a list's Combined BOM.
+        expect(partNumbersToCollect(project, "arrow-acna", "all")).toEqual([]);
+    });
+
+    it("fills the cells looked up, found or not", () => {
+        const result = (status: "notFound" | "error"): LookupResult =>
+            status === "error"
+                ? { status, message: "x", runId: "r1", fetchedAt: AT }
+                : { status, runId: "r1", fetchedAt: AT };
+        const collected: Project = {
+            ...project,
+            collected: {
+                results: {
+                    "arrow-acna": {
+                        [partNumberKey("B3P-VH-FB-B(LF)(SN)")]:
+                            result("notFound"),
+                        [partNumberKey("BAV99,215")]: result("error"),
+                        // The Values of rows taking another source's part
+                        // number aren't filled in.
+                        [partNumberKey("B3P-VH-FB-B")]: result("notFound")
+                    }
+                },
+                runs: {}
+            }
+        };
+        expect(sharedMatches(collected, "arrow-acna")).toEqual([
+            { rowId: b3p!.id, partNumber: "B3P-VH-FB-B(LF)(SN)" }
+        ]);
+        expect(
+            sharedMatches(collected, "arrow-acna", new Set([bav99!.id]))
+        ).toEqual([]);
+        expect(valueMatches(collected, "arrow-acna")).toMatchObject({
+            cells: [],
             notFound: 0
         });
     });

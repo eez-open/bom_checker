@@ -74,7 +74,9 @@ Arrow's Pricing & Availability API needs a login and an API key from Arrow.
 1. Request access on [developers.arrow.com](https://developers.arrow.com/api/) (*Getting Started*). Arrow sends a **Login** and an **API key** for the Pricing & Availability API; the Order API has a key of its own, which doesn't work here.
 2. Enter them under **Arrow**, choose the **Inventory sources** you buy from, click **Save Arrow settings**, then **Test connection**.
 
-Arrow keeps stock in several **inventory sources**: Arrow Europe (EUROPE), Arrow North America (ACNA), Arrow Asia (ASIA) and the Verical marketplace (VERICAL). Each source you choose is a supplier of its own in the app, e.g. **Arrow (EUROPE)**: **Columns…** offers a part-number column for it, and it has its own stock, prices, Availability and place in the best price, so Arrow (EUROPE) and Arrow (ASIA) can be compared side by side. A part that's in Arrow's catalogue but not in a source's stock is *not found* there. The columns take manufacturer part numbers, as Arrow lists them; when Arrow has several packagings in a source, the one with the most stock is shown and the tooltip lists the others.
+Arrow keeps stock in several **inventory sources**: Arrow Europe (EUROPE), Arrow North America (ACNA), Arrow Asia (ASIA) and the Verical marketplace (VERICAL). Each source you choose is a supplier of its own in the app, e.g. **Arrow (EUROPE)**: **Columns…** offers a part-number column for it, and it has its own stock, prices, Availability and place in the best price, so Arrow (EUROPE) and Arrow (ASIA) can be compared side by side. A part that's in Arrow's catalogue but not in a source's stock is *not found* there. The columns take manufacturer part numbers, as Arrow lists them; when Arrow has several packagings in a source, one with prices is shown first, then the one with the most stock, and the tooltip lists the others.
+
+A part number typed in one Arrow column counts for all of them. When a source's cell is empty, **Collect…** looks up the part number of another Arrow column (the first from the left) and puts it in the cell afterwards, found or not, so the column shows whether that source has the part. An Arrow cell with `-` doesn't count. **Look up the Value where a part number is missing** is used only for rows without any Arrow part number.
 
 Prices are Arrow's resale prices; with **Currency** EUR, Arrow converts prices from USD. **Part numbers per request** is 100 by default, the most Arrow's best practices name; Arrow's list search accepts up to 1000, so *1000* checks most BOMs in one request. Arrow's terms allow keeping its data for 48 hours only: older Arrow data is removed when the app starts and when a BOM is opened or saved, so collect again before ordering.
 
@@ -145,6 +147,8 @@ Tick **Look up the Value where a part number is missing** to search for rows who
 - One matching item fills in the supplier's part number.
 - When several items match, typically different packagings, the cell gets the Value, and the supplier's *Availability* column shows a list to choose the item from.
 - When nothing matches, the cell stays empty.
+
+For Arrow's inventory sources, another Arrow column's part number comes first, also without this option (see [Arrow](#arrow)).
 
 A manufacturer part number counts as the same when it differs only in dashes, other punctuation or leading zeros: DigiKey lists Molex *22-01-3037* as *0022013037*. When DigiKey doesn't find a part number at all, the app also runs DigiKey's keyword search, which costs a second request; if none of the products it finds has the number, you choose among them.
 
