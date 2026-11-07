@@ -11,6 +11,7 @@ import {
     type SyncPlan
 } from "../../shared/kicad-sync";
 import type { Project } from "../../shared/model";
+import { sortByReference } from "../../shared/references";
 import { SUPPLIERS } from "../../shared/suppliers";
 import { errorMessage } from "../errors";
 import { useDocument } from "../store/document";
@@ -57,19 +58,41 @@ function describeJoin(join: RowJoin): string {
 }
 
 /** The ticked changes, then the ticked joins of rows that are the same
- *  component afterwards (#55). */
+ *  component afterwards (#55), and the rows sorted by Reference (#67). */
 function synced(
     project: Project,
     kicad: KicadBom,
     plan: SyncPlan,
     selected: ReadonlySet<string>,
-    unjoined: ReadonlySet<string>
+    unjoined: ReadonlySet<string>,
+    sort: boolean
 ): Project {
     const next = applySync(project, kicad, plan, selected);
-    return joinRows(
+    const joined = joinRows(
         next,
         planJoins(next, kicad).filter(join => !unjoined.has(join.id))
     );
+    const rows = sort ? sortByReference(joined.rows) : joined.rows;
+    return rows === joined.rows ? joined : { ...joined, rows: [...rows] };
+}
+
+const SORT_KEY = "sync-sort-by-reference";
+
+/** Whether to sort the rows after a sync; yes unless unticked before. */
+function loadSort(): boolean {
+    try {
+        return localStorage.getItem(SORT_KEY) !== "false";
+    } catch {
+        return true;
+    }
+}
+
+function saveSort(sort: boolean): void {
+    try {
+        localStorage.setItem(SORT_KEY, String(sort));
+    } catch {
+        // Only a convenience.
+    }
 }
 
 export function KicadSyncDialog({ onClose }: { onClose: () => void }) {
@@ -80,6 +103,8 @@ export function KicadSyncDialog({ onClose }: { onClose: () => void }) {
     // Joins are ticked unless unticked: which there are depends on the
     // ticked changes.
     const [unjoined, setUnjoined] = useState<ReadonlySet<string>>(new Set());
+    // New rows go to the end; sorted, they're where their references say.
+    const [sort, setSort] = useState(loadSort);
     const joins = useMemo(
         () =>
             state.kind === "ready"
@@ -142,7 +167,14 @@ export function KicadSyncDialog({ onClose }: { onClose: () => void }) {
         useDocument
             .getState()
             .edit(project =>
-                synced(project, state.kicad, state.plan, selected, unjoined)
+                synced(
+                    project,
+                    state.kicad,
+                    state.plan,
+                    selected,
+                    unjoined,
+                    sort
+                )
             );
         onClose();
     };
@@ -293,6 +325,18 @@ export function KicadSyncDialog({ onClose }: { onClose: () => void }) {
                                     ))}
                                 </fieldset>
                             )}
+                            <label className="checkbox">
+                                <input
+                                    type="checkbox"
+                                    checked={sort}
+                                    onChange={event => {
+                                        setSort(event.target.checked);
+                                        saveSort(event.target.checked);
+                                    }}
+                                />
+                                Sort the rows by Reference, so added parts are
+                                where their references put them
+                            </label>
                         </>
                     )}
                 </div>

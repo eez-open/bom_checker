@@ -63,12 +63,23 @@ test("brings changes made in KiCad into the BOM", async () => {
             name: "R112 · Mouser: 603-RC0805FR-071KL → 603-NEW-1K"
         });
         await expect(change).toBeChecked();
-        await expect(dialog.getByRole("checkbox")).toHaveCount(1);
+        await expect(dialog.getByRole("checkbox", { name: / · / })).toHaveCount(
+            1
+        );
+        // Afterwards the rows are sorted by Reference (#67).
+        await expect(
+            dialog.getByRole("checkbox", {
+                name: /^Sort the rows by Reference/
+            })
+        ).toBeChecked();
         await dialog.getByRole("button", { name: "Apply 1 change" }).click();
         await expect(dialog).toBeHidden();
 
-        // R112 has a row of its own now; the others keep theirs.
+        // R112 has a row of its own now, in Reference order after R88's
+        // (unsorted, it would follow its old row, which starts at R41); the
+        // others keep theirs.
         const r112Row = await rowIndexOf(page, "R112");
+        await expect(cell(page, r112Row - 1, "reference")).toHaveText("R88");
         await expect(cell(page, r112Row, "pn:mouser")).toHaveText("603-NEW-1K");
         await expect(cell(page, r112Row, "qty")).toHaveText("1");
         const rest = await rowIndexOf(

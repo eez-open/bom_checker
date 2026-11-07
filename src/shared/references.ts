@@ -77,3 +77,24 @@ export function quantityMismatch(row: ReferenceRow): string | null {
     }
     return `${count} reference${count === 1 ? "" : "s"}, but Qty is ${row.qty}.`;
 }
+
+/**
+ * Rows in the natural order of their lowest reference, as KiCad lists
+ * them (#67): C2 before C10 before R1. Rows without references keep their
+ * order, after the others. The same array when the order doesn't change.
+ */
+export function sortByReference<T extends { reference: string }>(
+    rows: readonly T[]
+): readonly T[] {
+    const first = (row: T) =>
+        splitReferences(row.reference).sort(compareReferences)[0];
+    const sorted = [...rows].sort((a, b) => {
+        const x = first(a);
+        const y = first(b);
+        if (x === undefined || y === undefined) {
+            return x === y ? 0 : x === undefined ? 1 : -1;
+        }
+        return compareReferences(x, y);
+    });
+    return sorted.every((row, index) => row === rows[index]) ? rows : sorted;
+}

@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
     duplicateReferences,
     joinReferences,
-    quantityMismatch
+    quantityMismatch,
+    sortByReference
 } from "./references";
 
 const row = (id: string, reference: string, qty = 1) => ({
@@ -46,5 +47,26 @@ describe("references", () => {
         // Without references, or an amount such as metres of tape.
         expect(quantityMismatch(row("a", "", 4))).toBeNull();
         expect(quantityMismatch(row("a", "TAPE1", 0.004))).toBeNull();
+    });
+
+    it("sorts rows by their lowest reference (#67)", () => {
+        const rows = [
+            row("a", "R1"),
+            row("b", ""),
+            row("c", "C10, C2"),
+            row("d", "U1"),
+            row("e", "C3"),
+            row("f", "")
+        ];
+        expect(sortByReference(rows).map(r => r.id)).toEqual([
+            "c",
+            "e",
+            "a",
+            "d",
+            "b",
+            "f"
+        ]);
+        const sorted = [row("a", "C1"), row("b", "C2,C10"), row("c", "")];
+        expect(sortByReference(sorted)).toBe(sorted);
     });
 });
