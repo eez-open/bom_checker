@@ -136,7 +136,8 @@ export function loadList(opened: OpenedList): void {
             boms: opened.boms.map(bom => bom.path),
             perDevice: opened.perDevice,
             history: opened.history?.path ?? null,
-            buildQuantity: opened.buildQuantity
+            buildQuantity: opened.buildQuantity,
+            description: opened.description
         },
         documents,
         errors,
@@ -223,6 +224,38 @@ export async function setListQuantities(change: {
     if (selected === COMBINED) {
         showCombined();
     }
+    await saveListFile();
+}
+
+// A description being typed is saved when typing pauses (#72).
+const DESCRIPTION_SAVE_DELAY_MS = 300;
+let descriptionTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Changes the list's description as it's typed (#72); the list is saved
+ *  when typing pauses, or by `saveListDescription`. */
+export function editListDescription(description: string): void {
+    const { list } = useWorkspace.getState();
+    if (!list || list.description === description) {
+        return;
+    }
+    useWorkspace.setState({ list: { ...list, description } });
+    if (descriptionTimer !== null) {
+        clearTimeout(descriptionTimer);
+    }
+    descriptionTimer = setTimeout(
+        () => void saveListDescription(),
+        DESCRIPTION_SAVE_DELAY_MS
+    );
+}
+
+/** Saves a description that's still waiting to be saved, e.g. when its
+ *  field is left or the list is closed. */
+export async function saveListDescription(): Promise<void> {
+    if (descriptionTimer === null) {
+        return;
+    }
+    clearTimeout(descriptionTimer);
+    descriptionTimer = null;
     await saveListFile();
 }
 
@@ -315,16 +348,23 @@ function showMessage(message: string | null): void {
     useWorkspace.setState({ message });
 }
 
-async function saveListFile(): Promise<void> {
-    const { list } = useWorkspace.getState();
-    if (!list) {
-        return;
-    }
-    try {
-        await window.api.list.save(list);
-    } catch (error) {
-        showMessage(`The list couldn't be saved: ${errorMessage(error)}`);
-    }
+// One save of the list at a time, so an older one can't finish last.
+let listSaving: Promise<void> = Promise.resolve();
+
+/** Saves the list as it is when its turn comes. */
+function saveListFile(): Promise<void> {
+    listSaving = listSaving.then(async () => {
+        const { list } = useWorkspace.getState();
+        if (!list) {
+            return;
+        }
+        try {
+            await window.api.list.save(list);
+        } catch (error) {
+            showMessage(`The list couldn't be saved: ${errorMessage(error)}`);
+        }
+    });
+    return listSaving;
 }
 
 /** Saves one BOM of the list; false if that failed (main said why). */
@@ -400,6 +440,7 @@ export async function afterListSave(path: string): Promise<void> {
 
 /** Offers to save the list's unsaved BOMs; false if the user cancelled. */
 export async function confirmDiscardList(): Promise<boolean> {
+    await saveListDescription();
     const { list } = useWorkspace.getState();
     const unsaved = unsavedPaths();
     if (!list || unsaved.length === 0) {

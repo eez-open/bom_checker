@@ -124,14 +124,21 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
                 await readFile(join(folder, "device.eezbom-list"), "utf8")
             );
         expect(await listFile()).toEqual({
-            schemaVersion: 2,
+            schemaVersion: 3,
             boms: [
                 { path: "psu.eezbom", perDevice: 1 },
                 { path: "mcu.eezbom", perDevice: 1 }
             ],
             history: "device history.eezbom",
-            buildQuantity: 1
+            buildQuantity: 1,
+            description: ""
         });
+        // A description of the list (#72), saved as it's typed.
+        const description = pane.getByRole("textbox", { name: "Description" });
+        await description.fill("Rev. B\nOrder with the enclosure.");
+        await expect
+            .poll(async () => (await listFile()).description)
+            .toBe("Rev. B\nOrder with the enclosure.");
         // The history has each component and part number once.
         const history = await readBom(join(folder, "device history.eezbom"));
         expect(

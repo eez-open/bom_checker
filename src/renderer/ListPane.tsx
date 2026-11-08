@@ -1,10 +1,12 @@
 import { fileTitle } from "../shared/bom-list";
-import { MAX_PER_DEVICE } from "../shared/bom-list-file";
+import { MAX_LIST_DESCRIPTION, MAX_PER_DEVICE } from "../shared/bom-list-file";
 import { checkHistory, openBomCosts, openUnify } from "./commands";
 import {
     addBomsToList,
     chooseHistory,
+    editListDescription,
     removeFromList,
+    saveListDescription,
     selectInList,
     setListQuantities
 } from "./list-commands";
@@ -117,6 +119,19 @@ export function ListPane() {
             <h2 className="list-pane-title" title={list.filePath}>
                 {fileTitle(list.filePath)}
             </h2>
+            {/* General information about the list (#72); saved as it's
+                typed, like the list's other settings. */}
+            <label className="list-description">
+                <span>Description</span>
+                <textarea
+                    value={list.description}
+                    rows={3}
+                    maxLength={MAX_LIST_DESCRIPTION}
+                    placeholder="What the BOMs are for, notes for ordering…"
+                    onChange={event => editListDescription(event.target.value)}
+                    onBlur={() => void saveListDescription()}
+                />
+            </label>
             {message && (
                 <p className="list-pane-message" role="alert">
                     {message}

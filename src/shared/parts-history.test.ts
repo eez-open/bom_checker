@@ -42,15 +42,35 @@ function usedIn(history: Project): (string | number | undefined)[] {
 describe("BOM list file", () => {
     it("round-trips a list, with how many of each BOM a device has", () => {
         const list = {
-            schemaVersion: 2 as const,
+            schemaVersion: 3 as const,
             boms: [
                 { path: "psu/psu.eezbom", perDevice: 2 },
                 { path: "mcu.eezbom", perDevice: 1 }
             ],
             history: "parts history.eezbom",
-            buildQuantity: 25
+            buildQuantity: 25,
+            description: "Rev. B · ordered with the enclosure"
         };
         expect(parseBomListFile(serializeBomList(list))).toEqual(list);
+    });
+
+    it("reads format 2, without a description (#72)", () => {
+        expect(
+            parseBomListFile(
+                JSON.stringify({
+                    schemaVersion: 2,
+                    boms: [{ path: "a.eezbom", perDevice: 2 }],
+                    history: null,
+                    buildQuantity: 10
+                })
+            )
+        ).toEqual({
+            schemaVersion: 3,
+            boms: [{ path: "a.eezbom", perDevice: 2 }],
+            history: null,
+            buildQuantity: 10,
+            description: ""
+        });
     });
 
     it("reads format 1: one of each BOM, one device (#39)", () => {
@@ -63,13 +83,14 @@ describe("BOM list file", () => {
                 })
             )
         ).toEqual({
-            schemaVersion: 2,
+            schemaVersion: 3,
             boms: [
                 { path: "a.eezbom", perDevice: 1 },
                 { path: "b.eezbom", perDevice: 1 }
             ],
             history: null,
-            buildQuantity: 1
+            buildQuantity: 1,
+            description: ""
         });
     });
 
@@ -89,7 +110,7 @@ describe("BOM list file", () => {
             )
         ).toThrow(/damaged/);
         expect(() =>
-            parseBomListFile(JSON.stringify({ schemaVersion: 3 }))
+            parseBomListFile(JSON.stringify({ schemaVersion: 4 }))
         ).toThrow(/newer version/);
     });
 

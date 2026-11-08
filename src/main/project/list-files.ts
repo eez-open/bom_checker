@@ -111,7 +111,8 @@ export async function readBomList(
                     entry.perDevice
                 ])
             ),
-            buildQuantity: list.buildQuantity
+            buildQuantity: list.buildQuantity,
+            description: list.description
         };
     } catch (error) {
         log.warn("Can't open", path, error);
@@ -131,7 +132,8 @@ async function writeList(list: ListState): Promise<void> {
                 perDevice: list.perDevice[bom] ?? 1
             })),
             history: list.history && toEntry(path, list.history),
-            buildQuantity: list.buildQuantity
+            buildQuantity: list.buildQuantity,
+            description: list.description
         })
     );
 }
@@ -174,7 +176,8 @@ export async function createBomList(
             boms: [],
             perDevice: {},
             history: historyPath,
-            buildQuantity: 1
+            buildQuantity: 1,
+            description: ""
         });
         knownLists.add(path);
         addRecent(path);
@@ -184,7 +187,8 @@ export async function createBomList(
             boms: [],
             history,
             perDevice: {},
-            buildQuantity: 1
+            buildQuantity: 1,
+            description: ""
         };
     } catch (error) {
         log.warn("Can't create", path, error);

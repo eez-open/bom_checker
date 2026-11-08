@@ -1132,6 +1132,32 @@ path.cost-slice {
     margin: 2px 0;
 }
 
+/* The list's description (#72), labelled like the sections below. */
+.list-description {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.list-description > span {
+    color: var(--app-muted);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.list-description textarea {
+    min-height: 3.5em;
+    padding: 4px 6px;
+    border: 1px solid var(--app-border);
+    border-radius: 6px;
+    background: var(--app-bg);
+    color: inherit;
+    font: inherit;
+    resize: vertical;
+}
+
 .list-pane-message {
     padding: 6px 8px;
     border-radius: 6px;

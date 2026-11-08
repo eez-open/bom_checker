@@ -2,7 +2,10 @@ import { isAbsolute } from "node:path";
 import { BrowserWindow } from "electron";
 import { z } from "zod";
 import { IpcChannel } from "../../shared/ipc";
-import { MAX_PER_DEVICE } from "../../shared/bom-list-file";
+import {
+    MAX_LIST_DESCRIPTION,
+    MAX_PER_DEVICE
+} from "../../shared/bom-list-file";
 import { MAX_BUILD_QUANTITY, SUPPLIER_IDS } from "../../shared/model";
 import { validateProject } from "../../shared/project-file";
 import { openCsvFile } from "../project/csv-files";
@@ -61,7 +64,8 @@ const listStateSchema = z.object({
         z.number().int().min(1).max(MAX_PER_DEVICE)
     ),
     history: absolutePath.nullable(),
-    buildQuantity: z.number().int().min(1).max(MAX_BUILD_QUANTITY)
+    buildQuantity: z.number().int().min(1).max(MAX_BUILD_QUANTITY),
+    description: z.string().max(MAX_LIST_DESCRIPTION)
 });
 
 const kicadUpdateSchema = z.object({

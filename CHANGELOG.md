@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- **Description** for BOM lists: a box under the list's name for general information about the list, saved with the list as you type. Lists are now format 3: earlier versions can't open lists saved by this one (#72).
+
 ### Changed
 
 - A part number typed in one Arrow column counts for all of Arrow's inventory sources: Collect looks it up for a source whose cell is empty and puts it in the cell afterwards, found or not. The Value is looked up only for rows without any Arrow part number.

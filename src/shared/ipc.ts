@@ -125,6 +125,7 @@ export interface OpenedList {
     /** As in `ListState`. */
     perDevice: Record<string, number>;
     buildQuantity: number;
+    description: string;
 }
 
 /** A BOM list as the renderer keeps and saves it (#35). */
@@ -138,6 +139,8 @@ export interface ListState {
     history: string | null;
     /** How many devices the Combined BOM is for (#39). */
     buildQuantity: number;
+    /** General information about the list (#72). */
+    description: string;
 }
 
 /** A file opened by path: a BOM or a list, or a file to import. */
