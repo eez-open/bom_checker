@@ -20,7 +20,7 @@ import {
 import { errorMessage } from "../errors";
 import { WarningIcon } from "../icons";
 import { listMembers } from "../list-commands";
-import { uncoveredText } from "../../shared/line-text";
+import { stockWarnings } from "../../shared/line-text";
 import { documentName, useDocument } from "../store/document";
 import { useAppSettings, useNumbers } from "../store/settings";
 import { useWorkspace } from "../store/workspace";
@@ -87,12 +87,18 @@ function CostChart({
     const [message, setMessage] = useState<string | null>(null);
     const { entries, other, total } = data;
     const slices = slicesOf(data);
-    // Rows the total leaves out (#49), as in the Best price header.
-    const warning = data.uncovered > 0 && (
-        <p className="cost-warning" data-testid="cost-warning">
-            <WarningIcon />
-            {uncoveredText(data.uncovered)}
-        </p>
+    // Rows the total leaves out (#49) or has only in part (#74), as in
+    // the Best price header.
+    const warnings = stockWarnings(data);
+    const warning = warnings.length > 0 && (
+        <div data-testid="cost-warning">
+            {warnings.map(text => (
+                <p key={text} className="cost-warning">
+                    <WarningIcon />
+                    {text}
+                </p>
+            ))}
+        </div>
     );
 
     const hover = (key: string) => ({
@@ -378,6 +384,7 @@ export function CostChartDialog({ onClose }: { onClose: () => void }) {
                     label: `Other ${plural(other.rows, "row")}`
                 },
                 total: breakdown.total,
+                partial: breakdown.partial,
                 uncovered: breakdown.uncovered
             }}
             summary={partsSummary(breakdown, project.buildQuantity, numbers)}
@@ -391,7 +398,7 @@ export function CostChartDialog({ onClose }: { onClose: () => void }) {
             pictureTitle={`${name}: most expensive parts`}
             ringLabel={`Share of the best price total of the ${items.length} most expensive rows`}
             empty="No prices yet. Collect supplier data, or type in the prices of a supplier without an API, to see which parts cost the most."
-            note="Each row at the supplier with its best price for the build quantity, as in the Best price columns. Rows without a supplier that has enough stock aren't included."
+            note="Each row at the supplier with its best price for the build quantity, as in the Best price columns. A row that no supplier has enough stock for is at the supplier with the most, for what it has; rows that no supplier can deliver any of aren't included."
             onClose={onClose}
         />
     );
@@ -447,6 +454,7 @@ export function BomCostChartDialog({ onClose }: { onClose: () => void }) {
                     label: `Other ${plural(other.boms, "BOM")}`
                 },
                 total: breakdown.total,
+                partial: breakdown.partial,
                 uncovered: breakdown.uncovered
             }}
             summary={bomsSummary(breakdown, buildQuantity, numbers)}
@@ -456,7 +464,7 @@ export function BomCostChartDialog({ onClose }: { onClose: () => void }) {
             pictureTitle={`${name}: cost by BOM`}
             ringLabel={`Share of the Combined BOM's best price total of the ${items.length} most expensive BOMs`}
             empty="No prices yet. Collect supplier data for the BOMs or their Combined BOM, or type in the prices of a supplier without an API, to see what each BOM costs."
-            note="The rows of all BOMs as in the Combined BOM, each at its best price for the number of devices; a row that several BOMs use is shared among them by their quantities. Rows without a supplier that has enough stock aren't included."
+            note="The rows of all BOMs as in the Combined BOM, each at its best price for the number of devices; a row that several BOMs use is shared among them by their quantities. A row that no supplier has enough stock for is at the supplier with the most, for what it has; rows that no supplier can deliver any of aren't included."
             onClose={onClose}
         />
     );

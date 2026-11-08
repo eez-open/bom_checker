@@ -320,6 +320,32 @@ describe("export", () => {
         expect(sheet.rows[1]!.at(-1)).toBeCloseTo(21); // MOQ 10 × 2.10
     });
 
+    it("exports the best price of what's in stock when no supplier has enough (#74)", () => {
+        // 100 units: C1 needs 2000; DigiKey has 1000, Mouser 10.
+        const project = { ...sampleProject(), buildQuantity: 100 };
+        const sheet = buildBomSheet(
+            project,
+            PREFERENCE,
+            preset(project, "Best price from DigiKey"),
+            NUMBERS
+        );
+        const [headers, c1] = sheet.rows;
+        expect(sheet.rows).toHaveLength(2);
+        const cell = (header: string) => c1![headers!.indexOf(header)];
+        expect(cell("Reference")).toBe("C1");
+        expect(cell("Best_Supplier")).toBe("DigiKey (Partial: 1,000)");
+        expect(cell("Best_Order Qty")).toBe(1000);
+        expect(cell("Best_Total price")).toBeCloseTo(1200);
+        // It isn't available in full anywhere either.
+        const missing = buildBomSheet(
+            project,
+            PREFERENCE,
+            preset(project, "Not available anywhere"),
+            NUMBERS
+        );
+        expect(missing.rows.slice(1).map(row => row[1])).toEqual(["C1", "J1"]);
+    });
+
     it("adds Total Qty and uses it for orders when building several units", () => {
         const project = { ...sampleProject(), buildQuantity: 3 };
         const [headers, c1] = buildBomSheet(

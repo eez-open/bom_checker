@@ -1,5 +1,5 @@
 import type { CustomHeaderGroupProps } from "ag-grid-react";
-import { uncoveredText } from "../../shared/line-text";
+import { stockWarnings } from "../../shared/line-text";
 import type { BomRow } from "../../shared/model";
 import { openCostChart } from "../commands";
 import { WarningIcon } from "../icons";
@@ -8,13 +8,14 @@ import type { TableContext } from "./PartNumberCell";
 /** The Best price group's header, with a button for the chart of the
  *  most expensive parts (#28). The grid keeps its own expand arrow. In
  *  red with a warning sign when the best price leaves out rows that no
- *  supplier has enough stock for (#49); BomTable redraws it when their
- *  number changes. */
+ *  supplier can deliver (#49), or covers only part of rows that no
+ *  supplier has enough stock for (#74); BomTable redraws it when their
+ *  numbers change. */
 export function BestGroupHeader(
     props: CustomHeaderGroupProps<BomRow, TableContext>
 ) {
-    const { uncovered } = props.context.getTotals().best;
-    const warning = uncovered > 0 ? uncoveredText(uncovered) : undefined;
+    const warnings = stockWarnings(props.context.getTotals().best);
+    const warning = warnings.length > 0 ? warnings.join("\n") : undefined;
     return (
         <span
             className={
@@ -24,7 +25,9 @@ export function BestGroupHeader(
         >
             {warning && <WarningIcon />}
             {props.displayName}
-            {warning && <span className="visually-hidden">: {warning}</span>}
+            {warning && (
+                <span className="visually-hidden">: {warnings.join(" ")}</span>
+            )}
             <button
                 type="button"
                 className="group-header-button"

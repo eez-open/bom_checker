@@ -8,6 +8,7 @@ import type {
 import { lastCollectedAt } from "../../shared/collection";
 import {
     availabilityText,
+    bestSupplierText,
     OTHER_PACKAGING,
     statusText
 } from "../../shared/line-text";
@@ -27,6 +28,7 @@ import { hasAlternatives } from "../../shared/part-number";
 import { manualSuppliersWithPrices } from "../../shared/project-ops";
 import { duplicateReferences, quantityMismatch } from "../../shared/references";
 import {
+    anyInStock,
     BASE_CURRENCY,
     bestSupplier,
     hasSupplierData,
@@ -416,6 +418,10 @@ function dataColumns(
     ];
 }
 
+/** The Best price supplier of a row without one (#74). */
+const NONE_IN_STOCK = "None in stock";
+const NO_BEST_PRICE = "No best price";
+
 function bestColumns(project: Project): ColGroupDef<BomRow> {
     const best = (params: { data?: BomRow; context: unknown }) =>
         params.data
@@ -447,28 +453,53 @@ function bestColumns(project: Project): ColGroupDef<BomRow> {
         },
         children: [
             column("supplier", "Supplier", {
-                initialWidth: 130,
+                // Wide enough for "DigiKey (Partial: 1,000)" (#74).
+                initialWidth: 190,
                 valueGetter: params => {
                     const choice = best(params);
                     if (choice) {
-                        return supplierName(project, choice.supplier);
+                        return bestSupplierText(
+                            supplierName(project, choice.supplier),
+                            choice,
+                            numbers(params)
+                        );
                     }
-                    const hasData =
-                        params.data &&
-                        hasSupplierData(params.data, {
-                            ...project,
-                            collected: context(params).getCollected(),
-                            buildQuantity: context(params).getBuildQuantity()
-                        });
-                    return hasData ? "None in stock" : "";
+                    if (!params.data) {
+                        return "";
+                    }
+                    const current = {
+                        ...project,
+                        collected: context(params).getCollected(),
+                        buildQuantity: context(params).getBuildQuantity()
+                    };
+                    if (!hasSupplierData(params.data, current)) {
+                        return "";
+                    }
+                    // "None in stock" only when no supplier has any (#74).
+                    return anyInStock(params.data, current)
+                        ? NO_BEST_PRICE
+                        : NONE_IN_STOCK;
                 },
                 cellClassRules: {
-                    "avail-danger": params => params.value === "None in stock"
+                    "avail-warning": params => best(params)?.partial === true,
+                    "avail-danger": params =>
+                        params.value === NONE_IN_STOCK ||
+                        params.value === NO_BEST_PRICE
                 },
-                tooltipValueGetter: params =>
-                    params.value === "None in stock"
-                        ? "No supplier has the whole order quantity in stock at a price in EUR."
-                        : undefined
+                tooltipValueGetter: params => {
+                    const choice = best(params);
+                    if (choice?.partial) {
+                        return `No supplier has the whole order quantity in stock; ${supplierName(project, choice.supplier)} has the most. Order Qty, Unit price and Total price are for what it has.`;
+                    }
+                    switch (params.value) {
+                        case NONE_IN_STOCK:
+                            return "No supplier has any of it in stock.";
+                        case NO_BEST_PRICE:
+                            return "Suppliers have some in stock, but none can sell it at a price in EUR yet: an item still to choose, less than their minimum order quantity, without a price, at a price in another currency, or not orderable.";
+                        default:
+                            return undefined;
+                    }
+                }
             }),
             column("orderQty", "Order Qty", {
                 type: "rightAligned",

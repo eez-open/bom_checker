@@ -60,20 +60,37 @@ describe("cost breakdown", () => {
             items: [],
             other: null,
             total: 0,
+            partial: 0,
             uncovered: 0
         });
     });
 
-    it("counts rows that no supplier has enough stock for (#49)", () => {
-        const project = bom([1, 2, null]);
+    it("counts rows that no supplier has enough stock for (#49, #74)", () => {
+        const project = bom([1, 2, 3, null]);
         const shop = project.manualSuppliers[0]!.id;
-        // R2's shop has 3 of the 4 needed (2 per unit × 2 units).
+        // R2's shop has 3 of the 4 needed (2 per unit × 2 units), so R2 is
+        // at the price of 3; R3's has none, so R3 is left out.
         project.rows[1]!.manual![shop]!.stock = 3;
+        project.rows[2]!.manual![shop]!.stock = 0;
         project.buildQuantity = 2;
         const breakdown = costBreakdown(project, []);
-        expect(breakdown.items.map(item => item.reference)).toEqual(["R1"]);
-        expect(breakdown.uncovered).toBe(1);
-        expect(breakdown.uncovered).toBe(bomTotals(project, []).uncovered);
+        expect(
+            breakdown.items.map(item => [item.reference, item.total])
+        ).toEqual([
+            ["R2", 6],
+            ["R1", 4]
+        ]);
+        expect(breakdown).toMatchObject({
+            total: 10,
+            partial: 1,
+            uncovered: 1
+        });
+        expect(bomTotals(project, [])).toEqual({
+            total: 10,
+            covered: 2,
+            partial: 1,
+            uncovered: 1
+        });
     });
 });
 

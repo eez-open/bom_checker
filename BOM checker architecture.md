@@ -234,7 +234,8 @@ For one row and one supplier:
 **Best price (`shared/best-price.ts`).**
 - **Candidates:** suppliers whose result is `found`, whose Availability is `In stock` and whose prices are in EUR.
 - **Choice:** the candidate with the lowest Total price. Ties go to a supplier order set in Settings.
-- **No candidate:** the Best columns stay blank and the row is marked "no supplier can deliver the full quantity".
+- **Not enough stock anywhere (#74):** with no candidate, the suppliers with some stock compete for what they have (`inStockLine`): the stock rounded down to the order multiple, if that reaches the MOQ, at the price break for that quantity. The one with the most wins, then the lower price, then the order above. `BestChoice.partial` marks it; Best_Supplier reads "DigiKey (Partial: 44)" (`bestSupplierText`), its total counts in the best-price total, and `BomTotals.partial` counts such rows for the warnings (`stockWarnings`) in the Best price header, the status bar and the cost charts. The Rows filter has "partial", and the export's "not available" rows include them.
+- **No best price:** the Best columns stay blank. The Supplier cell says "None in stock" when no supplier has any (`anyInStock`), otherwise "No best price" (several items to choose from, stock below the MOQ, no prices, another currency, not orderable). The best-price total leaves the row out.
 
 The scope's example works out as follows. Mouser is €1 × 20 but has only 10 in stock, so it isn't a candidate. DigiKey at €1.20 × 20 with enough stock wins.
 

@@ -5,7 +5,7 @@
 import { relativeToFile } from "./paths";
 import { z } from "zod";
 import { formatDateTime, lastCollectedAt } from "./collection";
-import { availabilityText, statusText } from "./line-text";
+import { availabilityText, bestSupplierText, statusText } from "./line-text";
 import {
     SUPPLIER_IDS,
     type BomRow,
@@ -163,7 +163,7 @@ export function describeRowFilter(filter: RowFilter): string {
         case "best-is":
             return `Rows where ${SUPPLIERS[filter.supplier].name} has the best price`;
         case "not-available":
-            return "Rows with part numbers that no supplier can deliver";
+            return "Rows with part numbers that no supplier has enough stock for";
     }
 }
 
@@ -400,9 +400,16 @@ function columns(
             {
                 header: "Best_Supplier",
                 width: 12,
+                // "DigiKey (Partial: 44)" when no supplier has enough (#74).
                 value: row => {
                     const b = best(row);
-                    return b ? supplierName(project, b.supplier) : null;
+                    return b
+                        ? bestSupplierText(
+                              supplierName(project, b.supplier),
+                              b,
+                              numbers
+                          )
+                        : null;
                 }
             },
             {
@@ -460,20 +467,23 @@ function matches(
                     project.manualSuppliers
                 )?.supplier === filter.supplier
             );
-        case "not-available":
+        case "not-available": {
+            // Also rows whose best price is for only part (#74).
+            const best = bestSupplier(
+                row,
+                project.collected,
+                project.suppliers,
+                preference,
+                project.buildQuantity,
+                project.manualSuppliers
+            );
             return (
                 project.suppliers.some(s =>
                     isPartNumberDefined(row.partNumbers[s])
                 ) &&
-                !bestSupplier(
-                    row,
-                    project.collected,
-                    project.suppliers,
-                    preference,
-                    project.buildQuantity,
-                    project.manualSuppliers
-                )
+                (!best || best.partial)
             );
+        }
     }
 }
 
@@ -571,7 +581,7 @@ export function buildInfoSheet(
         ],
         [
             "Best price",
-            "The cheapest total among suppliers that have the whole order quantity in stock; equal totals go to the preferred supplier."
+            'The cheapest total among suppliers that have the whole order quantity in stock; equal totals go to the preferred supplier. When none has, the supplier with the most in stock, for what it has, e.g. "DigiKey (Partial: 44)".'
         ],
         [
             "Preferred suppliers",

@@ -386,8 +386,10 @@ export function App() {
                             {BASE_CURRENCY}
                             {project.buildQuantity > 1 &&
                                 ` (${numbers.money(totals.total / project.buildQuantity)} ${BASE_CURRENCY} per unit)`}
+                            {totals.partial > 0 &&
+                                ` · ${count(totals.partial, "row")} only partly in stock`}
                             {totals.uncovered > 0 &&
-                                ` · ${count(totals.uncovered, "row")} without a supplier that has enough stock`}
+                                ` · ${count(totals.uncovered, "row")} that no supplier can deliver`}
                         </span>{" "}
                         ·{" "}
                         <button

@@ -7,9 +7,11 @@ import type {
     SupplierOffer
 } from "./model";
 import {
+    anyInStock,
     bestSupplier,
     bomTotals,
     foreignCurrencies,
+    matchesRowView,
     orderQuantity,
     priceAt,
     supplierLine,
@@ -301,8 +303,11 @@ describe("best supplier", () => {
         expect(bomTotals(project, [])).toEqual({
             total: 0,
             covered: 0,
+            partial: 0,
             uncovered: 1
         });
+        // TME has it in stock, but can't sell it.
+        expect(anyInStock(project.rows[0]!, project)).toBe(true);
     });
 
     it("totals the best prices", () => {
@@ -312,8 +317,142 @@ describe("best supplier", () => {
         expect(bomTotals(project, [])).toEqual({
             total: 1,
             covered: 1,
+            partial: 0,
             uncovered: 0
         });
+    });
+});
+
+describe("best supplier without enough stock (#74)", () => {
+    const best = (project: Project) =>
+        bestSupplier(
+            project.rows[0]!,
+            project.collected,
+            project.suppliers,
+            ["digikey", "mouser", "tme"],
+            project.buildQuantity
+        );
+
+    it("takes the supplier with the most in stock, for what it has", () => {
+        // 50 needed: DigiKey has 44, Mouser only 10 at a lower price.
+        const project = setup(50, {
+            digikey: found({
+                stockQty: 44,
+                priceBreaks: [
+                    { qty: 1, unitPrice: 1 },
+                    { qty: 25, unitPrice: 0.9 }
+                ]
+            }),
+            mouser: found({
+                stockQty: 10,
+                priceBreaks: [{ qty: 1, unitPrice: 0.5 }]
+            }),
+            tme: found({ stockQty: 0 })
+        });
+        const choice = best(project);
+        expect(choice).toMatchObject({
+            supplier: "digikey",
+            partial: true,
+            line: {
+                orderQty: 44,
+                unitPrice: 0.9,
+                availability: { kind: "partial", stock: 44 }
+            }
+        });
+        expect(choice?.line.total).toBeCloseTo(39.6);
+        expect(bomTotals(project, [])).toMatchObject({
+            covered: 1,
+            partial: 1,
+            uncovered: 0
+        });
+        expect(bomTotals(project, []).total).toBeCloseTo(39.6);
+        const row = project.rows[0]!;
+        expect(matchesRowView(row, project, [], "partial")).toBe(true);
+        expect(matchesRowView(row, project, [], "best:digikey")).toBe(true);
+        expect(matchesRowView(row, project, [], "none")).toBe(false);
+    });
+
+    it("still prefers a supplier with the whole quantity", () => {
+        const project = setup(50, {
+            digikey: found({
+                stockQty: 44,
+                priceBreaks: [{ qty: 1, unitPrice: 0.1 }]
+            }),
+            mouser: found({
+                stockQty: 50,
+                priceBreaks: [{ qty: 1, unitPrice: 2 }]
+            })
+        });
+        expect(best(project)).toMatchObject({
+            supplier: "mouser",
+            partial: false,
+            line: { orderQty: 50 }
+        });
+        expect(matchesRowView(project.rows[0]!, project, [], "partial")).toBe(
+            false
+        );
+    });
+
+    it("orders whole multiples, at least the MOQ", () => {
+        // Mouser sells in tens: 40 of its 44. TME's 30 are below its MOQ.
+        const project = setup(50, {
+            mouser: found({ stockQty: 44, orderMultiple: 10 }),
+            tme: found({ stockQty: 30, moq: 100 })
+        });
+        expect(best(project)).toMatchObject({
+            supplier: "mouser",
+            line: { orderQty: 40, total: 40 }
+        });
+        const tmeOnly = setup(50, { tme: found({ stockQty: 30, moq: 100 }) });
+        expect(best(tmeOnly)).toBeNull();
+        // Not "None in stock": TME has some, but can't sell them.
+        expect(anyInStock(tmeOnly.rows[0]!, tmeOnly)).toBe(true);
+        expect(matchesRowView(tmeOnly.rows[0]!, tmeOnly, [], "none")).toBe(
+            true
+        );
+    });
+
+    it("breaks equal quantities by unit price, then the preferred order", () => {
+        const project = setup(50, {
+            digikey: found({
+                stockQty: 20,
+                priceBreaks: [{ qty: 1, unitPrice: 2 }]
+            }),
+            mouser: found({
+                stockQty: 20,
+                priceBreaks: [{ qty: 1, unitPrice: 1 }]
+            }),
+            tme: found({
+                stockQty: 20,
+                priceBreaks: [{ qty: 1, unitPrice: 1 }]
+            })
+        });
+        expect(best(project)?.supplier).toBe("mouser");
+    });
+
+    it("has no best price when nothing is in stock", () => {
+        const project = setup(50, {
+            digikey: found({ stockQty: 0 }),
+            mouser: { status: "notFound", runId: "r", fetchedAt: AT }
+        });
+        expect(best(project)).toBeNull();
+        expect(anyInStock(project.rows[0]!, project)).toBe(false);
+        expect(bomTotals(project, [])).toMatchObject({
+            partial: 0,
+            uncovered: 1
+        });
+        // Several items match, one in stock: an item to choose, not "None
+        // in stock".
+        const choose = setup(50, {
+            digikey: {
+                status: "ambiguous",
+                runId: "r",
+                fetchedAt: AT,
+                candidates: [offer({ stockQty: 0 }), offer({ stockQty: 500 })]
+            }
+        });
+        expect(best(choose)).toBeNull();
+        expect(anyInStock(choose.rows[0]!, choose)).toBe(true);
     });
 });
 

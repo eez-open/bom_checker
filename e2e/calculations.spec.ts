@@ -78,15 +78,16 @@ test("calculates order quantities, prices and the best supplier", async () => {
                 name: "Choose the DigiKey item for RMCF0805FT100K"
             })
         ).toBeVisible();
+        // Both are in stock, so not "None in stock" (#74).
         await expect(cell(page, R1, "best:supplier")).toHaveText(
-            "None in stock"
+            "No best price"
         );
         await expect(page.getByTestId("bom-total")).toHaveText(
-            "Best price total: 30.92 EUR · 1 row without a supplier that has enough stock"
+            "Best price total: 30.92 EUR · 1 row that no supplier can deliver"
         );
         // The Best price header and the chart warn of it (#49).
         const leftOut =
-            "1 row has no supplier with enough stock, so the best price leaves it out.";
+            "1 row has no supplier that can deliver any of it, so the best price leaves it out.";
         const bestHeader = page.locator(".group-header", {
             hasText: "Best price"
         });
@@ -115,7 +116,7 @@ test("calculates order quantities, prices and the best supplier", async () => {
 
         // Rows by best supplier (#25); the Total row adds up those shown.
         const rows = page.getByLabel("Rows");
-        await rows.selectOption({ label: "Best price: None in stock" });
+        await rows.selectOption({ label: "Best price: None" });
         await expect(cell(page, 0, "reference")).toHaveText("R1");
         await expect(page.getByTestId("shown-rows")).toContainText(
             "Showing 1 of 4 rows"
@@ -217,6 +218,41 @@ test("calculates order quantities, prices and the best supplier", async () => {
         await expect(cell(page, D1, "data:tme:totalPrice")).toHaveText("0.62");
         await expect(cell(page, D1, "totalQty")).toHaveCount(0);
         await expect(cell(page, D1, "data:tme:orderQty")).toHaveText("50");
+
+        // Not enough stock anywhere (#74): C1 needs 1200 for 60 units, and
+        // DigiKey has the most, 1000, so the best price is for those.
+        await buildQty.fill("60");
+        await buildQty.press("Enter");
+        await expect(cell(page, C1, "data:digikey:availability")).toHaveText(
+            "Partial: 1,000"
+        );
+        const partialBest = cell(page, C1, "best:supplier");
+        await expect(partialBest).toHaveText("DigiKey (Partial: 1,000)");
+        await expect(partialBest).toHaveClass(/avail-warning/);
+        await expect(cell(page, C1, "best:orderQty")).toHaveText("1,000");
+        await expect(cell(page, C1, "best:totalPrice")).toHaveText(
+            "1,200.00 (20.00)"
+        );
+        const partly =
+            "1 row has no supplier with enough stock, so its best price is for the part in stock.";
+        await expect(bestHeader).toHaveClass(/group-header-warning/);
+        await expect(bestHeader).toHaveAttribute("title", partly);
+        await expect(page.getByTestId("bom-total")).toContainText(
+            "· 1 row only partly in stock"
+        );
+        await rows.selectOption({ label: "Best price: Partial" });
+        await expect(page.getByTestId("shown-rows")).toContainText(
+            "Showing 1 of 4 rows"
+        );
+        await expect(cell(page, 0, "reference")).toHaveText("C1");
+        await page.getByRole("button", { name: "Top 10" }).click();
+        await expect(costChart.getByTestId("cost-warning")).toHaveText(partly);
+        await page.keyboard.press("Escape");
+        await page.getByRole("button", { name: "Show all" }).click();
+        await page.keyboard.press("Control+Z");
+        await expect(buildQty).toHaveValue("1");
+        await expect(partialBest).toHaveText("DigiKey");
+        await expect(bestHeader).not.toHaveClass(/group-header-warning/);
 
         // View menu: hide all of TME's columns, then show them again.
         await clickMenuItem(app, "columns:tme");

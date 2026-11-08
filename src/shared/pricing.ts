@@ -200,6 +200,32 @@ function availabilityOf(offer: SupplierOffer, orderQty: number): Availability {
         : { kind: "out-of-stock" };
 }
 
+/**
+ * A supplier's line for only what it has in stock (#74), when that's less
+ * than the order quantity: the stock rounded down to the order multiple,
+ * at the price break for that quantity. Null when that's nothing or below
+ * the MOQ, so nothing can be ordered.
+ */
+function inStockLine(line: SupplierLine): SupplierLine | null {
+    const { offer } = line;
+    if (!offer || line.availability?.kind !== "partial") {
+        return null;
+    }
+    const step = Math.max(1, offer.orderMultiple);
+    const orderQty = Math.floor(offer.stockQty / step) * step;
+    const price = priceAt(offer.priceBreaks, orderQty);
+    if (orderQty <= 0 || orderQty < offer.moq || !price) {
+        return null;
+    }
+    return {
+        ...line,
+        orderQty,
+        unitPrice: price.unitPrice,
+        belowFirstBreak: price.belowFirstBreak,
+        total: line.inBaseCurrency ? price.unitPrice * orderQty : null
+    };
+}
+
 export interface BestChoice {
     /** A `SupplierId`, or the id of a supplier without an API. */
     supplier: string;
@@ -208,6 +234,9 @@ export interface BestChoice {
         orderQty: number;
         total: number;
     };
+    /** No supplier has the whole order quantity in stock (#74): this one
+     *  has the most, and `line` is for only what it has. */
+    partial: boolean;
 }
 
 /**
@@ -215,6 +244,11 @@ export interface BestChoice {
  * in stock and prices in the base currency. Equal totals go to the
  * supplier earlier in `preference`; suppliers without an API come after
  * those with one.
+ *
+ * When none has the whole quantity, the one with the most in stock, for
+ * what it has (`partial`, #74); equal quantities go to the lower unit
+ * price, then as above. Null when no supplier can sell any of it at a
+ * price in the base currency.
  */
 export function bestSupplier(
     row: BomRow,
@@ -225,14 +259,22 @@ export function bestSupplier(
     manual: readonly ManualSupplier[] = []
 ): BestChoice | null {
     const candidates: BestChoice[] = [];
+    const partial: BestChoice[] = [];
+    const usable = (line: SupplierLine | null): line is BestChoice["line"] =>
+        Boolean(line?.offer && line.orderQty && line.total !== null);
     const consider = (supplier: string, line: SupplierLine | null) => {
-        if (
-            line?.offer &&
-            line.orderQty &&
-            line.total !== null &&
-            line.availability?.kind === "in-stock"
-        ) {
-            candidates.push({ supplier, line: line as BestChoice["line"] });
+        if (!line) {
+            return;
+        }
+        if (line.availability?.kind === "in-stock") {
+            if (usable(line)) {
+                candidates.push({ supplier, line, partial: false });
+            }
+            return;
+        }
+        const inStock = inStockLine(line);
+        if (usable(inStock)) {
+            partial.push({ supplier, line: inStock, partial: true });
         }
     };
     for (const supplier of suppliers) {
@@ -254,15 +296,52 @@ export function bestSupplier(
         (a, b) =>
             a.line.total - b.line.total || rank(a.supplier) - rank(b.supplier)
     );
-    return candidates[0] ?? null;
+    if (candidates.length > 0) {
+        return candidates[0]!;
+    }
+    partial.sort(
+        (a, b) =>
+            b.line.orderQty - a.line.orderQty ||
+            a.line.total - b.line.total ||
+            rank(a.supplier) - rank(b.supplier)
+    );
+    return partial[0] ?? null;
+}
+
+/**
+ * Whether any supplier has some of the row in stock, also one that can't
+ * sell it at a price in the base currency. Tells a row without a best
+ * price that has none in stock anywhere from one whose suppliers can't
+ * sell what they have (#74), e.g. less than their MOQ, or an item is
+ * still to be chosen from several. A supplier without an API with no stock
+ * typed counts as having it.
+ */
+export function anyInStock(row: BomRow, project: Project): boolean {
+    const inStock = (line: SupplierLine | null) =>
+        (line?.offer?.stockQty ?? 0) > 0 ||
+        (line?.result.status === "ambiguous" &&
+            line.result.candidates.some(offer => offer.stockQty > 0));
+    return (
+        project.suppliers.some(s =>
+            inStock(
+                supplierLine(row, s, project.collected, project.buildQuantity)
+            )
+        ) ||
+        project.manualSuppliers.some(s =>
+            inStock(manualLine(row, s, project.buildQuantity))
+        )
+    );
 }
 
 export interface BomTotals {
     /** Sum of the best totals. */
     total: number;
-    /** Rows with a best supplier. */
+    /** Rows with a best supplier, also those in `partial`. */
     covered: number;
-    /** Rows with collected data but no supplier that can deliver. */
+    /** Rows that no supplier has enough stock for, whose best price is
+     *  for only what one has (#74). */
+    partial: number;
+    /** Rows with supplier data but no supplier that can deliver any. */
     uncovered: number;
 }
 
@@ -270,7 +349,12 @@ export function bomTotals(
     project: Project,
     preference: readonly SupplierId[]
 ): BomTotals {
-    const totals: BomTotals = { total: 0, covered: 0, uncovered: 0 };
+    const totals: BomTotals = {
+        total: 0,
+        covered: 0,
+        partial: 0,
+        uncovered: 0
+    };
     for (const row of project.rows) {
         const best = bestSupplier(
             row,
@@ -283,6 +367,7 @@ export function bomTotals(
         if (best) {
             totals.total += best.line.total;
             totals.covered++;
+            totals.partial += best.partial ? 1 : 0;
         } else if (hasSupplierData(row, project)) {
             totals.uncovered++;
         }
@@ -358,8 +443,9 @@ export function foreignCurrencies(
 
 /**
  * Whether a row belongs in a rows filter: "best:<supplier>" when that
- * supplier has its best price, "none" when no supplier with data can
- * deliver it, anything else for all rows.
+ * supplier has its best price, also for only part of the quantity;
+ * "partial" when its best price is for only part of it (#74); "none" when
+ * it has supplier data but no best price; anything else for all rows.
  */
 export function matchesRowView(
     row: BomRow,
@@ -380,6 +466,9 @@ export function matchesRowView(
     );
     if (view === "none") {
         return !best && hasSupplierData(row, project);
+    }
+    if (view === "partial") {
+        return best?.partial === true;
     }
     return best !== null && view === `best:${best.supplier}`;
 }

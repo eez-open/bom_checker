@@ -50,7 +50,9 @@ export function rowViews(project: Project): [string, string][] {
             `best:${supplier.id}`,
             `Best price: ${supplier.name}`
         ]),
-        ["none", "Best price: None in stock"]
+        // Rows that no supplier has enough stock for (#74).
+        ["partial", "Best price: Partial"],
+        ["none", "Best price: None"]
     ];
 }
 

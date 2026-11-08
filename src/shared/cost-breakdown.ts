@@ -28,7 +28,10 @@ export interface CostBreakdown {
     other: { rows: number; total: number; share: number } | null;
     /** The BOM's best price total (as in the status bar). */
     total: number;
-    /** Rows with supplier data but no supplier that has enough stock, which
+    /** Rows that no supplier has enough stock for, at the price of what
+     *  one has (#74). */
+    partial: number;
+    /** Rows with supplier data but no supplier that can deliver any, which
      *  the total leaves out (#49). */
     uncovered: number;
 }
@@ -38,6 +41,7 @@ export function costBreakdown(
     preference: readonly SupplierId[],
     limit = COST_CHART_LIMIT
 ): CostBreakdown {
+    let partial = 0;
     let uncovered = 0;
     const priced = project.rows.flatMap(row => {
         const best = bestSupplier(
@@ -51,6 +55,7 @@ export function costBreakdown(
         if (!best && hasSupplierData(row, project)) {
             uncovered++;
         }
+        partial += best?.partial ? 1 : 0;
         return best && best.line.total > 0 ? [{ row, best }] : [];
     });
     const total = priced.reduce((sum, { best }) => sum + best.line.total, 0);
@@ -79,6 +84,7 @@ export function costBreakdown(
                   }
                 : null,
         total,
+        partial,
         uncovered
     };
 }
@@ -102,8 +108,11 @@ export interface BomCostBreakdown {
     other: { boms: number; total: number; share: number } | null;
     /** The Combined BOM's best price total. */
     total: number;
+    /** Rows of the Combined BOM that no supplier has enough stock for, at
+     *  the price of what one has (#74). */
+    partial: number;
     /** Rows of the Combined BOM with supplier data but no supplier that
-     *  has enough stock, which the total leaves out. */
+     *  can deliver any, which the total leaves out. */
     uncovered: number;
 }
 
@@ -121,6 +130,7 @@ export function bomCostBreakdown(
 ): BomCostBreakdown {
     const { project, sources } = combineBomsWithSources(members, buildQuantity);
     const totals = members.map(() => 0);
+    let partial = 0;
     let uncovered = 0;
     for (const row of project.rows) {
         const best = bestSupplier(
@@ -135,6 +145,7 @@ export function bomCostBreakdown(
             uncovered += hasSupplierData(row, project) ? 1 : 0;
             continue;
         }
+        partial += best.partial ? 1 : 0;
         const from = sources.get(row.id) ?? new Map<number, number>();
         const qty = [...from.values()].reduce((sum, part) => sum + part, 0);
         for (const [index, part] of from) {
@@ -167,6 +178,7 @@ export function bomCostBreakdown(
                   }
                 : null,
         total,
+        partial,
         uncovered
     };
 }

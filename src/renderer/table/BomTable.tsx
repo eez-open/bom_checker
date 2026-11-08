@@ -218,8 +218,11 @@ export function BomTable({
         api.autoSizeColumns(totals);
     }, []);
 
-    // The Best price header warns of rows without enough stock (#49).
-    const uncovered = useRef(totals.best.uncovered);
+    // The Best price header warns of rows without enough stock (#49,
+    // #74).
+    const stockWarning = useRef(
+        `${totals.best.partial}/${totals.best.uncovered}`
+    );
     useEffect(() => {
         totalsRef.current = totals;
         const api = apiRef.current;
@@ -227,8 +230,9 @@ export function BomTable({
         if (api && totalsRow) {
             api.refreshCells({ rowNodes: [totalsRow], force: true });
         }
-        if (api && uncovered.current !== totals.best.uncovered) {
-            uncovered.current = totals.best.uncovered;
+        const warning = `${totals.best.partial}/${totals.best.uncovered}`;
+        if (api && stockWarning.current !== warning) {
+            stockWarning.current = warning;
             api.refreshHeader();
         }
     }, [totals]);

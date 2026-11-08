@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- **Best price when no supplier has enough stock** (#74): the Supplier column names the supplier with the most in stock instead of *None in stock*, e.g. *DigiKey (Partial: 44)* in amber, with Order Qty, Unit price and Total price for what it has. *None in stock* is left for rows that no supplier has any of, and *No best price* is shown when suppliers have stock but can't sell it at a price in EUR yet, e.g. less than their MOQ, or an item is still to be chosen. The Best price header, the status bar and the charts of the most expensive parts and the cost by BOM say how many rows are priced for only part of their quantity and how many are left out. The Rows filter gets *Best price: Partial*; *Best price: None in stock* is now *Best price: None*. Exports write the supplier the same way, and *Not available anywhere* also has the rows that no supplier has enough stock for.
 - Exports of part numbers only (*Basic data only*) write `-` for an Arrow inventory source that didn't find the part, instead of the part number Collect put in its column, so the file still shows which sources have it (#73).
 - A part number typed in one Arrow column counts for all of Arrow's inventory sources: Collect looks it up for a source whose cell is empty and puts it in the cell afterwards, found or not. The Value is looked up only for rows without any Arrow part number.
 

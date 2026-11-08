@@ -3,7 +3,7 @@
 // saved as PNG.
 
 import type { CostItem } from "../shared/cost-breakdown";
-import { uncoveredText } from "../shared/line-text";
+import { stockWarnings } from "../shared/line-text";
 import type { Numbers } from "../shared/numbers";
 import { BASE_CURRENCY } from "../shared/pricing";
 import { WARNING_SIGN } from "./icons";
@@ -32,7 +32,8 @@ export const CHART_COLORS: readonly { fill: string; label: string }[] = [
 /** The rest of the BOM: de-emphasised gray. */
 export const OTHER_COLOR = "#c3c2b7";
 
-/** Rows left out of the total (#49), as the app's error colour. */
+/** Rows left out of the total (#49) or priced for only part (#74), as
+ *  the app's error colour. */
 const WARNING_COLOR = "#cf222e";
 
 /** What a cost chart shows: its largest parts, a colour each, the rest as
@@ -41,6 +42,8 @@ export interface ChartData {
     entries: ChartEntry[];
     other: { label: string; total: number; share: number } | null;
     total: number;
+    /** Rows priced for only what one supplier has (#74). */
+    partial: number;
     /** Rows the total leaves out (#49). */
     uncovered: number;
 }
@@ -166,10 +169,10 @@ export function chartPicture(
     { money, percent }: Numbers
 ): { svg: string; width: number; height: number } {
     const width = 780;
-    // A line under the summary for rows the total leaves out (#49).
-    const warning =
-        breakdown.uncovered > 0 ? uncoveredText(breakdown.uncovered) : null;
-    const shift = warning ? 24 : 0;
+    // Lines under the summary for rows priced for only part of their
+    // quantity (#74) and rows the total leaves out (#49).
+    const warnings = stockWarnings(breakdown);
+    const shift = warnings.length * 24;
     const ring: Ring = { cx: 154, cy: 226 + shift, outer: 120, inner: 72 };
     const top = 96 + shift;
     const rowHeight = 24;
@@ -187,18 +190,19 @@ export function chartPicture(
         text(24, 38, title, 'font-size="18" font-weight="600" fill="#1f2328"'),
         text(24, 62, summary, 'font-size="13" fill="#59636e"')
     ];
-    if (warning) {
-        const signs = WARNING_SIGN.map(d => `<path d="${d}"/>`).join("");
+    const signs = WARNING_SIGN.map(d => `<path d="${d}"/>`).join("");
+    warnings.forEach((warning, index) => {
+        const y = 74 + index * 24;
         parts.push(
-            `<g transform="translate(24 74)" fill="none" stroke="${WARNING_COLOR}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${signs}</g>`,
+            `<g transform="translate(24 ${y})" fill="none" stroke="${WARNING_COLOR}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${signs}</g>`,
             text(
                 46,
-                86,
+                y + 12,
                 warning,
                 `font-size="13" font-weight="600" fill="${WARNING_COLOR}"`
             )
         );
-    }
+    });
     for (const slice of slices) {
         parts.push(
             slice.share > 0.9999
