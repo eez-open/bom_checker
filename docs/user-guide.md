@@ -78,6 +78,8 @@ Arrow keeps stock in several **inventory sources**: Arrow Europe (EUROPE), Arrow
 
 A part number typed in one Arrow column counts for all of them. When a source's cell is empty, **Collect…** looks up the part number of another Arrow column (the first from the left) and puts it in the cell afterwards, found or not, so the column shows whether that source has the part. An Arrow cell with `-` doesn't count. **Look up the Value where a part number is missing** is used only for rows without any Arrow part number.
 
+In an export of part numbers only (*Basic data only*, or **Part numbers only** ticked), an Arrow source that didn't find the part gets `-` instead of the part number, so the file still shows which sources have it. That takes Arrow data from the last 48 hours: collect again before exporting.
+
 Prices are Arrow's resale prices; with **Currency** EUR, Arrow converts prices from USD. **Part numbers per request** is 100 by default, the most Arrow's best practices name; Arrow's list search accepts up to 1000, so *1000* checks most BOMs in one request. Arrow's terms allow keeping its data for 48 hours only: older Arrow data is removed when the app starts and when a BOM is opened or saved, so collect again before ordering.
 
 **Request limits** for each supplier are preset to the supplier's published limits. The app spaces out requests and counts them per day, also across projects and restarts. Lower the limits if you share an API key with other tools.

@@ -243,10 +243,18 @@ function columns(
         selection.suppliers.includes(s)
     )) {
         const name = SUPPLIERS[supplier].name;
+        // Arrow's inventory sources share part numbers, so Collect puts the
+        // same one in all of them; with only part numbers exported, "-"
+        // keeps that a source didn't find it (#73).
+        const notAtSource = (row: BomRow) =>
+            selection.partNumbersOnly === true &&
+            SUPPLIERS[supplier].source !== undefined &&
+            line(row, supplier)?.result.status === "notFound";
         result.push({
             header: name,
             width: 22,
-            value: row => row.partNumbers[supplier] ?? ""
+            value: row =>
+                notAtSource(row) ? "-" : (row.partNumbers[supplier] ?? "")
         });
         if (selection.partNumbersOnly) {
             continue;

@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- Exports of part numbers only (*Basic data only*) write `-` for an Arrow inventory source that didn't find the part, instead of the part number Collect put in its column, so the file still shows which sources have it (#73).
 - A part number typed in one Arrow column counts for all of Arrow's inventory sources: Collect looks it up for a source whose cell is empty and puts it in the cell afterwards, found or not. The Value is looked up only for rows without any Arrow part number.
 
 ### Fixed

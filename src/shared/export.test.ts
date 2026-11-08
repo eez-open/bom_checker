@@ -169,6 +169,63 @@ describe("export", () => {
         expect(sheet.rows).toHaveLength(project.rows.length + 1);
     });
 
+    it("writes - for an Arrow source that hasn't the part, in basic data (#73)", () => {
+        // Collect put the part number in both Arrow columns; only Europe
+        // has the part. A part number another supplier doesn't find stays.
+        const pn = "CL10C470JB8NNNC";
+        const base = addRow(
+            createProject(),
+            createRow({
+                reference: "C1",
+                partNumbers: {
+                    mouser: "M-9",
+                    "arrow-europe": pn,
+                    "arrow-acna": pn,
+                    "arrow-asia": pn
+                }
+            })
+        );
+        const project: Project = {
+            ...base,
+            suppliers: ["mouser", "arrow-europe", "arrow-acna", "arrow-asia"],
+            collected: {
+                results: {
+                    mouser: {
+                        "M-9": { status: "notFound", runId: "r", fetchedAt: AT }
+                    },
+                    "arrow-europe": { [pn]: found({}) },
+                    "arrow-acna": {
+                        [pn]: { status: "notFound", runId: "r", fetchedAt: AT }
+                    }
+                    // Asia wasn't collected.
+                },
+                runs: {}
+            }
+        };
+        const cells = (selection: ExportSelection) => {
+            const [headers, row] = buildBomSheet(
+                project,
+                PREFERENCE,
+                selection,
+                NUMBERS
+            ).rows;
+            return [
+                "Mouser",
+                "Arrow (EUROPE)",
+                "Arrow (ACNA)",
+                "Arrow (ASIA)"
+            ].map(header => row![headers!.indexOf(header)]);
+        };
+        expect(cells(preset(project, "Basic data only"))).toEqual([
+            "M-9",
+            pn,
+            "-",
+            pn
+        ]);
+        // With the data, Availability says it isn't found.
+        expect(cells(preset(project, "All data"))).toEqual(["M-9", pn, pn, pn]);
+    });
+
     it("writes all data with the scope's column names and numbers as numbers", () => {
         const project = sampleProject();
         const sheet = buildBomSheet(
