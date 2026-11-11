@@ -69,6 +69,8 @@ The LCSC column takes LCSC part numbers (C2040) or manufacturer part numbers. Pr
 
 LCSC refuses requests (*Header timestamp is invalid*) when this computer's clock is off, even by about 12 seconds. In Windows, **Settings → Time & language → Date & time → Sync now** fixes it.
 
+LCSC disables API access that isn't used for 180 days. LCSC's settings show the **Last connection**, when LCSC last answered a lookup (collecting or Test connection), and how many days are left. When fewer than 30 are left, the app warns when it starts; collect LCSC data or click **Test connection** to keep the access. If you don't use LCSC any more, remove its key to stop the warning.
+
 #### LCSC through a relay
 
 A server with a fixed IP address can pass LCSC requests on, so LCSC sees the server's address instead of yours. Register the server's address at lcsc.com/agent (its IPv6 address too, if it has one). On an Apache server, enable the modules with `a2enmod proxy proxy_http ssl headers` and add this to the server's HTTPS site:

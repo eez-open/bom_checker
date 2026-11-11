@@ -49,7 +49,8 @@ const api: Api = {
                 supplier,
                 config,
                 secrets
-            )
+            ),
+        getLastConnections: () => invoke(IpcChannel.SettingsGetLastConnections)
     },
     vault: {
         getState: () => invoke(IpcChannel.VaultGetState),

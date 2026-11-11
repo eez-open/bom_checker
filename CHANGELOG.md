@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Added
 
 - **Unit prices in the cost charts** (#76): *Most expensive parts* has each row's price of one piece at its best price, and *Cost by BOM* what one of each BOM costs, in the table and the picture. With a build quantity, the summary also says what one unit or device costs.
+- **LCSC's last connection** (#82): LCSC disables API access that isn't used for 180 days, so the app remembers when LCSC last answered, collecting or testing the connection. LCSC's settings show when that was and how many days are left, and when fewer than 30 are left, the app warns when it starts. Removing LCSC's key stops the warning.
 - **API address** in LCSC's settings: LCSC answers only calls from the IP addresses registered for the account, so its requests can now go through a relay on a server with a fixed address, e.g. an Apache reverse proxy (the user guide shows one). Empty connects to LCSC directly, as before.
 - **Description** for BOM lists: a box under the list's name for general information about the list, saved with the list as you type. Lists are now format 3: earlier versions can't open lists saved by this one (#72).
 

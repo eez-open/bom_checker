@@ -2,10 +2,11 @@ import { z } from "zod";
 import { exportPresetSchema } from "../../shared/export";
 import { IpcChannel } from "../../shared/ipc";
 import { SUPPLIER_IDS } from "../../shared/model";
-import { ACCOUNT_IDS } from "../../shared/supplier-config";
+import { ACCOUNT_IDS, SUPPLIER_SETTINGS } from "../../shared/supplier-config";
 import { DECIMAL_SEPARATORS } from "../../shared/numbers";
 import { normalizeOrder } from "../../shared/settings";
 import { validateSupplierConfig } from "../../shared/supplier-config";
+import { forgetConnections, getLastConnections } from "../collection/session";
 import { confirm } from "../dialogs";
 import { updateSettings, getSettings } from "../settings/settings-store";
 import {
@@ -15,6 +16,7 @@ import {
     createVaultWithPassword,
     getSecret,
     getSecretStatus,
+    getSupplierSecrets,
     getVaultState,
     lock,
     openSettings,
@@ -39,6 +41,7 @@ const secretChangesSchema = z.record(z.string(), z.string().nullable());
 
 export function registerSettingsHandlers(): void {
     handle(IpcChannel.SettingsGet, () => getSettings());
+    handle(IpcChannel.SettingsGetLastConnections, () => getLastConnections());
 
     handle(IpcChannel.SettingsSaveGeneral, (_context, general) => {
         const parsed = generalSchema.parse(general);
@@ -68,6 +71,16 @@ export function registerSettingsHandlers(): void {
                 id,
                 secretChangesSchema.parse(secrets)
             );
+            // Without credentials, it no longer matters when the supplier
+            // was last used (#82).
+            const left = getSupplierSecrets(id) ?? {};
+            if (
+                SUPPLIER_SETTINGS[id].fields.every(
+                    field => field.kind !== "secret" || !left[field.key]
+                )
+            ) {
+                await forgetConnections([id]);
+            }
             return updateSettings(settings => ({
                 ...settings,
                 suppliers: { ...settings.suppliers, [id]: values }
@@ -114,6 +127,7 @@ export function registerSettingsHandlers(): void {
         });
         if (confirmed) {
             await resetVault();
+            await forgetConnections(ACCOUNT_IDS);
         }
         return confirmed;
     });

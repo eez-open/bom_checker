@@ -1,14 +1,24 @@
 import { readFile } from "node:fs/promises";
+import type { LastConnections } from "../../shared/inactivity";
 import type { AccountId } from "../../shared/supplier-config";
 import { isFileNotFound, writeFileAtomic } from "../files";
 import type { DailyCounter } from "./rate-limiter";
 
-type UsageData = Partial<Record<AccountId, { day: string; count: number }>>;
+interface AccountUsage {
+    day?: string;
+    count?: number;
+    /** When the supplier last answered a lookup, as ISO time (#82). */
+    lastConnected?: string;
+}
+
+type UsageData = Partial<Record<AccountId, AccountUsage>>;
 
 /**
  * Requests sent per supplier today (usage.json). Daily limits apply to the
  * API key, across projects and app restarts. Days are counted in UTC; when
- * a supplier reports the remaining count, that is used instead.
+ * a supplier reports the remaining count, that is used instead. Also when
+ * each supplier last answered, since LCSC disables API access that isn't
+ * used (#82).
  */
 export class UsageStore {
     private data: UsageData = {};
@@ -36,7 +46,9 @@ export class UsageStore {
 
     used(supplier: AccountId): number {
         const entry = this.data[supplier];
-        return entry?.day === this.today() && Number.isFinite(entry.count)
+        return entry?.day === this.today() &&
+            typeof entry.count === "number" &&
+            Number.isFinite(entry.count)
             ? entry.count
             : 0;
     }
@@ -55,6 +67,37 @@ export class UsageStore {
         }
     }
 
+    /** The supplier answered a lookup at `at` (ISO time). */
+    connected(supplier: AccountId, at: string): void {
+        this.data[supplier] = { ...this.data[supplier], lastConnected: at };
+        this.dirty = true;
+    }
+
+    lastConnections(): LastConnections {
+        const result: LastConnections = {};
+        for (const [account, entry] of Object.entries(this.data) as [
+            AccountId,
+            AccountUsage | undefined
+        ][]) {
+            if (typeof entry?.lastConnected === "string") {
+                result[account] = entry.lastConnected;
+            }
+        }
+        return result;
+    }
+
+    /** Forgets when the supplier last answered, e.g. when its credentials
+     *  are removed. */
+    forgetConnection(supplier: AccountId): void {
+        const entry = this.data[supplier];
+        if (entry?.lastConnected !== undefined) {
+            const rest = { ...entry };
+            delete rest.lastConnected;
+            this.data[supplier] = rest;
+            this.dirty = true;
+        }
+    }
+
     /** Writes pending changes. */
     flush(): Promise<void> {
         if (this.dirty) {
@@ -68,7 +111,11 @@ export class UsageStore {
     }
 
     private set(supplier: AccountId, count: number): void {
-        this.data[supplier] = { day: this.today(), count };
+        this.data[supplier] = {
+            ...this.data[supplier],
+            day: this.today(),
+            count
+        };
         this.dirty = true;
     }
 }

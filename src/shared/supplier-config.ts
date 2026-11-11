@@ -70,6 +70,9 @@ export interface SupplierSettingsInfo {
     /** Where to get API access. */
     docsUrl: string;
     fields: readonly ConfigField[];
+    /** The supplier disables API access after this many days without use
+     *  (#82). */
+    inactivityLimitDays?: number;
 }
 
 function rateLimitFields(defaults: {
@@ -263,6 +266,9 @@ export const SUPPLIER_SETTINGS: Record<AccountId, SupplierSettingsInfo> = {
     },
     lcsc: {
         docsUrl: "https://www.lcsc.com/agent",
+        // "API access will be automatically disabled if inactive for 180
+        // days."
+        inactivityLimitDays: 180,
         fields: [
             {
                 key: "apiKey",

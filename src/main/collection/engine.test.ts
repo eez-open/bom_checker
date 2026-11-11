@@ -48,13 +48,16 @@ function fakePlugin(
 function setup(plugins: Partial<Record<SupplierId, SupplierPlugin>>) {
     const events: CollectEvent[] = [];
     const slept: number[] = [];
+    // Suppliers that answered a lookup, once per batch (#82).
+    const connections: SupplierId[] = [];
     let time = Date.parse("2026-10-26T10:00:00Z");
     const engine = new CollectionEngine({
         plugins: plugins as Record<SupplierId, SupplierPlugin>,
         openSession: supplier =>
             Promise.resolve({
                 context: fakeContext(supplier, {}, () => ({})),
-                close: () => Promise.resolve()
+                close: () => Promise.resolve(),
+                connected: () => connections.push(supplier)
             }),
         emit: event => events.push(event),
         clock: {
@@ -80,7 +83,7 @@ function setup(plugins: Partial<Record<SupplierId, SupplierPlugin>>) {
                     : []
             )
         ) as Record<string, { status: string; runId: string }>;
-    return { engine, events, slept, runs, results };
+    return { engine, events, slept, connections, runs, results };
 }
 
 describe("CollectionEngine", () => {
@@ -184,6 +187,23 @@ describe("CollectionEngine", () => {
             state: "interrupted",
             reason: "Stopped after repeated errors: TME: HTTP 500"
         });
+    });
+
+    it("remembers that a supplier answered, not that it failed (#82)", async () => {
+        const tme = fakePlugin("tme", 1, batch => {
+            if (batch[0] !== "OK") {
+                throw new SupplierError("TME: HTTP 500");
+            }
+        });
+        const digikey = fakePlugin("digikey", 1, () => {
+            throw new AuthError("DigiKey rejected the client ID and secret.");
+        });
+        const { engine, connections } = setup({ tme, digikey });
+        await engine.run([
+            { supplier: "tme", runId: "t1", partNumbers: ["E1", "OK"] },
+            { supplier: "digikey", runId: "d1", partNumbers: ["A"] }
+        ]);
+        expect(connections).toEqual(["tme"]);
     });
 
     it("can be cancelled", async () => {

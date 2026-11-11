@@ -4,6 +4,7 @@
 import type { CsvTable } from "./csv-import";
 import type { DocumentKind } from "./document-kind";
 import type { ExportFormat, ExportSheet } from "./export";
+import type { LastConnections } from "./inactivity";
 import {
     SUPPLIER_IDS,
     type CollectionRun,
@@ -341,6 +342,8 @@ export interface Api {
             config: SupplierConfig,
             secrets: SecretChanges
         ): Promise<AppSettings>;
+        /** When each supplier last answered a lookup (#82). */
+        getLastConnections(): Promise<LastConnections>;
     };
     vault: {
         getState(): Promise<VaultState>;
@@ -471,6 +474,7 @@ export const IpcChannel = {
     SettingsGet: "settings:get",
     SettingsSaveGeneral: "settings:save-general",
     SettingsSaveSupplier: "settings:save-supplier",
+    SettingsGetLastConnections: "settings:get-last-connections",
     VaultGetState: "vault:get-state",
     VaultCreate: "vault:create",
     VaultOpenSettings: "vault:open-settings",

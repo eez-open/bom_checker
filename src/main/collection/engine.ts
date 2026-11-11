@@ -22,6 +22,9 @@ export interface SupplierSession {
     context: SupplierContext;
     /** Called when the job ends, e.g. to save request counters. */
     close(): Promise<void>;
+    /** Called when the supplier answered a lookup, to remember when it was
+     *  last used (#82). */
+    connected?(): void;
 }
 
 export interface EngineDependencies {
@@ -111,6 +114,9 @@ export class CollectionEngine {
                     session.context,
                     signal
                 );
+                if (!("failure" in answer)) {
+                    session.connected?.();
+                }
                 const fetchedAt = new Date(clock.now()).toISOString();
                 const results: Record<string, LookupResult> = {};
                 for (const partNumber of batch) {
