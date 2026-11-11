@@ -62,10 +62,38 @@ LCSC's API is free, but LCSC reviews each application, and it answers only calls
 
 1. Log in to your account at [lcsc.com](https://www.lcsc.com/) (or register one).
 2. Apply at [lcsc.com/agent/apply](https://www.lcsc.com/agent/apply). Describe the use as checking BOMs for your own purchasing with EEZ BOM checker, and accept the API Cooperation Agreement. The review usually takes 5–7 business days, and LCSC may ask for details about your company.
-3. Register the **public IP address** of the network you'll use the app from (search the web for "what is my IP"). LCSC refuses calls from other addresses. If your internet provider changes your address from time to time, update it at lcsc.com/agent when Test connection reports *HTTP 401*.
+3. Register the **public IP address** of the network you'll use the app from (search the web for "what is my IP"). LCSC refuses calls from other addresses. If your internet provider changes your address from time to time, update it at lcsc.com/agent when Test connection reports *HTTP 401*, or send the requests through a server with a fixed address (see *LCSC through a relay* below).
 4. LCSC sends a **Key** and a **Secret**. Enter them, set **API environment** to *Sandbox*, and click **Test connection**. New keys work only in the sandbox until LCSC activates them for production; switch to *Production* once they have.
 
 The LCSC column takes LCSC part numbers (C2040) or manufacturer part numbers. Prices are LCSC's standard prices in EUR or USD. LCSC allows about 60 requests per minute and 1,000 per day, one part per request. LCSC only says whether a part is on sale: *Active* or *Not orderable*.
+
+LCSC refuses requests (*Header timestamp is invalid*) when this computer's clock is off, even by about 12 seconds. In Windows, **Settings → Time & language → Date & time → Sync now** fixes it.
+
+#### LCSC through a relay
+
+A server with a fixed IP address can pass LCSC requests on, so LCSC sees the server's address instead of yours. Register the server's address at lcsc.com/agent (its IPv6 address too, if it has one). On an Apache server, enable the modules with `a2enmod proxy proxy_http ssl headers` and add this to the server's HTTPS site:
+
+```apache
+SSLProxyEngine on
+SSLProxyVerify require
+SSLProxyCACertificateFile /etc/ssl/certs/ca-certificates.crt
+SSLProxyVerifyDepth 10
+
+ProxyPass "/lcsc/rest/api/agent/product/" "https://api.lcsc.com/rest/api/agent/product/"
+
+<Location "/lcsc/">
+    # LCSC must see the server's address, not the caller's.
+    ProxyAddHeaders Off
+    RequestHeader unset X-Forwarded-For
+    RequestHeader unset X-Real-IP
+    RequestHeader unset Forwarded
+    <LimitExcept GET>
+        Require all denied
+    </LimitExcept>
+</Location>
+```
+
+Then enter the relay's address, e.g. `https://example.com/lcsc`, under **API address** in LCSC's settings. All requests go there, whichever **API environment** is chosen; for the sandbox, add a second `ProxyPass` from `/lcsc-sandbox/rest/api/agent/product/` to `https://sandbox-api.lcsc.com/rest/api/agent/product/` and enter `https://example.com/lcsc-sandbox` while testing. Nobody can use the relay without your key and secret: every request is signed, and the secret itself is never sent.
 
 ### Arrow
 

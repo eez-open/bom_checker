@@ -208,6 +208,40 @@ describe("LCSC lookups", () => {
     });
 });
 
+describe("LCSC addresses", () => {
+    async function firstUrl(config: Record<string, string>): Promise<string> {
+        const context = fakeContext(
+            "lcsc",
+            SECRETS,
+            lcscServer(() => ok(RP2040))
+        );
+        context.baseUrl = defaultUrl => defaultUrl;
+        Object.assign(context.config, config);
+        await lcsc.lookup(["C2040"], context);
+        return context.requests[0]!.url;
+    }
+
+    it("calls LCSC's production or sandbox server", async () => {
+        expect(await firstUrl({})).toMatch(
+            /^https:\/\/api\.lcsc\.com\/rest\/api\/agent\/product\/v1\/productdetails\?/
+        );
+        expect(await firstUrl({ environment: "sandbox" })).toMatch(
+            /^https:\/\/sandbox-api\.lcsc\.com\/rest\//
+        );
+    });
+
+    it("calls the relay in Settings → API address instead", async () => {
+        expect(
+            await firstUrl({
+                apiAddress: "https://example.com/lcsc/",
+                environment: "sandbox"
+            })
+        ).toMatch(
+            /^https:\/\/example\.com\/lcsc\/rest\/api\/agent\/product\/v1\/productdetails\?/
+        );
+    });
+});
+
 describe("LCSC answers", () => {
     const headers = new Headers();
 

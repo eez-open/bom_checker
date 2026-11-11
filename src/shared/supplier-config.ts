@@ -303,6 +303,20 @@ export const SUPPLIER_SETTINGS: Record<AccountId, SupplierSettingsInfo> = {
                 ],
                 help: "New keys work only in the sandbox until LCSC activates them for production."
             },
+            {
+                key: "apiAddress",
+                label: "API address",
+                kind: "text",
+                group: "options",
+                default: "",
+                // Empty, or an http(s) address without a query.
+                pattern: /^(https?:\/\/[^\s/?#]+(\/[^\s?#]*)?)?$/,
+                help:
+                    "Leave empty to connect to LCSC directly. To go through a relay on a server " +
+                    "whose IP address is registered at LCSC, enter the relay's address, " +
+                    "e.g. https://example.com/lcsc. All requests then go there, whichever " +
+                    "environment is chosen."
+            },
             ...rateLimitFields({
                 minIntervalMs: 1000,
                 perMinute: 60,

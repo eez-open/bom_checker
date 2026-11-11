@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- **API address** in LCSC's settings: LCSC answers only calls from the IP addresses registered for the account, so its requests can now go through a relay on a server with a fixed address, e.g. an Apache reverse proxy (the user guide shows one). Empty connects to LCSC directly, as before.
 - **Description** for BOM lists: a box under the list's name for general information about the list, saved with the list as you type. Lists are now format 3: earlier versions can't open lists saved by this one (#72).
 
 ### Changed
@@ -16,6 +17,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- LCSC: the app called `ips.lcsc.com` instead of `api.lcsc.com`, the production address in LCSC's documentation, and asked for `returnInformation=all`, which LCSC refuses (it wants `All`).
 - Arrow found nothing: the app read the parts where Arrow's documentation puts them, not where Arrow's list search answers with them. When a packaging has no prices (e.g. *Call For Quote*), one with prices is shown first.
 - Settings → General: the help under the Numbers choices and the Troubleshooting checkbox had no space above it, and the longer Arrow names in Preferred suppliers took two lines.
 
