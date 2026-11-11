@@ -375,7 +375,7 @@ function dataColumns(
                 }
                 const line = lineOf(params, supplier);
                 return line?.offer && !line.inBaseCurrency
-                    ? `Prices are in ${line.offer.currency}; totals are only calculated in ${BASE_CURRENCY}.`
+                    ? `Prices are in ${line.offer.currency || "a currency the supplier didn't name"}; totals are only calculated in ${BASE_CURRENCY}.`
                     : undefined;
             }
         }),

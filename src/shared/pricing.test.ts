@@ -177,6 +177,22 @@ describe("supplier line", () => {
         });
         expect(foreignCurrencies(project)).toEqual({ digikey: ["USD"] });
     });
+
+    it("doesn't count an offer without prices as another currency (#84)", () => {
+        // Mouser takes the currency from the prices, so it has none here.
+        const project = setup(1, {
+            mouser: found({ currency: "", priceBreaks: [] })
+        });
+        expect(
+            supplierLine(project.rows[0]!, "mouser", project.collected, 1)
+        ).toMatchObject({ unitPrice: null, inBaseCurrency: true, total: null });
+        expect(foreignCurrencies(project)).toEqual({});
+    });
+
+    it("names no currency when the supplier didn't (#84)", () => {
+        const project = setup(1, { mouser: found({ currency: "" }) });
+        expect(foreignCurrencies(project)).toEqual({ mouser: [""] });
+    });
 });
 
 describe("build quantity", () => {

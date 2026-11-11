@@ -18,6 +18,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- *Mouser prices are in unknown*: a part Mouser found without prices counted as prices in another currency, since Mouser names the currency only with its prices. It doesn't any more. When Mouser's prices are in another currency, the message now says that Mouser uses the currency of the account the API key belongs to, instead of pointing to Settings, which have no currency for Mouser (#84).
 - LCSC: the app called `ips.lcsc.com` instead of `api.lcsc.com`, the production address in LCSC's documentation, and asked for `returnInformation=all`, which LCSC refuses (it wants `All`).
 - Arrow found nothing: the app read the parts where Arrow's documentation puts them, not where Arrow's list search answers with them. When a packaging has no prices (e.g. *Call For Quote*), one with prices is shown first.
 - Settings → General: the help under the Numbers choices and the Troubleshooting checkbox had no space above it, and the longer Arrow names in Preferred suppliers took two lines.

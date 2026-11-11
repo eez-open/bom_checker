@@ -8,7 +8,8 @@ import {
     suppliersWithData
 } from "../shared/project-ops";
 import { fileTitle } from "../shared/bom-list";
-import { SUPPLIERS } from "../shared/suppliers";
+import { SUPPLIER_SETTINGS } from "../shared/supplier-config";
+import { SUPPLIERS, accountOf } from "../shared/suppliers";
 import {
     closeDialog,
     isTextEditing,
@@ -55,6 +56,54 @@ const onShownRows = (rows: number | null) =>
 
 const onEditError = (message: string | null) =>
     useUi.setState({ editError: message });
+
+/**
+ * Prices of a supplier that the totals leave out, since they aren't in the
+ * base currency, and what to do about it (#84). Mouser has no Currency
+ * setting: it uses its account's currency.
+ */
+function CurrencyBanner({
+    supplier,
+    currencies
+}: {
+    supplier: SupplierId;
+    /** "" for prices whose currency the supplier didn't name. */
+    currencies: string[];
+}) {
+    const { name } = SUPPLIERS[supplier];
+    const named = currencies.filter(Boolean);
+    const unnamed = named.length < currencies.length;
+    const settable = SUPPLIER_SETTINGS[accountOf(supplier)].fields.some(
+        field => field.key === "currency"
+    );
+    const what =
+        named.length === 0
+            ? `${name} didn't say which currency its prices are in.`
+            : `${name} prices are in ${named.join(", ")}${unnamed ? ", and some don't name a currency" : ""}.`;
+    return (
+        <div className="banner" role="alert">
+            {what} Totals and the best price are only calculated in{" "}
+            {BASE_CURRENCY}, so these prices are left out.
+            {named.length > 0 &&
+                (settable ? (
+                    <>
+                        {" "}
+                        If {name} can return {BASE_CURRENCY}, set it in{" "}
+                        <button
+                            type="button"
+                            className="link"
+                            onClick={openSettings}
+                        >
+                            Settings
+                        </button>{" "}
+                        and collect again.
+                    </>
+                ) : (
+                    ` ${name} returns prices in the currency of the ${name} account that the API key belongs to.`
+                ))}
+        </div>
+    );
+}
 
 /** The right side of a list (#35) when it shows no BOM. */
 function ListPlaceholder() {
@@ -290,27 +339,11 @@ export function App() {
                         {open &&
                             Object.entries(foreign).map(
                                 ([supplier, currencies]) => (
-                                    <div
+                                    <CurrencyBanner
                                         key={supplier}
-                                        className="banner"
-                                        role="alert"
-                                    >
-                                        {SUPPLIERS[supplier as SupplierId].name}{" "}
-                                        prices are in {currencies.join(", ")}.
-                                        Totals and the best price are only
-                                        calculated in {BASE_CURRENCY}, so these
-                                        prices are left out. If{" "}
-                                        {SUPPLIERS[supplier as SupplierId].name}{" "}
-                                        can return {BASE_CURRENCY}, set it in{" "}
-                                        <button
-                                            type="button"
-                                            className="link"
-                                            onClick={openSettings}
-                                        >
-                                            Settings
-                                        </button>{" "}
-                                        and collect again.
-                                    </div>
+                                        supplier={supplier as SupplierId}
+                                        currencies={currencies}
+                                    />
                                 )
                             )}
                         {open && (
