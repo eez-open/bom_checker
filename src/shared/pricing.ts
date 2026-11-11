@@ -119,7 +119,11 @@ function lineFor(
     const { offer } = result;
     const orderQty = orderQuantity(quantity, offer.moq, offer.orderMultiple);
     const price = priceAt(offer.priceBreaks, orderQty);
-    const inBaseCurrency = offer.currency === BASE_CURRENCY;
+    // An offer without prices has none in another currency, also when the
+    // supplier names no currency for it (#84: Mouser takes it from the
+    // prices).
+    const inBaseCurrency =
+        offer.currency === BASE_CURRENCY || offer.priceBreaks.length === 0;
     return {
         result,
         offer,
@@ -416,7 +420,7 @@ export function supplierTotal(
 }
 
 /** Suppliers whose collected prices (for this BOM) aren't in the base
- *  currency, with those currencies. */
+ *  currency, with those currencies; "" when the supplier didn't name it. */
 export function foreignCurrencies(
     project: Project
 ): Partial<Record<SupplierId, string[]>> {
@@ -430,9 +434,7 @@ export function foreignCurrencies(
                 project.buildQuantity
             );
             if (line?.offer && !line.inBaseCurrency) {
-                (found[supplier] ??= new Set()).add(
-                    line.offer.currency || "unknown"
-                );
+                (found[supplier] ??= new Set()).add(line.offer.currency);
             }
         }
     }

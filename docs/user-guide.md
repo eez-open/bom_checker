@@ -62,10 +62,40 @@ LCSC's API is free, but LCSC reviews each application, and it answers only calls
 
 1. Log in to your account at [lcsc.com](https://www.lcsc.com/) (or register one).
 2. Apply at [lcsc.com/agent/apply](https://www.lcsc.com/agent/apply). Describe the use as checking BOMs for your own purchasing with EEZ BOM checker, and accept the API Cooperation Agreement. The review usually takes 5–7 business days, and LCSC may ask for details about your company.
-3. Register the **public IP address** of the network you'll use the app from (search the web for "what is my IP"). LCSC refuses calls from other addresses. If your internet provider changes your address from time to time, update it at lcsc.com/agent when Test connection reports *HTTP 401*.
+3. Register the **public IP address** of the network you'll use the app from (search the web for "what is my IP"). LCSC refuses calls from other addresses. If your internet provider changes your address from time to time, update it at lcsc.com/agent when Test connection reports *HTTP 401*, or send the requests through a server with a fixed address (see *LCSC through a relay* below).
 4. LCSC sends a **Key** and a **Secret**. Enter them, set **API environment** to *Sandbox*, and click **Test connection**. New keys work only in the sandbox until LCSC activates them for production; switch to *Production* once they have.
 
 The LCSC column takes LCSC part numbers (C2040) or manufacturer part numbers. Prices are LCSC's standard prices in EUR or USD. LCSC allows about 60 requests per minute and 1,000 per day, one part per request. LCSC only says whether a part is on sale: *Active* or *Not orderable*.
+
+LCSC refuses requests (*Header timestamp is invalid*) when this computer's clock is off, even by about 12 seconds. In Windows, **Settings → Time & language → Date & time → Sync now** fixes it.
+
+LCSC disables API access that isn't used for 180 days. LCSC's settings show the **Last connection**, when LCSC last answered a lookup (collecting or Test connection), and how many days are left. When fewer than 30 are left, the app warns when it starts; collect LCSC data or click **Test connection** to keep the access. If you don't use LCSC any more, remove its key to stop the warning.
+
+#### LCSC through a relay
+
+A server with a fixed IP address can pass LCSC requests on, so LCSC sees the server's address instead of yours. Register the server's address at lcsc.com/agent (its IPv6 address too, if it has one). On an Apache server, enable the modules with `a2enmod proxy proxy_http ssl headers` and add this to the server's HTTPS site:
+
+```apache
+SSLProxyEngine on
+SSLProxyVerify require
+SSLProxyCACertificateFile /etc/ssl/certs/ca-certificates.crt
+SSLProxyVerifyDepth 10
+
+ProxyPass "/lcsc/rest/api/agent/product/" "https://api.lcsc.com/rest/api/agent/product/"
+
+<Location "/lcsc/">
+    # LCSC must see the server's address, not the caller's.
+    ProxyAddHeaders Off
+    RequestHeader unset X-Forwarded-For
+    RequestHeader unset X-Real-IP
+    RequestHeader unset Forwarded
+    <LimitExcept GET>
+        Require all denied
+    </LimitExcept>
+</Location>
+```
+
+Then enter the relay's address, e.g. `https://example.com/lcsc`, under **API address** in LCSC's settings. All requests go there, whichever **API environment** is chosen; for the sandbox, add a second `ProxyPass` from `/lcsc-sandbox/rest/api/agent/product/` to `https://sandbox-api.lcsc.com/rest/api/agent/product/` and enter `https://example.com/lcsc-sandbox` while testing. Nobody can use the relay without your key and secret: every request is signed, and the secret itself is never sent.
 
 ### Arrow
 
@@ -191,7 +221,7 @@ The best-price total includes partial rows for what's in stock and leaves out ro
 
 The **Total** row at the top adds up each *Total price* column, for every supplier and for Best price. Its tooltip says how many rows have a price. Quantities aren't added up: they're of different parts.
 
-**Most expensive parts** (**Top 10** in the Best price header, *Most expensive parts* in the status bar, or **View → Most Expensive Parts…**) shows where the money goes: a ring chart of the 10 rows with the highest best-price totals, each in its own colour and numbered by rank, the rest of the BOM as one gray *Other* slice, and a table with each row's supplier, total and share of the best-price total. Point at a slice or a table row to find its match. Totals are for the build quantity. A row that no supplier has enough of counts with what the supplier with the most has; rows without a best price aren't included. Red lines with a warning sign say how many rows of each kind there are, in the picture too. **Copy picture** puts the chart with its legend on the clipboard, e.g. for a document or an email; **Save as PNG…** saves it as an image.
+**Most expensive parts** (**Top 10** in the Best price header, *Most expensive parts* in the status bar, or **View → Most Expensive Parts…**) shows where the money goes: a ring chart of the 10 rows with the highest best-price totals, each in its own colour and numbered by rank, the rest of the BOM as one gray *Other* slice, and a table with each row's supplier, total, unit price (the price of one piece at that supplier) and share of the best-price total. Point at a slice or a table row to find its match. Totals are for the build quantity; with more than one unit, the summary also says what one unit costs. A row that no supplier has enough of counts with what the supplier with the most has; rows without a best price aren't included. Red lines with a warning sign say how many rows of each kind there are, in the picture too. **Copy picture** puts the chart with its legend on the clipboard, e.g. for a document or an email; **Save as PNG…** saves it as an image.
 
 **Several items match:** for example, a DigiKey part comes as cut tape and as a reel. Pick one in the list that the supplier's *Availability* column shows instead of a status; each entry has the item's part number, packaging, stock, MOQ and first price. For a side-by-side comparison, choose *Compare the items…* or click the **?** badge. The chosen item's part number replaces the old one in every row that used it, its data is shown at once, and Ctrl+Z undoes the choice.
 
@@ -257,15 +287,17 @@ The modules of one device often have their own BOMs, made at different times, an
 
 **Creating a list:** **File → New BOM List…** (or *BOM list* on the start page) asks where to save the list. Next to it, it creates the **history BOM**, *<list> history.eezbom*, or uses the one already there. Then **Add BOMs…** adds `.eezbom` files: BOMs made by hand or imported from CSV or KiCad. The list keeps their paths relative to its own folder, so the folder can be moved or shared. **File → Open…** and *Open Recent* open lists like BOMs.
 
-**Description:** under the list's name, a box for general information about the list, such as what the BOMs are for or notes for ordering. It's saved with the list as you type. Lists are now format 3: earlier versions can't open lists saved by this one.
+**Description:** under the list's name, a box for general information about the list, such as what the BOMs are for or notes for ordering. It's saved with the list. Lists are format 3: versions before 0.14.0 can't open lists saved by 0.14.0 and later.
 
-**Working with the BOMs:** the list is on the left and the selected BOM on the right, where everything works as with a single BOM: editing, Collect, Export, Update KiCad… and so on. While another BOM is shown, a BOM keeps its unsaved changes (marked with •) and its Ctrl+Z history. **Save** saves the BOM shown; **File → Save All** (Ctrl+Alt+S) saves every BOM of the list. **Remove** takes the selected BOM off the list; its file stays. File → Close closes the list, asking about unsaved BOMs.
+**Working with the BOMs:** the list is on the left and the selected BOM on the right, where everything works as with a single BOM: editing, Collect, Export, Update KiCad… and so on. While another BOM is shown, a BOM keeps its unsaved changes (marked with •) and its Ctrl+Z history. **Save** saves the BOM shown; **File → Save All** (Ctrl+Alt+S) saves every BOM of the list, and the list. **Remove** takes the selected BOM off the list; its file stays. File → Close closes the list, asking about unsaved changes.
+
+**Saving and undoing the list:** the list's own changes (BOMs added or removed, the × of each BOM, the number of devices, the history BOM and the description) are saved when you choose, like a BOM's: until then the list's name has the • mark and the window title a *. While **Combined** is shown, **Save** (Ctrl+S) saves the list and its changed BOMs, **Undo** and **Redo** (Ctrl+Z and Ctrl+Y) undo and redo the list's changes, typing in the description being one change until you leave it, and **File → Save List As…** saves the list under another name, naming the same BOM files, and goes on with it. Undoing the removal of a BOM brings it back with what it had; one with unsaved changes is offered to be saved when it leaves the list.
 
 **Combined** shows the rows of all BOMs, for ordering them together. Rows with the same supplier part numbers are one row, with the quantities added up; rows without part numbers are merged by Value and Footprint. *Reference* lists the references by BOM, and *Source BOM* the BOMs a row comes from. Suppliers without an API come along with what was typed for them, so they take part in the best price: a supplier with the same name in several BOMs is one supplier, and when merged rows have different values for it, the first BOM's are shown. Combined can't be edited, but it can be collected, which also gives the BOMs the new data (they then have unsaved changes), and exported like any BOM.
 
-**Quantities for a number of devices:** the number next to each BOM in the list (**×**) says how many of it one device has, e.g. 2 for a module that's in the device twice; Combined's Qty is for one device. **Build qty** on the toolbar, while Combined is shown, is the number of devices: for 25 devices with two modules each, set the module's × to 2 and Build qty to 25, and the module's parts are ordered for 50. Order quantities, prices and Unify's quantities follow. The list saves both at once. A BOM's own Build qty counts only when it's shown by itself.
+**Quantities for a number of devices:** the number next to each BOM in the list (**×**) says how many of it one device has, e.g. 2 for a module that's in the device twice; Combined's Qty is for one device. **Build qty** on the toolbar, while Combined is shown, is the number of devices: for 25 devices with two modules each, set the module's × to 2 and Build qty to 25, and the module's parts are ordered for 50. Order quantities, prices and Unify's quantities follow. The list keeps both when it's saved. A BOM's own Build qty counts only when it's shown by itself.
 
-**Cost by BOM** (in the list, or **View → Cost by BOM…**) shows what each BOM costs when they're ordered together: a ring chart like *Most expensive parts*, with the same colours, and a table with each BOM's total and share. The rows are those of the Combined BOM, each at its best price for the number of devices, so the BOMs add up to Combined's best-price total; a row that several BOMs use is shared among them by their quantities. The 10 most expensive BOMs get a slice each, the rest one gray *Other* slice. **Copy picture** and **Save as PNG…** work as for the parts.
+**Cost by BOM** (in the list, or **View → Cost by BOM…**) shows what each BOM costs when they're ordered together: a ring chart like *Most expensive parts*, with the same colours, and a table with each BOM's total, unit price (what one of the BOM costs: its total divided by how many of it the devices have) and share; the summary also says what one device costs. The rows are those of the Combined BOM, each at its best price for the number of devices, so the BOMs add up to Combined's best-price total; a row that several BOMs use is shared among them by their quantities. The 10 most expensive BOMs get a slice each, the rest one gray *Other* slice. **Copy picture** and **Save as PNG…** work as for the parts.
 
 **The history BOM** remembers every component (Value and Footprint) with each combination of supplier part numbers used in the list's BOMs, also ones they no longer use, so they can be offered again. It gets new combinations when a BOM is added, after Unify's Apply, and whenever a BOM of the list is saved; *Used in* names the BOMs. It isn't unified itself. **Choose…** uses another `.eezbom` as the history.
 

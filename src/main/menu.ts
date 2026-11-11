@@ -47,6 +47,7 @@ function command(
 let state: MenuState = {
     documentOpen: false,
     listOpen: false,
+    listShown: false,
     editable: false,
     hasRows: false,
     fromKicad: false,
@@ -86,6 +87,12 @@ function rowsCommand(
         enabled: state.documentOpen && state.hasRows,
         ...options
     });
+}
+
+/** Save, Undo and Redo: of the BOM shown, or of a list that shows its
+ *  Combined BOM or no BOM (#77). */
+function listOrEditable(): boolean {
+    return (state.documentOpen && state.editable) || state.listShown;
 }
 
 /** A command of a BOM list (#35). */
@@ -169,6 +176,7 @@ function columnItems(): MenuItemConstructorOptions[] {
 const menuStateSchema = z.object({
     documentOpen: z.boolean(),
     listOpen: z.boolean(),
+    listShown: z.boolean(),
     editable: z.boolean(),
     hasRows: z.boolean(),
     fromKicad: z.boolean(),
@@ -217,14 +225,25 @@ export function createMenu(): Menu {
                     accelerator: "CmdOrCtrl+W"
                 }),
                 { type: "separator" },
-                editCommand("&Save", "save", {
-                    accelerator: "CmdOrCtrl+S"
+                // While a list shows Combined or no BOM, these are the
+                // list's (#77).
+                command("&Save", "save", {
+                    id: "save",
+                    accelerator: "CmdOrCtrl+S",
+                    enabled: listOrEditable()
                 }),
-                command("Save &As…", "save-as", {
-                    accelerator: "CmdOrCtrl+Shift+S",
-                    // A list's BOMs keep their files.
-                    enabled: state.documentOpen && !state.listOpen
-                }),
+                command(
+                    state.listShown ? "Save List &As…" : "Save &As…",
+                    "save-as",
+                    {
+                        id: "save-as",
+                        accelerator: "CmdOrCtrl+Shift+S",
+                        // A list's BOMs keep their files.
+                        enabled:
+                            (state.documentOpen && !state.listOpen) ||
+                            state.listShown
+                    }
+                ),
                 listCommand("Save A&ll", "save-all", {
                     id: "save-all",
                     accelerator: "CmdOrCtrl+Alt+S"
@@ -260,13 +279,17 @@ export function createMenu(): Menu {
             submenu: [
                 // The renderer handles these keys itself, so that text fields
                 // keep their own undo while typing.
-                editCommand("&Undo", "undo", {
+                command("&Undo", "undo", {
+                    id: "undo",
                     accelerator: "CmdOrCtrl+Z",
-                    registerAccelerator: false
+                    registerAccelerator: false,
+                    enabled: listOrEditable()
                 }),
-                editCommand("&Redo", "redo", {
+                command("&Redo", "redo", {
+                    id: "redo",
                     accelerator: "CmdOrCtrl+Y",
-                    registerAccelerator: false
+                    registerAccelerator: false,
+                    enabled: listOrEditable()
                 }),
                 { type: "separator" },
                 { role: "cut" },

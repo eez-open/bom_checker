@@ -49,7 +49,8 @@ const api: Api = {
                 supplier,
                 config,
                 secrets
-            )
+            ),
+        getLastConnections: () => invoke(IpcChannel.SettingsGetLastConnections)
     },
     vault: {
         getState: () => invoke(IpcChannel.VaultGetState),
@@ -93,6 +94,7 @@ const api: Api = {
     list: {
         create: () => invoke(IpcChannel.ListCreate),
         save: list => invoke(IpcChannel.ListSave, list),
+        saveAs: list => invoke(IpcChannel.ListSaveAs, list),
         addBoms: () => invoke(IpcChannel.ListAddBoms),
         chooseHistory: () => invoke(IpcChannel.ListChooseHistory),
         saveBoms: (listPath, boms) =>

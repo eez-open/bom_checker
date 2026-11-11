@@ -5,8 +5,9 @@ import {
     addBomsToList,
     chooseHistory,
     editListDescription,
+    endDescriptionEdit,
+    isListDirty,
     removeFromList,
-    saveListDescription,
     selectInList,
     setListQuantities
 } from "./list-commands";
@@ -68,7 +69,7 @@ function ListItem({
                         max={MAX_PER_DEVICE}
                         label={`${name} per device`}
                         onApply={count =>
-                            void setListQuantities({ perDevice: [id, count] })
+                            setListQuantities({ perDevice: [id, count] })
                         }
                     />
                 </span>
@@ -85,6 +86,7 @@ export function ListPane() {
     const documents = useWorkspace(state => state.documents);
     const errors = useWorkspace(state => state.errors);
     const message = useWorkspace(state => state.message);
+    const listDirty = useWorkspace(isListDirty);
     const shownUnsaved = useDocument(
         state => state.open && !state.readOnly && isDirty(state)
     );
@@ -118,9 +120,17 @@ export function ListPane() {
         <nav className="list-pane" aria-label="BOM list">
             <h2 className="list-pane-title" title={list.filePath}>
                 {fileTitle(list.filePath)}
+                {listDirty && (
+                    <span
+                        className="list-item-mark"
+                        role="img"
+                        aria-label="unsaved"
+                        title="Unsaved changes to the list: Save while Combined is shown, or Save All"
+                    />
+                )}
             </h2>
-            {/* General information about the list (#72); saved as it's
-                typed, like the list's other settings. */}
+            {/* General information about the list (#72); typing is one
+                undo step of the list until the field is left (#77). */}
             <label className="list-description">
                 <span>Description</span>
                 <textarea
@@ -129,7 +139,7 @@ export function ListPane() {
                     maxLength={MAX_LIST_DESCRIPTION}
                     placeholder="What the BOMs are for, notes for ordering…"
                     onChange={event => editListDescription(event.target.value)}
-                    onBlur={() => void saveListDescription()}
+                    onBlur={endDescriptionEdit}
                 />
             </label>
             {message && (

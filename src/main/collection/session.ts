@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { app } from "electron";
+import type { LastConnections } from "../../shared/inactivity";
 import type { ConnectionTest, SupplierReadiness } from "../../shared/ipc";
 import { LIFECYCLE_LABELS } from "../../shared/lifecycle";
 import {
@@ -123,7 +124,26 @@ export async function openSupplierSession(
         reportRemaining: remaining =>
             store.setRemaining(account, remaining, limits.perDay)
     };
-    return { context, close: () => store.flush() };
+    return {
+        context,
+        close: () => store.flush(),
+        connected: () => store.connected(account, new Date().toISOString())
+    };
+}
+
+/** When each supplier last answered a lookup (#82). */
+export async function getLastConnections(): Promise<LastConnections> {
+    return (await usageStore()).lastConnections();
+}
+
+/** Forgets when these suppliers last answered, e.g. when their credentials
+ *  were removed, so the app stops warning that they aren't used (#82). */
+export async function forgetConnections(
+    accounts: readonly AccountId[]
+): Promise<void> {
+    const store = await usageStore();
+    accounts.forEach(account => store.forgetConnection(account));
+    await store.flush();
 }
 
 const PRICE_KINDS = {
@@ -161,6 +181,7 @@ export async function testConnection(
         const outcome = (
             await plugin.lookup([plugin.testPartNumber], session.context)
         ).get(partNumberKey(plugin.testPartNumber));
+        session.connected?.();
         if (outcome?.status !== "found") {
             return {
                 ok: true,

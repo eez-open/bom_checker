@@ -27,6 +27,7 @@ import {
     chooseHistoryDialog,
     createBomList,
     saveBomList,
+    saveBomListAs,
     saveBomsWithBackup,
     showListBackup
 } from "../project/list-files";
@@ -114,6 +115,9 @@ export function registerProjectHandlers(): void {
     handle(IpcChannel.ListCreate, ({ window }) => createBomList(window));
     handle(IpcChannel.ListSave, (_context, list) =>
         saveBomList(listStateSchema.parse(list))
+    );
+    handle(IpcChannel.ListSaveAs, ({ window }, list) =>
+        saveBomListAs(window, listStateSchema.parse(list))
     );
     handle(IpcChannel.ListAddBoms, ({ window }) => addBomsDialog(window));
     handle(IpcChannel.ListChooseHistory, ({ window }) =>

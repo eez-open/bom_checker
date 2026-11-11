@@ -209,7 +209,7 @@ function checkBom(path: string): void {
     }
 }
 
-export async function saveBomList(list: ListState): Promise<void> {
+function checkListBoms(list: ListState): void {
     checkList(list.filePath);
     for (const path of [
         ...list.boms,
@@ -217,8 +217,43 @@ export async function saveBomList(list: ListState): Promise<void> {
     ]) {
         checkBom(path);
     }
+}
+
+export async function saveBomList(list: ListState): Promise<void> {
+    checkListBoms(list);
     await writeList(list);
     log.info("Saved list", list.filePath);
+}
+
+/**
+ * Asks where to save the list under another name (#77) and writes it
+ * there, naming the same BOM files relative to its new folder. Returns the
+ * new path, or null when cancelled.
+ */
+export async function saveBomListAs(
+    window: BrowserWindow,
+    list: ListState
+): Promise<string | null> {
+    checkListBoms(list);
+    const result = await dialog.showSaveDialog(window, {
+        title: "Save BOM List As",
+        defaultPath: list.filePath,
+        filters: FILTERS
+    });
+    if (result.canceled || !result.filePath) {
+        return null;
+    }
+    // Some Linux file dialogs don't add the extension.
+    const path =
+        extname(result.filePath) === ""
+            ? `${result.filePath}.${BOM_LIST_FILE_EXTENSION}`
+            : result.filePath;
+    rememberFolder("bom", path);
+    await writeList({ ...list, filePath: path });
+    knownLists.add(path);
+    addRecent(path);
+    log.info("Saved list", list.filePath, "as", path);
+    return path;
 }
 
 async function readPicked(

@@ -2,7 +2,8 @@
 // product details for LCSC numbers (C2040), a keyword search for
 // manufacturer part numbers. Every request is signed with the key and
 // secret, and LCSC accepts calls only from the IP addresses registered for
-// the account.
+// the account; Settings → API address can send them through a relay on a
+// server with such an address.
 // https://www.lcsc.com/agent (API guide: "Authentication and Access Control")
 
 import { createHash, randomUUID } from "node:crypto";
@@ -29,7 +30,7 @@ import {
     type SupplierPlugin
 } from "./types";
 
-const PRODUCTION_URL = "https://ips.lcsc.com";
+const PRODUCTION_URL = "https://api.lcsc.com";
 const SANDBOX_URL = "https://sandbox-api.lcsc.com";
 const DETAILS_PATH = "/rest/api/agent/product/v1/productdetails";
 const SEARCH_PATH = "/rest/api/agent/product/v1/keywordsearch";
@@ -111,7 +112,7 @@ async function lookupOne(
             DETAILS_PATH,
             {
                 lcscProductNumber: partNumber.toUpperCase(),
-                returnInformation: "all",
+                returnInformation: "All",
                 currency
             },
             "details"
@@ -132,7 +133,7 @@ async function lookupOne(
         {
             keyword: partNumber,
             limit: String(SEARCH_LIMIT),
-            returnInformation: "all",
+            returnInformation: "All",
             currency
         },
         "search"
@@ -209,8 +210,14 @@ async function call(
         Date.now(),
         randomUUID().replaceAll("-", "")
     );
+    // Settings → API address: a relay on a server whose IP address LCSC
+    // accepts, e.g. an Apache reverse proxy (docs/user-guide.md).
+    const relay = String(context.config.apiAddress ?? "").replace(/\/+$/, "");
     const base = context.baseUrl(
-        context.config.environment === "sandbox" ? SANDBOX_URL : PRODUCTION_URL
+        relay ||
+            (context.config.environment === "sandbox"
+                ? SANDBOX_URL
+                : PRODUCTION_URL)
     );
     const response = await context.http.request({
         method: "GET",

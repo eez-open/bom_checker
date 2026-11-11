@@ -8,7 +8,8 @@ import {
     suppliersWithData
 } from "../shared/project-ops";
 import { fileTitle } from "../shared/bom-list";
-import { SUPPLIERS } from "../shared/suppliers";
+import { SUPPLIER_SETTINGS } from "../shared/supplier-config";
+import { SUPPLIERS, accountOf } from "../shared/suppliers";
 import {
     closeDialog,
     isTextEditing,
@@ -33,7 +34,7 @@ import { UnifyDialog } from "./dialogs/UnifyDialog";
 import { SettingsDialog } from "./settings/SettingsDialog";
 import { StartPage } from "./StartPage";
 import { FilterBar, rowViews, TableTabs, tableGroups } from "./FilterBar";
-import { addBomsToList, removeFromList } from "./list-commands";
+import { addBomsToList, isListDirty, removeFromList } from "./list-commands";
 import { ListPane } from "./ListPane";
 import { documentName, isDirty, useDocument } from "./store/document";
 import { loadAppSettings, useAppSettings, useNumbers } from "./store/settings";
@@ -55,6 +56,54 @@ const onShownRows = (rows: number | null) =>
 
 const onEditError = (message: string | null) =>
     useUi.setState({ editError: message });
+
+/**
+ * Prices of a supplier that the totals leave out, since they aren't in the
+ * base currency, and what to do about it (#84). Mouser has no Currency
+ * setting: it uses its account's currency.
+ */
+function CurrencyBanner({
+    supplier,
+    currencies
+}: {
+    supplier: SupplierId;
+    /** "" for prices whose currency the supplier didn't name. */
+    currencies: string[];
+}) {
+    const { name } = SUPPLIERS[supplier];
+    const named = currencies.filter(Boolean);
+    const unnamed = named.length < currencies.length;
+    const settable = SUPPLIER_SETTINGS[accountOf(supplier)].fields.some(
+        field => field.key === "currency"
+    );
+    const what =
+        named.length === 0
+            ? `${name} didn't say which currency its prices are in.`
+            : `${name} prices are in ${named.join(", ")}${unnamed ? ", and some don't name a currency" : ""}.`;
+    return (
+        <div className="banner" role="alert">
+            {what} Totals and the best price are only calculated in{" "}
+            {BASE_CURRENCY}, so these prices are left out.
+            {named.length > 0 &&
+                (settable ? (
+                    <>
+                        {" "}
+                        If {name} can return {BASE_CURRENCY}, set it in{" "}
+                        <button
+                            type="button"
+                            className="link"
+                            onClick={openSettings}
+                        >
+                            Settings
+                        </button>{" "}
+                        and collect again.
+                    </>
+                ) : (
+                    ` ${name} returns prices in the currency of the ${name} account that the API key belongs to.`
+                ))}
+        </div>
+    );
+}
 
 /** The right side of a list (#35) when it shows no BOM. */
 function ListPlaceholder() {
@@ -105,11 +154,21 @@ export function App() {
     const shownDirty = useDocument(state => !state.readOnly && isDirty(state));
     const list = useWorkspace(state => state.list);
     const combined = useWorkspace(state => state.selected === COMBINED);
-    // A list has unsaved changes when any of its BOMs has.
-    const waitingDirty = useWorkspace(state =>
-        Object.values(state.documents).some(isDirty)
+    // A list has unsaved changes when any of its BOMs has, or it has
+    // itself (#77). BOMs taken off it are kept for Undo, but don't count.
+    const waitingDirty = useWorkspace(
+        state =>
+            state.list !== null &&
+            [
+                ...state.list.boms,
+                ...(state.list.history ? [state.list.history] : [])
+            ].some(path => {
+                const document = state.documents[path];
+                return document !== undefined && isDirty(document);
+            })
     );
-    const dirty = (open && shownDirty) || waitingDirty;
+    const listDirty = useWorkspace(isListDirty);
+    const dirty = (open && shownDirty) || waitingDirty || listDirty;
     const preference = useAppSettings(
         state => state.settings.general.supplierOrder
     );
@@ -196,6 +255,7 @@ export function App() {
         window.api.window.setMenuState({
             documentOpen: open,
             listOpen: list !== null,
+            listShown: list !== null && (combined || !open),
             editable: open && !readOnly,
             hasRows: open && hasRows,
             fromKicad: open && fromKicad,
@@ -213,6 +273,7 @@ export function App() {
     }, [
         open,
         list,
+        combined,
         readOnly,
         hasRows,
         fromKicad,
@@ -290,27 +351,11 @@ export function App() {
                         {open &&
                             Object.entries(foreign).map(
                                 ([supplier, currencies]) => (
-                                    <div
+                                    <CurrencyBanner
                                         key={supplier}
-                                        className="banner"
-                                        role="alert"
-                                    >
-                                        {SUPPLIERS[supplier as SupplierId].name}{" "}
-                                        prices are in {currencies.join(", ")}.
-                                        Totals and the best price are only
-                                        calculated in {BASE_CURRENCY}, so these
-                                        prices are left out. If{" "}
-                                        {SUPPLIERS[supplier as SupplierId].name}{" "}
-                                        can return {BASE_CURRENCY}, set it in{" "}
-                                        <button
-                                            type="button"
-                                            className="link"
-                                            onClick={openSettings}
-                                        >
-                                            Settings
-                                        </button>{" "}
-                                        and collect again.
-                                    </div>
+                                        supplier={supplier as SupplierId}
+                                        currencies={currencies}
+                                    />
                                 )
                             )}
                         {open && (

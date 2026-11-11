@@ -1,4 +1,5 @@
-import { useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
+import { connectionStatus } from "../../shared/inactivity";
 import type { ConnectionTest, SecretChanges } from "../../shared/ipc";
 import type { AppSettings } from "../../shared/settings";
 import {
@@ -54,7 +55,8 @@ export function SupplierForm({
     onSaved,
     onLocked
 }: SupplierFormProps) {
-    const { fields, docsUrl } = SUPPLIER_SETTINGS[supplier];
+    const { fields, docsUrl, inactivityLimitDays } =
+        SUPPLIER_SETTINGS[supplier];
     const [inputs, setInputs] = useState<Record<string, string>>(() =>
         Object.fromEntries(
             Object.entries(config).map(([key, value]) => [key, String(value)])
@@ -154,11 +156,36 @@ export function SupplierForm({
         }
     };
 
+    // When a supplier that disables unused API access last answered (#82),
+    // and how many days are left.
+    const limited = inactivityLimitDays !== undefined;
+    const [connection, setConnection] = useState<string | null>(null);
+    const loadLastConnected = useCallback(() => {
+        if (limited) {
+            window.api.settings
+                .getLastConnections()
+                .then(connections =>
+                    setConnection(
+                        connectionStatus(
+                            supplier,
+                            connections[supplier],
+                            Date.now()
+                        )
+                    )
+                )
+                .catch((error: unknown) =>
+                    console.error("Can't read the last connections", error)
+                );
+        }
+    }, [limited, supplier]);
+    useEffect(loadLastConnected, [loadLastConnected]);
+
     const [test, setTest] = useState<ConnectionTest | "running" | null>(null);
     const testConnection = async () => {
         setTest("running");
         try {
             setTest(await window.api.collect.testConnection(token, supplier));
+            loadLastConnected();
         } catch (error) {
             if (isSettingsLocked(error)) {
                 onLocked();
@@ -252,6 +279,11 @@ export function SupplierForm({
             {message && (
                 <p className={message.error ? "field-error" : "success"}>
                     {message.text}
+                </p>
+            )}
+            {connection && (
+                <p className="muted" data-testid="last-connection">
+                    {connection}
                 </p>
             )}
             <div className="form-actions">

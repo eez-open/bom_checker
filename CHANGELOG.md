@@ -4,18 +4,26 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-11
+
 ### Added
 
-- **Description** for BOM lists: a box under the list's name for general information about the list, saved with the list as you type. Lists are now format 3: earlier versions can't open lists saved by this one (#72).
+- **Unit prices in the cost charts** (#76): *Most expensive parts* has each row's price of one piece at its best price, and *Cost by BOM* what one of each BOM costs, in the table and the picture. With a build quantity, the summary also says what one unit or device costs.
+- **LCSC's last connection** (#82): LCSC disables API access that isn't used for 180 days, so the app remembers when LCSC last answered, collecting or testing the connection. LCSC's settings show when that was and how many days are left, and when fewer than 30 are left, the app warns when it starts. Removing LCSC's key stops the warning.
+- **API address** in LCSC's settings: LCSC answers only calls from the IP addresses registered for the account, so its requests can now go through a relay on a server with a fixed address, e.g. an Apache reverse proxy (the user guide shows one). Empty connects to LCSC directly, as before (#83).
+- **Description** for BOM lists: a box under the list's name for general information about the list, saved with the list. Lists are now format 3: earlier versions can't open lists saved by this one (#72).
 
 ### Changed
 
+- **BOM lists are saved when you choose, like BOMs** (#77): the list's own changes (BOMs added or removed, the × of each BOM, the number of devices, the history BOM, the description) are no longer saved at once. The list's name has the unsaved mark until the list is saved, and closing asks. While Combined is shown, **Save** (Ctrl+S) saves the list and its changed BOMs, **Undo** and **Redo** (Ctrl+Z, Ctrl+Y) undo and redo the list's changes, and **File → Save List As…** saves the list under another name, naming the same BOM files. **File → Save All** saves the list too.
 - **Best price when no supplier has enough stock** (#74): the Supplier column names the supplier with the most in stock instead of *None in stock*, e.g. *DigiKey (Partial: 44)* in amber, with Order Qty, Unit price and Total price for what it has. *None in stock* is left for rows that no supplier has any of, and *No best price* is shown when suppliers have stock but can't sell it at a price in EUR yet, e.g. less than their MOQ, or an item is still to be chosen. The Best price header, the status bar and the charts of the most expensive parts and the cost by BOM say how many rows are priced for only part of their quantity and how many are left out. The Rows filter gets *Best price: Partial*; *Best price: None in stock* is now *Best price: None*. Exports write the supplier the same way, and *Not available anywhere* also has the rows that no supplier has enough stock for.
 - Exports of part numbers only (*Basic data only*) write `-` for an Arrow inventory source that didn't find the part, instead of the part number Collect put in its column, so the file still shows which sources have it (#73).
 - A part number typed in one Arrow column counts for all of Arrow's inventory sources: Collect looks it up for a source whose cell is empty and puts it in the cell afterwards, found or not. The Value is looked up only for rows without any Arrow part number.
 
 ### Fixed
 
+- *Mouser prices are in unknown*: a part Mouser found without prices counted as prices in another currency, since Mouser names the currency only with its prices. It doesn't any more. When Mouser's prices are in another currency, the message now says that Mouser uses the currency of the account the API key belongs to, instead of pointing to Settings, which have no currency for Mouser (#84).
+- LCSC: the app called `ips.lcsc.com` instead of `api.lcsc.com`, the production address in LCSC's documentation, and asked for `returnInformation=all`, which LCSC refuses (it wants `All`). Both were found when trying a real key (#83).
 - Arrow found nothing: the app read the parts where Arrow's documentation puts them, not where Arrow's list search answers with them. When a packaging has no prices (e.g. *Call For Quote*), one with prices is shown first.
 - Settings → General: the help under the Numbers choices and the Troubleshooting checkbox had no space above it, and the longer Arrow names in Preferred suppliers took two lines.
 

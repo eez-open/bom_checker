@@ -70,6 +70,9 @@ export interface SupplierSettingsInfo {
     /** Where to get API access. */
     docsUrl: string;
     fields: readonly ConfigField[];
+    /** The supplier disables API access after this many days without use
+     *  (#82). */
+    inactivityLimitDays?: number;
 }
 
 function rateLimitFields(defaults: {
@@ -263,6 +266,9 @@ export const SUPPLIER_SETTINGS: Record<AccountId, SupplierSettingsInfo> = {
     },
     lcsc: {
         docsUrl: "https://www.lcsc.com/agent",
+        // "API access will be automatically disabled if inactive for 180
+        // days."
+        inactivityLimitDays: 180,
         fields: [
             {
                 key: "apiKey",
@@ -302,6 +308,20 @@ export const SUPPLIER_SETTINGS: Record<AccountId, SupplierSettingsInfo> = {
                     { value: "sandbox", label: "Sandbox (test data only)" }
                 ],
                 help: "New keys work only in the sandbox until LCSC activates them for production."
+            },
+            {
+                key: "apiAddress",
+                label: "API address",
+                kind: "text",
+                group: "options",
+                default: "",
+                // Empty, or an http(s) address without a query.
+                pattern: /^(https?:\/\/[^\s/?#]+(\/[^\s?#]*)?)?$/,
+                help:
+                    "Leave empty to connect to LCSC directly. To go through a relay on a server " +
+                    "whose IP address is registered at LCSC, enter the relay's address, " +
+                    "e.g. https://example.com/lcsc. All requests then go there, whichever " +
+                    "environment is chosen."
             },
             ...rateLimitFields({
                 minIntervalMs: 1000,

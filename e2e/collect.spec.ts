@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { FAKE_CREDENTIALS, startFakeSuppliers } from "./fake-suppliers";
@@ -65,10 +66,25 @@ test("collects supplier data and continues after a daily limit", async () => {
             Key: FAKE_CREDENTIALS.lcsc.apiKey,
             Secret: FAKE_CREDENTIALS.lcsc.apiSecret
         });
+        // LCSC disables API access that isn't used for 180 days (#82).
+        const lastConnection = settings.getByTestId("last-connection");
+        await expect(lastConnection).toContainText(
+            "Last connection: none yet."
+        );
         await settings.getByRole("button", { name: "Test connection" }).click();
         await expect(settings.getByRole("status")).toContainText(
             "Found C2040: Raspberry Pi RP2040"
         );
+        await expect(lastConnection).toContainText(
+            "LCSC disables API access after 180 days without use: 180 days left."
+        );
+        const usage = async () =>
+            JSON.parse(
+                await readFile(join(userData, "usage.json"), "utf8")
+            ) as Record<string, { lastConnected?: string }>;
+        await expect
+            .poll(async () => typeof (await usage()).lcsc?.lastConnected)
+            .toBe("string");
         await settings.getByRole("button", { name: "Close" }).click();
 
         // Lock, so collecting asks for the password.

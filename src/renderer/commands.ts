@@ -31,8 +31,12 @@ import {
     confirmDiscardList,
     forgetInList,
     isListOpen,
+    isListShown,
     loadList,
+    redoList,
     saveAllInList,
+    saveListAs,
+    undoList,
     unsavedPaths
 } from "./list-commands";
 import { errorMessage } from "./errors";
@@ -49,6 +53,10 @@ import {
 import { COMBINED, useWorkspace } from "./store/workspace";
 
 export async function saveDocument(saveAs = false): Promise<boolean> {
+    // A list that shows its Combined BOM, or no BOM, is saved itself (#77).
+    if (isListShown()) {
+        return saveAs ? saveListAs() : saveAllInList();
+    }
     const { project, filePath, markSaved, readOnly } = useDocument.getState();
     if (readOnly) {
         return true;
@@ -501,10 +509,13 @@ export function closeDialog(): void {
     useUi.setState({ dialog: null });
 }
 
-/** Undo/redo the BOM edit, or the text edit while typing in a field. */
+/** Undo/redo the BOM edit, or the text edit while typing in a field; a
+ *  change of the list while it shows Combined or no BOM (#77). */
 export function undo(): void {
     if (isTextEditing()) {
         document.execCommand("undo");
+    } else if (isListShown()) {
+        void undoList();
     } else {
         useDocument.getState().undo();
     }
@@ -513,6 +524,8 @@ export function undo(): void {
 export function redo(): void {
     if (isTextEditing()) {
         document.execCommand("redo");
+    } else if (isListShown()) {
+        void redoList();
     } else {
         useDocument.getState().redo();
     }
@@ -578,9 +591,13 @@ const WITHOUT_DOCUMENT = new Set<MenuCommand>([
     "lock"
 ]);
 
-/** Commands of an open list, also when it shows no BOM (#35). */
+/** Commands of an open list, also when it shows no BOM (#35, #77). */
 const LIST_COMMANDS = new Set<MenuCommand>([
     "close",
+    "save",
+    "save-as",
+    "undo",
+    "redo",
     "save-all",
     "add-boms",
     "unify",

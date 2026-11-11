@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { app, Menu } from "electron";
+import { warnAboutInactivity } from "./inactivity-warning";
 import { registerIpcHandlers } from "./ipc";
 import { initLogging, log } from "./logging";
 import { createMenu } from "./menu";
@@ -31,7 +32,13 @@ app.whenReady()
         denyPermissionRequests();
         registerIpcHandlers();
         Menu.setApplicationMenu(createMenu());
-        createMainWindow();
+        const window = createMainWindow();
+        // After the window is shown, which a handler added earlier does.
+        window.once("ready-to-show", () => {
+            warnAboutInactivity(window).catch((error: unknown) =>
+                log.warn("Can't check when the suppliers were used:", error)
+            );
+        });
         // Arrow's data is kept for 48 hours only (#62), also of BOMs that
         // aren't opened again.
         pruneSupplierData(

@@ -4,6 +4,7 @@
 import type { CsvTable } from "./csv-import";
 import type { DocumentKind } from "./document-kind";
 import type { ExportFormat, ExportSheet } from "./export";
+import type { LastConnections } from "./inactivity";
 import {
     SUPPLIER_IDS,
     type CollectionRun,
@@ -38,6 +39,9 @@ export interface MenuState {
     documentOpen: boolean;
     /** A BOM list is open (#35). */
     listOpen: boolean;
+    /** The list's Combined BOM, or no BOM, is shown: Save, Save As, Undo
+     *  and Redo are the list's (#77). */
+    listShown: boolean;
     /** False for a view that can't be edited, e.g. a list's Combined. */
     editable: boolean;
     /** The open BOM has rows, to collect and export (#38). */
@@ -341,6 +345,8 @@ export interface Api {
             config: SupplierConfig,
             secrets: SecretChanges
         ): Promise<AppSettings>;
+        /** When each supplier last answered a lookup (#82). */
+        getLastConnections(): Promise<LastConnections>;
     };
     vault: {
         getState(): Promise<VaultState>;
@@ -406,6 +412,9 @@ export interface Api {
         create(): Promise<OpenedList | null>;
         /** Writes the list file. Every path must be a BOM main has read. */
         save(list: ListState): Promise<void>;
+        /** Asks where to save the list under another name and writes it
+         *  there (#77); the new path, or null when cancelled. */
+        saveAs(list: ListState): Promise<string | null>;
         /** Lets the user pick BOMs to add; the ones that could be read. */
         addBoms(): Promise<OpenedProject[]>;
         /** Lets the user pick another history BOM. */
@@ -471,6 +480,7 @@ export const IpcChannel = {
     SettingsGet: "settings:get",
     SettingsSaveGeneral: "settings:save-general",
     SettingsSaveSupplier: "settings:save-supplier",
+    SettingsGetLastConnections: "settings:get-last-connections",
     VaultGetState: "vault:get-state",
     VaultCreate: "vault:create",
     VaultOpenSettings: "vault:open-settings",
@@ -492,6 +502,7 @@ export const IpcChannel = {
     CsvOpen: "csv:open",
     ListCreate: "list:create",
     ListSave: "list:save",
+    ListSaveAs: "list:save-as",
     ListAddBoms: "list:add-boms",
     ListChooseHistory: "list:choose-history",
     ListSaveBoms: "list:save-boms",

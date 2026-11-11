@@ -91,6 +91,24 @@ describe("supplier config", () => {
         ).toEqual({});
     });
 
+    it("takes an empty LCSC API address or an http(s) one", () => {
+        const errors = (apiAddress: string) =>
+            validateSupplierConfig("lcsc", {
+                ...defaultSupplierConfig("lcsc"),
+                apiAddress
+            });
+        expect(defaultSupplierConfig("lcsc").apiAddress).toBe("");
+        expect(errors("")).toEqual({});
+        expect(errors("https://example.com/lcsc")).toEqual({});
+        expect(errors("http://192.168.1.10:8080/lcsc/")).toEqual({});
+        expect(errors("example.com/lcsc")).toEqual({
+            apiAddress: "Invalid value."
+        });
+        expect(errors("https://example.com/lcsc?x=1")).toEqual({
+            apiAddress: "Invalid value."
+        });
+    });
+
     it("lists the secret fields", () => {
         expect(secretFields("digikey").map(f => f.key)).toEqual([
             "clientId",
