@@ -1237,6 +1237,13 @@ path.cost-slice {
     background: #ffffff;
 }
 
+/* The list itself has unsaved changes (#77). */
+.list-pane-title .list-item-mark {
+    display: inline-block;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
 .list-item-error {
     color: var(--app-error);
     font-weight: 700;

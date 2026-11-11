@@ -65,6 +65,12 @@ export function Toolbar() {
     // A list's Combined BOM is for its number of devices (#39).
     const combined = useWorkspace(state => state.selected === COMBINED);
     const devices = useWorkspace(state => state.list?.buildQuantity ?? 1);
+    // A list that shows Combined or no BOM has Save, Undo and Redo of its
+    // own (#77).
+    const listOpen = useWorkspace(state => state.list !== null);
+    const listShown = listOpen && (combined || !open);
+    const canUndoList = useWorkspace(state => state.listPast.length > 0);
+    const canRedoList = useWorkspace(state => state.listFuture.length > 0);
 
     return (
         <div className="toolbar" role="toolbar" aria-label="BOM">
@@ -82,23 +88,31 @@ export function Toolbar() {
             >
                 Open…
             </button>
-            {editable && (
+            {(editable || listShown) && (
                 <button
                     type="button"
-                    title="Ctrl+S"
+                    title={
+                        listShown
+                            ? "Save the list and its changed BOMs (Ctrl+S)"
+                            : "Ctrl+S"
+                    }
                     onClick={() => void saveDocument()}
                 >
                     Save
                 </button>
             )}
-            {editable && (
+            {(editable || listShown) && (
                 <>
                     <button
                         type="button"
                         className="icon"
-                        title="Undo (Ctrl+Z)"
+                        title={
+                            listShown
+                                ? "Undo the last change of the list (Ctrl+Z)"
+                                : "Undo (Ctrl+Z)"
+                        }
                         aria-label="Undo"
-                        disabled={!canUndo}
+                        disabled={listShown ? !canUndoList : !canUndo}
                         // Keep the focus where it is: in a text field, Undo
                         // undoes typing there.
                         onMouseDown={event => event.preventDefault()}
@@ -109,9 +123,13 @@ export function Toolbar() {
                     <button
                         type="button"
                         className="icon"
-                        title="Redo (Ctrl+Y)"
+                        title={
+                            listShown
+                                ? "Redo the change of the list (Ctrl+Y)"
+                                : "Redo (Ctrl+Y)"
+                        }
                         aria-label="Redo"
-                        disabled={!canRedo}
+                        disabled={listShown ? !canRedoList : !canRedo}
                         onMouseDown={event => event.preventDefault()}
                         onClick={redo}
                     >
@@ -191,9 +209,7 @@ export function Toolbar() {
                             max={MAX_BUILD_QUANTITY}
                             className="build-quantity"
                             onApply={quantity =>
-                                void setListQuantities({
-                                    buildQuantity: quantity
-                                })
+                                setListQuantities({ buildQuantity: quantity })
                             }
                         />
                     </label>

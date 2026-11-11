@@ -116,13 +116,20 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
         const mcuItem = pane.getByRole("button", { name: /^mcu/ });
         await expect(psuItem).toHaveAttribute("aria-current", "true");
         await expect(cell(page, 0, "reference")).toHaveText("R1, R2");
-        await expect(page).toHaveTitle("device · psu - EEZ BOM checker");
-
-        // The list names the BOMs relative to its folder.
+        // The list has unsaved changes until it's saved, like a BOM (#77).
+        await expect(page).toHaveTitle("*device · psu - EEZ BOM checker");
+        const listTitle = pane.getByRole("heading", { name: "device" });
+        await expect(listTitle.getByLabel("unsaved")).toBeVisible();
         const listFile = async () =>
             parseBomListFile(
                 await readFile(join(folder, "device.eezbom-list"), "utf8")
             );
+        expect((await listFile()).boms).toEqual([]);
+        await clickMenuItem(app, "save-all");
+        await expect(listTitle.getByLabel("unsaved")).toHaveCount(0);
+        await expect(page).toHaveTitle("device · psu - EEZ BOM checker");
+
+        // The list names the BOMs relative to its folder.
         expect(await listFile()).toEqual({
             schemaVersion: 3,
             boms: [
@@ -133,12 +140,15 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
             buildQuantity: 1,
             description: ""
         });
-        // A description of the list (#72), saved as it's typed.
+        // A description of the list (#72), saved with it.
         const description = pane.getByRole("textbox", { name: "Description" });
         await description.fill("Rev. B\nOrder with the enclosure.");
-        await expect
-            .poll(async () => (await listFile()).description)
-            .toBe("Rev. B\nOrder with the enclosure.");
+        await expect(listTitle.getByLabel("unsaved")).toBeVisible();
+        await clickMenuItem(app, "save-all");
+        await expect(listTitle.getByLabel("unsaved")).toHaveCount(0);
+        expect((await listFile()).description).toBe(
+            "Rev. B\nOrder with the enclosure."
+        );
         // The history has each component and part number once.
         const history = await readBom(join(folder, "device history.eezbom"));
         expect(
@@ -196,9 +206,26 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
         await devices.fill("10");
         await devices.press("Enter");
         await expect(cell(page, 0, "totalQty")).toHaveText("40");
-        await expect
-            .poll(async () => (await listFile()).buildQuantity)
-            .toBe(10);
+        // With Combined shown, Undo and Redo are the list's (#77); outside
+        // a text field, as there they undo typing.
+        await devices.blur();
+        const undoButton = page.getByRole("button", { name: "Undo" });
+        const redoButton = page.getByRole("button", { name: "Redo" });
+        await undoButton.click();
+        await expect(devices).toHaveValue("1");
+        await expect(cell(page, 0, "qty")).toHaveText("4");
+        await page.keyboard.press("Control+Z");
+        await expect(cell(page, 0, "qty")).toHaveText("3");
+        await expect(perDevice).toHaveValue("1");
+        await expect(listTitle.getByLabel("unsaved")).toHaveCount(0);
+        await page.keyboard.press("Control+Y");
+        await redoButton.click();
+        await expect(cell(page, 0, "totalQty")).toHaveText("40");
+        await expect(redoButton).toBeDisabled();
+        expect((await listFile()).buildQuantity).toBe(1);
+        await page.getByRole("button", { name: "Save", exact: true }).click();
+        await expect(listTitle.getByLabel("unsaved")).toHaveCount(0);
+        expect((await listFile()).buildQuantity).toBe(10);
         expect((await listFile()).boms[1]).toEqual({
             path: "mcu.eezbom",
             perDevice: 2
@@ -249,9 +276,6 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
         await cell(page, 0, "pn:digikey").click();
         await page.keyboard.press("Control+C");
         await expect.poll(clipboard).toBe("D-1");
-        await expect(
-            page.getByRole("button", { name: "Save", exact: true })
-        ).toHaveCount(0);
 
         // Save All writes the changed BOM.
         await clickMenuItem(app, "save-all");
@@ -271,15 +295,49 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
         await expect(psuItem.getByLabel("unsaved")).toBeVisible();
         await expect(mcuItem.getByLabel("unsaved")).toBeVisible();
 
-        // Removed from the list, the file stays.
+        // Removed from the list, the file stays. mcu's unsaved changes are
+        // saved first (the message box answers Save).
         await mcuItem.click();
         await pane.getByRole("button", { name: "Remove" }).click();
         await expect(mcuItem).toHaveCount(0);
-        // The list is saved right after it shows the change.
+        expect((await readBom(mcu)).rows).toHaveLength(2);
+        // Undo in Combined brings it back (#77), with its × per device.
+        await expect(psuItem).toHaveAttribute("aria-current", "true");
+        await pane.getByRole("button", { name: "Combined" }).click();
+        await page.keyboard.press("Control+Z");
+        await expect(mcuItem).toBeVisible();
+        await expect(pane.getByLabel("mcu per device")).toHaveValue("2");
+        await page.keyboard.press("Control+Y");
+        await expect(mcuItem).toHaveCount(0);
+        expect((await listFile()).boms).toHaveLength(2);
+        await clickMenuItem(app, "save");
         await expect
             .poll(async () => (await listFile()).boms)
             .toEqual([{ path: "psu.eezbom", perDevice: 1 }]);
-        expect((await readBom(mcu)).rows).toHaveLength(2);
+
+        // Save List As… writes it under another name, naming the same
+        // BOMs from there (#77), and goes on with it.
+        const copyFolder = await mkdtemp(join(tmpdir(), "eez-bom-list-copy-"));
+        const copy = join(copyFolder, "device B.eezbom-list");
+        await answerSaveDialog(app, copy);
+        await description.fill("Rev. C");
+        await page.getByRole("button", { name: "Combined" }).click();
+        await clickMenuItem(app, "save-as");
+        await expect(
+            pane.getByRole("heading", { name: "device B" })
+        ).toBeVisible();
+        await expect(listTitle.getByLabel("unsaved")).toHaveCount(0);
+        const copied = parseBomListFile(await readFile(copy, "utf8"));
+        expect(copied.description).toBe("Rev. C");
+        expect(copied.boms).toHaveLength(1);
+        expect(join(copyFolder, copied.boms[0]!.path)).toBe(psu);
+        expect(join(copyFolder, copied.history!)).toBe(
+            join(folder, "device history.eezbom")
+        );
+        // The first list is as it was saved.
+        expect((await listFile()).description).toBe(
+            "Rev. B\nOrder with the enclosure."
+        );
     } finally {
         await closeApp(app);
     }

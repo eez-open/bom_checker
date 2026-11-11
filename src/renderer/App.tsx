@@ -34,7 +34,7 @@ import { UnifyDialog } from "./dialogs/UnifyDialog";
 import { SettingsDialog } from "./settings/SettingsDialog";
 import { StartPage } from "./StartPage";
 import { FilterBar, rowViews, TableTabs, tableGroups } from "./FilterBar";
-import { addBomsToList, removeFromList } from "./list-commands";
+import { addBomsToList, isListDirty, removeFromList } from "./list-commands";
 import { ListPane } from "./ListPane";
 import { documentName, isDirty, useDocument } from "./store/document";
 import { loadAppSettings, useAppSettings, useNumbers } from "./store/settings";
@@ -154,11 +154,21 @@ export function App() {
     const shownDirty = useDocument(state => !state.readOnly && isDirty(state));
     const list = useWorkspace(state => state.list);
     const combined = useWorkspace(state => state.selected === COMBINED);
-    // A list has unsaved changes when any of its BOMs has.
-    const waitingDirty = useWorkspace(state =>
-        Object.values(state.documents).some(isDirty)
+    // A list has unsaved changes when any of its BOMs has, or it has
+    // itself (#77). BOMs taken off it are kept for Undo, but don't count.
+    const waitingDirty = useWorkspace(
+        state =>
+            state.list !== null &&
+            [
+                ...state.list.boms,
+                ...(state.list.history ? [state.list.history] : [])
+            ].some(path => {
+                const document = state.documents[path];
+                return document !== undefined && isDirty(document);
+            })
     );
-    const dirty = (open && shownDirty) || waitingDirty;
+    const listDirty = useWorkspace(isListDirty);
+    const dirty = (open && shownDirty) || waitingDirty || listDirty;
     const preference = useAppSettings(
         state => state.settings.general.supplierOrder
     );
@@ -245,6 +255,7 @@ export function App() {
         window.api.window.setMenuState({
             documentOpen: open,
             listOpen: list !== null,
+            listShown: list !== null && (combined || !open),
             editable: open && !readOnly,
             hasRows: open && hasRows,
             fromKicad: open && fromKicad,
@@ -262,6 +273,7 @@ export function App() {
     }, [
         open,
         list,
+        combined,
         readOnly,
         hasRows,
         fromKicad,
