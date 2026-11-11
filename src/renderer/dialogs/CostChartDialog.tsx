@@ -35,8 +35,17 @@ function plural(count: number, noun: string): string {
     return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
-function unitsText(buildQuantity: number, noun: string): string {
-    return buildQuantity > 1 ? ` for ${plural(buildQuantity, noun)}` : "";
+/** " for 25 devices (12.34 EUR per device)" when building several (#76),
+ *  as the status bar writes it. */
+function unitsText(
+    total: number,
+    buildQuantity: number,
+    noun: string,
+    money: Numbers["money"]
+): string {
+    return buildQuantity > 1
+        ? ` for ${plural(buildQuantity, noun)} (${money(total / buildQuantity)} ${BASE_CURRENCY} per ${noun})`
+        : "";
 }
 
 interface CostChartProps {
@@ -82,6 +91,7 @@ function CostChart({
 }: CostChartProps) {
     const numbers = useNumbers();
     const { money, percent } = numbers;
+    const unitPrice = numbers[data.unitPriceFormat];
     // The slice or table row under the pointer.
     const [active, setActive] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
@@ -260,6 +270,9 @@ function CostChart({
                                     <th className="number">
                                         Total ({BASE_CURRENCY})
                                     </th>
+                                    <th className="number">
+                                        Unit price ({BASE_CURRENCY})
+                                    </th>
                                     <th className="number">Share</th>
                                 </tr>
                             </thead>
@@ -299,6 +312,9 @@ function CostChart({
                                             {money(entry.total)}
                                         </td>
                                         <td className="number">
+                                            {unitPrice(entry.unitPrice)}
+                                        </td>
+                                        <td className="number">
                                             {percent(entry.share)}
                                         </td>
                                     </tr>
@@ -321,6 +337,7 @@ function CostChart({
                                         <td className="number">
                                             {money(other.total)}
                                         </td>
+                                        <td />
                                         <td className="number">
                                             {percent(other.share)}
                                         </td>
@@ -341,7 +358,7 @@ function partsSummary(
     buildQuantity: number,
     { money, percent }: Numbers
 ): string {
-    const units = unitsText(buildQuantity, "unit");
+    const units = unitsText(total, buildQuantity, "unit", money);
     return other
         ? `The ${items.length} most expensive rows make up ${percent(1 - other.share)} of the best price total, ${money(total)} ${BASE_CURRENCY}${units}.`
         : `Best price total: ${money(total)} ${BASE_CURRENCY}${units}, from ${plural(items.length, "row")} with a price.`;
@@ -377,6 +394,7 @@ export function CostChartDialog({ onClose }: { onClose: () => void }) {
                     label: describeItem(item),
                     detail: item.supplier,
                     total: item.total,
+                    unitPrice: item.unitPrice,
                     share: item.share
                 })),
                 other: other && {
@@ -384,6 +402,7 @@ export function CostChartDialog({ onClose }: { onClose: () => void }) {
                     label: `Other ${plural(other.rows, "row")}`
                 },
                 total: breakdown.total,
+                unitPriceFormat: "unitPrice",
                 partial: breakdown.partial,
                 uncovered: breakdown.uncovered
             }}
@@ -398,7 +417,7 @@ export function CostChartDialog({ onClose }: { onClose: () => void }) {
             pictureTitle={`${name}: most expensive parts`}
             ringLabel={`Share of the best price total of the ${items.length} most expensive rows`}
             empty="No prices yet. Collect supplier data, or type in the prices of a supplier without an API, to see which parts cost the most."
-            note="Each row at the supplier with its best price for the build quantity, as in the Best price columns. A row that no supplier has enough stock for is at the supplier with the most, for what it has; rows that no supplier can deliver any of aren't included."
+            note="Each row at the supplier with its best price for the build quantity, as in the Best price columns; Unit price is that supplier's price of one piece. A row that no supplier has enough stock for is at the supplier with the most, for what it has; rows that no supplier can deliver any of aren't included."
             onClose={onClose}
         />
     );
@@ -409,7 +428,7 @@ function bomsSummary(
     buildQuantity: number,
     { money, percent }: Numbers
 ): string {
-    const devices = unitsText(buildQuantity, "device");
+    const devices = unitsText(total, buildQuantity, "device", money);
     return other
         ? `The ${items.length} most expensive BOMs make up ${percent(1 - other.share)} of the Combined BOM's best price total, ${money(total)} ${BASE_CURRENCY}${devices}.`
         : `Combined BOM's best price total: ${money(total)} ${BASE_CURRENCY}${devices}, from ${plural(items.length, "BOM")} with a price.`;
@@ -447,6 +466,7 @@ export function BomCostChartDialog({ onClose }: { onClose: () => void }) {
                     label: item.name,
                     detail: `× ${item.perDevice}`,
                     total: item.total,
+                    unitPrice: item.unitPrice,
                     share: item.share
                 })),
                 other: other && {
@@ -454,6 +474,7 @@ export function BomCostChartDialog({ onClose }: { onClose: () => void }) {
                     label: `Other ${plural(other.boms, "BOM")}`
                 },
                 total: breakdown.total,
+                unitPriceFormat: "money",
                 partial: breakdown.partial,
                 uncovered: breakdown.uncovered
             }}
@@ -464,7 +485,7 @@ export function BomCostChartDialog({ onClose }: { onClose: () => void }) {
             pictureTitle={`${name}: cost by BOM`}
             ringLabel={`Share of the Combined BOM's best price total of the ${items.length} most expensive BOMs`}
             empty="No prices yet. Collect supplier data for the BOMs or their Combined BOM, or type in the prices of a supplier without an API, to see what each BOM costs."
-            note="The rows of all BOMs as in the Combined BOM, each at its best price for the number of devices; a row that several BOMs use is shared among them by their quantities. A row that no supplier has enough stock for is at the supplier with the most, for what it has; rows that no supplier can deliver any of aren't included."
+            note="The rows of all BOMs as in the Combined BOM, each at its best price for the number of devices; a row that several BOMs use is shared among them by their quantities. Unit price is what one of the BOM costs: its total divided by how many of it the devices have. A row that no supplier has enough stock for is at the supplier with the most, for what it has; rows that no supplier can deliver any of aren't included."
             onClose={onClose}
         />
     );

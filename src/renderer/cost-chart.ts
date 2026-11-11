@@ -42,6 +42,9 @@ export interface ChartData {
     entries: ChartEntry[];
     other: { label: string; total: number; share: number } | null;
     total: number;
+    /** How unit prices are written (#76): with 4 decimals for parts, as in
+     *  the table, or as money for BOMs. */
+    unitPriceFormat: "unitPrice" | "money";
     /** Rows priced for only what one supplier has (#74). */
     partial: number;
     /** Rows the total leaves out (#49). */
@@ -55,6 +58,8 @@ export interface ChartEntry {
     /** E.g. the supplier with the best price. */
     detail: string;
     total: number;
+    /** The price of one, e.g. one piece of a part or one of a BOM (#76). */
+    unitPrice: number;
     share: number;
 }
 
@@ -158,17 +163,18 @@ function shorten(text: string, length: number): string {
 
 /**
  * The chart as a picture: the title and summary, the ring, and a legend
- * with every entry's rank, colour, label, detail, total and share, under
- * `headers` for the label and the detail.
+ * with every entry's rank, colour, label, detail, total, unit price and
+ * share, under `headers` for the label and the detail.
  */
 export function chartPicture(
     breakdown: ChartData,
     headers: { label: string; detail: string },
     title: string,
     summary: string,
-    { money, percent }: Numbers
+    numbers: Numbers
 ): { svg: string; width: number; height: number } {
-    const width = 780;
+    const { money, percent } = numbers;
+    const width = 900;
     // Lines under the summary for rows priced for only part of their
     // quantity (#74) and rows the total leaves out (#49).
     const warnings = stockWarnings(breakdown);
@@ -242,7 +248,8 @@ export function chartPicture(
         part: 352,
         supplier: 560,
         total: 700,
-        share: 756
+        unitPrice: 812,
+        share: 872
     };
     const header = 'font-size="12" font-weight="600" fill="#59636e"';
     parts.push(
@@ -255,14 +262,22 @@ export function chartPicture(
             `Total (${BASE_CURRENCY})`,
             `${header} text-anchor="end"`
         ),
+        text(
+            columns.unitPrice,
+            top,
+            `Unit price (${BASE_CURRENCY})`,
+            `${header} text-anchor="end"`
+        ),
         text(columns.share, top, "Share", `${header} text-anchor="end"`)
     );
+    const unitPrice = numbers[breakdown.unitPriceFormat];
     const entries = [
         ...breakdown.entries.map((item, index) => ({
             rank: String(index + 1),
             part: item.label,
             supplier: item.detail,
             total: item.total,
+            unitPrice: unitPrice(item.unitPrice),
             share: item.share,
             fill: slices[index]!.fill
         })),
@@ -273,6 +288,7 @@ export function chartPicture(
                       part: breakdown.other.label,
                       supplier: "",
                       total: breakdown.other.total,
+                      unitPrice: "",
                       share: breakdown.other.share,
                       fill: OTHER_COLOR
                   }
@@ -291,6 +307,12 @@ export function chartPicture(
                 columns.total,
                 y,
                 money(entry.total),
+                `${cell} text-anchor="end"`
+            ),
+            text(
+                columns.unitPrice,
+                y,
+                entry.unitPrice,
                 `${cell} text-anchor="end"`
             ),
             text(

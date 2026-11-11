@@ -219,11 +219,12 @@ test("keeps BOMs in a list, with a history and a Combined BOM", async () => {
         // found.
         await pane.getByRole("button", { name: "Cost by BOM…" }).click();
         const costs = page.getByRole("dialog", { name: "Cost by BOM" });
+        // With the price of one device and of one psu (#76).
         await expect(costs.getByTestId("cost-summary")).toHaveText(
-            "Combined BOM's best price total: 5.00 EUR for 10 devices, from 1 BOM with a price."
+            "Combined BOM's best price total: 5.00 EUR for 10 devices (0.50 EUR per device), from 1 BOM with a price."
         );
         await expect(costs.locator("tbody tr")).toHaveText([
-            /^1psu× 15\.00100\.0%$/
+            /^1psu× 15\.000\.50100\.0%$/
         ]);
         await expect(costs.getByTestId("cost-warning")).toBeVisible();
         await page.keyboard.press("Escape");

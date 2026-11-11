@@ -34,9 +34,16 @@ describe("cost breakdown", () => {
     it("lists the most expensive rows first, the rest as Other", () => {
         const project = bom([1, 5, null, 3, 0, 2], 10);
         const breakdown = costBreakdown(project, [], 2);
+        // With the price of one piece (#76).
         expect(breakdown.items).toMatchObject([
-            { reference: "R2", value: "2k", supplier: "Shop", total: 100 },
-            { reference: "R4", total: 60 }
+            {
+                reference: "R2",
+                value: "2k",
+                supplier: "Shop",
+                total: 100,
+                unitPrice: 5
+            },
+            { reference: "R4", total: 60, unitPrice: 3 }
         ]);
         // R6 and R1; R3 has no price and R5 costs nothing.
         expect(breakdown.other).toEqual({
@@ -170,9 +177,10 @@ describe("cost by BOM (#54)", () => {
             []
         );
         // psu: 1 × 10 D-1, 2 × 10 at 5; mcu: 6 × 10 D-1, 2 × 2 × 10 at 1.
+        // One psu board costs 110 / 10, one mcu board 100 / 20 (#76).
         expect(breakdown.items).toMatchObject([
-            { name: "psu", perDevice: 1, total: 110 },
-            { name: "mcu", perDevice: 2, total: 100 }
+            { name: "psu", perDevice: 1, total: 110, unitPrice: 11 },
+            { name: "mcu", perDevice: 2, total: 100, unitPrice: 5 }
         ]);
         expect(breakdown.total).toBe(210);
         expect(breakdown.items[0]!.share).toBeCloseTo(110 / 210);

@@ -327,11 +327,12 @@ test("calculates order quantities, prices and the best supplier", async () => {
             "Best price total: 31.72 EUR, from 4 rows with a price."
         );
         await expect(chart.getByTestId("cost-warning")).toHaveCount(0);
+        // Total, the price of one piece (#76) and the share.
         await expect(chart.locator("tbody tr")).toHaveText([
-            /^1C1100nDigiKey24\.0075\.7%$/,
-            /^2U1TPS54331Mouser6\.3019\.9%$/,
-            /^3R1100kDigiKey0\.802\.5%$/,
-            /^4D11N4007TME0\.622\.0%$/
+            /^1C1100nDigiKey24\.001\.200075\.7%$/,
+            /^2U1TPS54331Mouser6\.302\.100019\.9%$/,
+            /^3R1100kDigiKey0\.800\.08002\.5%$/,
+            /^4D11N4007TME0\.620\.01242\.0%$/
         ]);
         await expect(
             chart.getByRole("img", { name: /most expensive rows/ })

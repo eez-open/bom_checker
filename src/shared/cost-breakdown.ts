@@ -17,6 +17,8 @@ export interface CostItem {
     supplier: string;
     /** Best total price for the build quantity, in the base currency. */
     total: number;
+    /** The best price of one piece, at the order quantity (#76). */
+    unitPrice: number;
     /** Share of the BOM's best price total, 0 to 1. */
     share: number;
 }
@@ -69,6 +71,7 @@ export function costBreakdown(
         value: row.value,
         supplier: supplierName(project, best.supplier),
         total: best.line.total,
+        unitPrice: best.line.unitPrice ?? best.line.total / best.line.orderQty,
         share: share(best.line.total)
     }));
     const rest = priced.slice(limit);
@@ -97,6 +100,9 @@ export interface BomCost {
     perDevice: number;
     /** In the base currency, for the list's number of devices. */
     total: number;
+    /** What one of the BOM costs (#76): the total divided by how many of
+     *  it the devices have. */
+    unitPrice: number;
     /** Share of the Combined BOM's best price total, 0 to 1. */
     share: number;
 }
@@ -160,6 +166,7 @@ export function bomCostBreakdown(
             name: member.name,
             perDevice: member.perDevice,
             total: totals[index]!,
+            unitPrice: totals[index]! / (buildQuantity * member.perDevice),
             share: share(totals[index]!)
         }))
         .filter(cost => cost.total > 0)
