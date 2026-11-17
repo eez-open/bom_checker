@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-17
+
 ### Added
 
 - **Cheaper price breaks** (#86): the app checks whether ordering more, up to a price break, costs less in total, e.g. 10 resistors at 0.02 instead of 5 at 0.10, for quantities the supplier has in stock. Such Order Qty cells are blue, with the numbers in their tooltip and an ⓘ icon that opens the dialog below at that row; the Best price header gets a button such as *3 cheaper* and the status bar a link. Nothing changes until you confirm it: **Tools → Cheaper Price Breaks…** lists the rows with what they cost as needed and up to the price break, the supplier for each and what it saves; tick the rows to order so. Their order quantities, prices, best price and totals are then for the larger quantity, also in the charts and exports, and their Order Qty cells are green. Untick a row, or press Ctrl+Z, to order only what's needed again. In a list's Combined BOM, the dialog works on the combined quantities and marks the rows of the BOMs they come from. The choice is saved with the BOM, so BOM files are now format 9: earlier versions can't open BOMs saved by this one.
@@ -11,6 +13,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Fixed
 
 - Unify part numbers offered different components as one, e.g. *100n*, *10n* and *1n* capacitors, when their rows shared a part number of one supplier, and suggested one part number for all of them. Components that share a part number are now one only when no other supplier's part numbers tell them apart. Otherwise the shared number is reported as a likely mistake: each component is listed with the Values and BOMs that have the same number, and you choose the right part number for its rows, from those used before or typed in; nothing is suggested for it (#90).
+- View menu with **Suppliers as Tabs**: suppliers that aren't in the table, e.g. Arrow inventory sources that aren't set up, were marked as chosen next to the tab that is shown. Only the shown tab is marked now.
 
 ## [0.14.0] - 2026-11-11
 

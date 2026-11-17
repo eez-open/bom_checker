@@ -637,9 +637,9 @@ These points couldn't be settled from documentation and should be the first thin
 
 ## 15. Status
 
-### Unreleased
+### Version 0.15.0
 
-Unify reports part numbers that different components share instead of joining them (#90, section 9.5). Rows can be ordered up to a price break that costs less, when confirmed (#86, section 5.3; file format 9).
+Unify reports part numbers that different components share instead of joining them (#90, section 9.5). Rows can be ordered up to a price break that costs less, when confirmed (#86, section 5.3; file format 9). The View menu marks only the shown tab. Unit tests: 315; end-to-end tests: 30.
 
 ### Version 0.14.0
 
