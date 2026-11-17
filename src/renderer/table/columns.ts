@@ -49,6 +49,7 @@ export const TOTALS_ROW_ID = "totals";
 import { describeResult } from "./result-text";
 import type { TableGroup } from "../store/ui";
 import { BestGroupHeader } from "./BestGroupHeader";
+import { PriceBreakCell } from "./PriceBreakCell";
 import { SupplierGroupHeader } from "./SupplierGroupHeader";
 
 export interface TableColumns {
@@ -230,16 +231,31 @@ function availabilityClass(line: SupplierLine | null): string | undefined {
  * Order Qty cells and price breaks (#86): marked when more would cost less
  * in total, and when the quantity was raised to a price break.
  */
+type BreakLine = { cheaper: unknown; raisedFrom: number | null } | null;
+
 const BREAK_CLASSES = (
-    lineOf: (params: CellClassParams<BomRow>) => {
-        cheaper: unknown;
-        raisedFrom: number | null;
-    } | null
+    lineOf: (params: CellClassParams<BomRow>) => BreakLine
 ): ColDef<BomRow>["cellClassRules"] => ({
     "cell-cheaper": params =>
         !params.node.rowPinned && Boolean(lineOf(params)?.cheaper),
     "cell-raised": params =>
         !params.node.rowPinned && lineOf(params)?.raisedFrom != null
+});
+
+/** Such cells get an icon that opens Cheaper price breaks at their row. */
+const BREAK_CELL = (
+    lineOf: (params: { data?: BomRow; context: unknown }) => BreakLine
+): Pick<ColDef<BomRow>, "cellClassRules" | "cellRendererSelector"> => ({
+    cellClassRules: BREAK_CLASSES(lineOf),
+    cellRendererSelector: params => {
+        const line = params.node.rowPinned ? null : lineOf(params);
+        return line?.cheaper || line?.raisedFrom != null
+            ? {
+                  component: PriceBreakCell,
+                  params: { raised: line.raisedFrom != null }
+              }
+            : undefined;
+    }
 });
 
 function partNumberColumn(supplier: SupplierId): ColDef<BomRow, string> {
@@ -328,7 +344,7 @@ function dataColumns(
         column("orderQty", "Order Qty", line => line?.orderQty, {
             ...numeric,
             columnGroupShow: "open",
-            cellClassRules: BREAK_CLASSES(params => lineOf(params, supplier)),
+            ...BREAK_CELL(params => lineOf(params, supplier)),
             tooltipValueGetter: params => {
                 const line = lineOf(params, supplier);
                 const priceBreak =
@@ -536,7 +552,7 @@ function bestColumns(project: Project): ColGroupDef<BomRow> {
                 initialWidth: 110,
                 valueGetter: params => best(params)?.line.orderQty ?? null,
                 valueFormatter: formatQuantity,
-                cellClassRules: BREAK_CLASSES(params => {
+                ...BREAK_CELL(params => {
                     const choice = best(params);
                     return (
                         choice && {
@@ -733,7 +749,7 @@ function manualColumns(
                 columnGroupShow: "open",
                 valueGetter: params => lineOfRow(params)?.orderQty ?? null,
                 valueFormatter: formatQuantity,
-                cellClassRules: BREAK_CLASSES(lineOfRow),
+                ...BREAK_CELL(lineOfRow),
                 tooltipValueGetter: params => {
                     const line = lineOfRow(params);
                     return (

@@ -88,6 +88,7 @@ describe("cheaper price breaks (#86)", () => {
                 unitPrice: 0.02,
                 total: 0.2
             },
+            changesBest: true,
             confirmed: false
         });
         expect(offers[0]!.saving).toBeCloseTo(0.2);
@@ -128,6 +129,26 @@ describe("cheaper price breaks (#86)", () => {
 
         const back = setBuyToBreak(confirmed, new Map([[resistor!.id, false]]));
         expect("buyToBreak" in back.rows[0]!).toBe(false);
+    });
+
+    it("offers a supplier's break that doesn't beat the best price", () => {
+        // DigiKey has the best price either way: 5 at 0.03.
+        const bom = project();
+        bom.collected.results.digikey!["D-R"] = found([
+            { qty: 1, unitPrice: 0.03 }
+        ]);
+        expect(bomTotals(bom, [])).toMatchObject({ cheaper: 0 });
+        const offers = breakOffers(bom, []);
+        expect(offers).toMatchObject([
+            {
+                rowNumber: 1,
+                needed: { supplier: "mouser", orderQty: 5, total: 0.5 },
+                atBreak: { supplier: "mouser", orderQty: 10, total: 0.2 },
+                changesBest: false,
+                confirmed: false
+            }
+        ]);
+        expect(offers[0]!.saving).toBeCloseTo(0.3);
     });
 
     it("is saved with the BOM", () => {

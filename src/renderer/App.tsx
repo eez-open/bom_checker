@@ -455,7 +455,7 @@ export function App() {
                                     type="button"
                                     className="link"
                                     title={priceBreaksText(totals, numbers)}
-                                    onClick={openPriceBreaks}
+                                    onClick={() => openPriceBreaks()}
                                 >
                                     {count(
                                         totals.cheaper,
@@ -492,7 +492,7 @@ export function App() {
                 <BomCostChartDialog onClose={closeDialog} />
             )}
             {dialog?.kind === "price-breaks" && (
-                <PriceBreaksDialog onClose={closeDialog} />
+                <PriceBreaksDialog rowId={dialog.rowId} onClose={closeDialog} />
             )}
             {dialog?.kind === "unify" && <UnifyDialog onClose={closeDialog} />}
             {dialog?.kind === "check-history" && (

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { breakOffers, setBuyToBreak } from "../../shared/price-breaks";
 import { BASE_CURRENCY } from "../../shared/pricing";
 import { supplierName } from "../../shared/suppliers";
@@ -7,14 +7,26 @@ import { useDocument } from "../store/document";
 import { useAppSettings, useNumbers } from "../store/settings";
 import { Modal } from "./Modal";
 
+const OTHER_BEST =
+    "only this supplier costs less at its price break, and another one has the best price either way. Ordering so changes this supplier's columns, not the best price.";
+
 /**
  * Tools → Cheaper Price Breaks… (#86): the rows that cost less in total
  * when more is ordered, up to a price break, e.g. 10 resistors at 0.02
  * instead of 5 at 0.10. The rows ticked are ordered so: their order
  * quantities are raised wherever that costs less. In a BOM that's one undo
  * step; in a list's Combined BOM, the BOMs' rows are changed.
+ *
+ * @param rowId the row to show and mark, e.g. the one whose Order Qty
+ *   icon was clicked.
  */
-export function PriceBreaksDialog({ onClose }: { onClose: () => void }) {
+export function PriceBreaksDialog({
+    rowId,
+    onClose
+}: {
+    rowId?: string;
+    onClose: () => void;
+}) {
     const project = useDocument(state => state.project);
     const readOnly = useDocument(state => state.readOnly);
     const preference = useAppSettings(
@@ -44,9 +56,18 @@ export function PriceBreaksDialog({ onClose }: { onClose: () => void }) {
             ),
         [offers, chosen]
     );
+    // What the best price total loses.
     const saving = offers
-        .filter(offer => chosen.has(offer.rowId))
+        .filter(offer => chosen.has(offer.rowId) && offer.changesBest)
         .reduce((sum, offer) => sum + offer.saving, 0);
+    const otherBest = offers.some(offer => !offer.changesBest);
+
+    // The row asked for is in view, with the focus on its checkbox.
+    const focused = useRef<HTMLTableRowElement>(null);
+    useEffect(() => {
+        focused.current?.scrollIntoView({ block: "center" });
+        focused.current?.querySelector("input")?.focus();
+    }, []);
 
     const toggle = (rowId: string) =>
         setChosen(current => {
@@ -172,8 +193,26 @@ export function PriceBreaksDialog({ onClose }: { onClose: () => void }) {
                                 return (
                                     <tr
                                         key={offer.rowId}
-                                        className={
-                                            checked ? "chosen" : undefined
+                                        ref={
+                                            offer.rowId === rowId
+                                                ? focused
+                                                : undefined
+                                        }
+                                        className={[
+                                            checked ? "chosen" : "",
+                                            offer.rowId === rowId
+                                                ? "focused"
+                                                : "",
+                                            offer.changesBest
+                                                ? ""
+                                                : "other-best"
+                                        ]
+                                            .join(" ")
+                                            .trim()}
+                                        title={
+                                            offer.changesBest
+                                                ? undefined
+                                                : OTHER_BEST
                                         }
                                     >
                                         <td>
@@ -236,6 +275,9 @@ export function PriceBreaksDialog({ onClose }: { onClose: () => void }) {
                             })}
                         </tbody>
                     </table>
+                    {otherBest && (
+                        <p className="muted">Rows in gray: {OTHER_BEST}</p>
+                    )}
                 </>
             )}
         </Modal>

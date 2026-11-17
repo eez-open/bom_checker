@@ -437,10 +437,10 @@ export function openCostChart(): void {
 }
 
 /** The rows that cost less when more is ordered, up to a price break
- *  (#86). */
-export function openPriceBreaks(): void {
+ *  (#86); at `rowId`'s row, when it's one of them. */
+export function openPriceBreaks(rowId?: string): void {
     if (hasRows()) {
-        useUi.setState({ dialog: { kind: "price-breaks" } });
+        useUi.setState({ dialog: { kind: "price-breaks", rowId } });
     }
 }
 
@@ -560,7 +560,7 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     "add-boms": addBomsToList,
     unify: openUnify,
     "check-history": checkHistory,
-    "price-breaks": openPriceBreaks,
+    "price-breaks": () => openPriceBreaks(),
     "import-csv": importCsv,
     "import-kicad": importKicad,
     export: openExport,

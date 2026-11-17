@@ -61,6 +61,17 @@ export function CopyIcon() {
     );
 }
 
+/** An "i" in a circle: more about this, on a click (#86). */
+export function InfoIcon() {
+    return (
+        <Icon>
+            <circle cx="8" cy="8" r="6.2" />
+            <path d="M8 7.4v3.8" />
+            <path d="M8 4.9v.1" />
+        </Icon>
+    );
+}
+
 export function CheckIcon() {
     return (
         <Icon>

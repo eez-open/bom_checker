@@ -45,8 +45,10 @@ export function stockWarnings({
     return warnings;
 }
 
-/** Where rows that cost less at a price break are confirmed (#86). */
-export const PRICE_BREAKS_COMMAND = "Tools → Cheaper Price Breaks…";
+/** Where rows that cost less at a price break are confirmed (#86): the
+ *  icon in the Order Qty cell, or the menu. */
+const PRICE_BREAKS_COMMAND =
+    "Click the icon, or use Tools → Cheaper Price Breaks…,";
 
 /** How many rows cost less when more is ordered (#86), and what that
  *  saves; for the Best price header and the status bar. */
@@ -75,13 +77,13 @@ export function priceBreakTooltip(
 ): string | undefined {
     const { quantity, money } = numbers;
     if (line.raisedFrom !== null && line.orderQty !== null) {
-        return `Raised from ${quantity(line.raisedFrom)} to the price break at ${quantity(line.orderQty)}, which costs less in total. ${PRICE_BREAKS_COMMAND} changes that.`;
+        return `Raised from ${quantity(line.raisedFrom)} to the price break at ${quantity(line.orderQty)}, which costs less in total. ${PRICE_BREAKS_COMMAND} to change that.`;
     }
     if (!cheaper || line.orderQty === null || line.unitPrice === null) {
         return undefined;
     }
     const at = supplier ? ` at ${supplier}` : "";
-    return `${quantity(cheaper.orderQty)} pcs${at} cost less than ${quantity(line.orderQty)}: ${money(cheaper.total)} instead of ${money(line.unitPrice * line.orderQty)} ${currency}, at the price break. ${PRICE_BREAKS_COMMAND} orders that many.`;
+    return `${quantity(cheaper.orderQty)} pcs${at} cost less than ${quantity(line.orderQty)}: ${money(cheaper.total)} instead of ${money(line.unitPrice * line.orderQty)} ${currency}, at the price break. ${PRICE_BREAKS_COMMAND} to order that many.`;
 }
 
 /** The Best price supplier: its name, and when it has only part of the

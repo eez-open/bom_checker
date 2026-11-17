@@ -4,7 +4,12 @@
 // pricing.ts then raises their order quantities.
 
 import type { BomRow, Project, SupplierId } from "./model";
-import { bestSupplier } from "./pricing";
+import {
+    bestSupplier,
+    manualLine,
+    supplierLine,
+    type SupplierLine
+} from "./pricing";
 
 /** What a row is ordered as: at which supplier, how many, for how much. */
 export interface BreakOrder {
@@ -22,24 +27,66 @@ export interface BreakOffer {
     rowNumber: number;
     reference: string;
     value: string;
-    /** The best price for the quantity needed. */
+    /** The best price for the quantity needed; of a row whose best price
+     *  stays (`changesBest`), the supplier's own price for it. */
     needed: BreakOrder;
     /** The best price when more is ordered, up to a price break; maybe at
      *  another supplier. */
     atBreak: BreakOrder;
     /** `needed.total` − `atBreak.total`. */
     saving: number;
+    /** False when only a supplier that hasn't the best price costs less
+     *  at a price break, and still more than the best: ordering so changes
+     *  that supplier's columns, not the best price. */
+    changesBest: boolean;
     /** The row is ordered up to price breaks already. */
     confirmed: boolean;
 }
 
-/** The rows that cost less when more is ordered, also those that are
- *  ordered so already, in the BOM's order. */
+/** The supplier's line whose price break costs the least, of a row whose
+ *  best price no price break beats. */
+function supplierBreak(
+    row: BomRow,
+    project: Project
+): { supplier: string; line: SupplierLine } | null {
+    const lines = [
+        ...project.suppliers.map(supplier => ({
+            supplier: String(supplier),
+            line: supplierLine(
+                row,
+                supplier,
+                project.collected,
+                project.buildQuantity
+            )
+        })),
+        ...project.manualSuppliers.map(supplier => ({
+            supplier: supplier.id,
+            line: manualLine(row, supplier, project.buildQuantity)
+        }))
+    ];
+    let found: { supplier: string; line: SupplierLine } | null = null;
+    for (const { supplier, line } of lines) {
+        if (
+            line?.cheaper &&
+            line.total !== null &&
+            (!found || line.cheaper.total < found.line.cheaper!.total)
+        ) {
+            found = { supplier, line };
+        }
+    }
+    return found;
+}
+
+/**
+ * The rows that cost less when more is ordered, also those that are
+ * ordered so already, in the BOM's order: every row with a blue or green
+ * Order Qty cell whose prices are in the base currency.
+ */
 export function breakOffers(
     project: Project,
     preference: readonly SupplierId[]
 ): BreakOffer[] {
-    return project.rows.flatMap((row, index) => {
+    return project.rows.flatMap((row, index): BreakOffer[] => {
         // What it costs without ordering more.
         const plain: BomRow = { ...row };
         delete plain.buyToBreak;
@@ -51,16 +98,39 @@ export function breakOffers(
             project.buildQuantity,
             project.manualSuppliers
         );
+        const base = {
+            rowId: row.id,
+            rowNumber: index + 1,
+            reference: row.reference,
+            value: row.value,
+            confirmed: row.buyToBreak === true
+        };
         if (!best?.cheaper) {
-            return [];
+            const own = supplierBreak(plain, project);
+            if (!own) {
+                return [];
+            }
+            const { line } = own;
+            const total = line.total!;
+            return [
+                {
+                    ...base,
+                    needed: {
+                        supplier: own.supplier,
+                        orderQty: line.orderQty!,
+                        unitPrice: line.unitPrice!,
+                        total
+                    },
+                    atBreak: { supplier: own.supplier, ...line.cheaper! },
+                    saving: total - line.cheaper!.total,
+                    changesBest: false
+                }
+            ];
         }
         const { line, cheaper } = best;
         return [
             {
-                rowId: row.id,
-                rowNumber: index + 1,
-                reference: row.reference,
-                value: row.value,
+                ...base,
                 needed: {
                     supplier: best.supplier,
                     orderQty: line.orderQty,
@@ -74,7 +144,7 @@ export function breakOffers(
                     total: cheaper.total
                 },
                 saving: line.total - cheaper.total,
-                confirmed: row.buyToBreak === true
+                changesBest: true
             }
         ];
     });

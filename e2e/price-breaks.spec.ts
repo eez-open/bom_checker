@@ -72,15 +72,21 @@ test("orders up to a price break that costs less, when confirmed (#86)", async (
             "10 pcs cost less than 5: 0.20 instead of 0.50 EUR"
         );
         await page.mouse.move(0, 0);
+        await expect(
+            page.getByRole("button", { name: "1 cheaper price break" })
+        ).toBeVisible();
 
-        await page
-            .getByRole("button", { name: "1 cheaper price break" })
+        // The cell's icon opens the dialog at its row.
+        await orderQty
+            .getByRole("button", { name: "Costs less at a price break: show" })
             .click();
         const dialog = page.getByRole("dialog", {
             name: "Cheaper price breaks"
         });
         await expect(dialog).toContainText("1 row costs less in total");
         const row = dialog.getByRole("row", { name: /R1-R5/ });
+        await expect(row).toHaveClass(/focused/);
+        await expect(row.getByRole("checkbox")).toBeFocused();
         await expect(row.getByRole("cell").nth(5)).toHaveText("5");
         await expect(row.getByRole("cell").nth(8)).toHaveText("10");
         await expect(row.getByRole("cell").nth(11)).toHaveText("0.30");
@@ -97,6 +103,11 @@ test("orders up to a price break that costs less, when confirmed (#86)", async (
         await expect(orderQty).toHaveText("10");
         await expect(total).toHaveText("0.20");
         await expect(orderQty).toHaveClass(/cell-raised/);
+        await expect(
+            orderQty.getByRole("button", {
+                name: "Raised to a price break: show"
+            })
+        ).toBeVisible();
         await expect(
             page.getByRole("button", { name: /cheaper price break/ })
         ).toHaveCount(0);
