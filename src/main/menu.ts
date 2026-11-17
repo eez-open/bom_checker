@@ -161,7 +161,11 @@ function columnItems(): MenuItemConstructorOptions[] {
             command(`&${name(group)} Columns`, `toggle-columns:${group}`, {
                 id: `columns:${group}`,
                 type: tabs ? "radio" : "checkbox",
-                checked: !hiddenColumns.includes(group),
+                // A group that isn't in the table is no tab, so it isn't
+                // the chosen one.
+                checked:
+                    !hiddenColumns.includes(group) &&
+                    (!tabs || availableColumns.includes(group)),
                 enabled: availableColumns.includes(group),
                 accelerator: columnsShortcut(group)
             })
