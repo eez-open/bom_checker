@@ -22,6 +22,7 @@ import {
     findHistoryGroups,
     findUnifyGroups,
     suggestDecision,
+    type SharedPartNumber,
     type UnifyDecision,
     type UnifyGroup
 } from "../../shared/unify";
@@ -161,6 +162,23 @@ function usedInText(group: UnifyGroup): string {
         .join(" · ");
 }
 
+/** The other components that have the part number too (#90), by Value
+ *  with their BOMs: "10n in psu, mcu; 1n in mcu". */
+function sharedWithText(shared: SharedPartNumber): string {
+    const byValue = new Map<string, string[]>();
+    for (const row of shared.rows) {
+        const value = row.value || "(no Value)";
+        const boms = byValue.get(value) ?? [];
+        if (!boms.includes(row.bomName)) {
+            boms.push(row.bomName);
+        }
+        byValue.set(value, boms);
+    }
+    return [...byValue]
+        .map(([value, boms]) => `${value} in ${boms.join(", ")}`)
+        .join("; ");
+}
+
 function SupplierRows({
     group,
     supplier,
@@ -231,6 +249,15 @@ function SupplierRows({
                             </label>
                             {index === best && (
                                 <span className="unify-best">Best price</span>
+                            )}
+                            {group.shared.some(
+                                shared =>
+                                    shared.supplier === supplier &&
+                                    shared.partNumber === candidate.partNumber
+                            ) && (
+                                <span className="unify-shared">
+                                    Other component too
+                                </span>
                             )}
                         </td>
                         <td className="unify-text" title={offer?.description}>
@@ -354,6 +381,17 @@ function GroupSection({
                 </span>
             </h3>
             <p className="muted unify-used-in">{usedInText(group)}</p>
+            {group.shared.length > 0 && (
+                <ul className="unify-shared-list">
+                    {group.shared.map(shared => (
+                        <li key={`${shared.supplier}|${shared.partNumber}`}>
+                            {SUPPLIERS[shared.supplier].name}{" "}
+                            <strong>{shared.partNumber}</strong> is also the
+                            part number of {sharedWithText(shared)}.
+                        </li>
+                    ))}
+                </ul>
+            )}
             <div
                 className="unify-values"
                 role="radiogroup"
@@ -450,6 +488,18 @@ function GroupSection({
             )}
         </section>
     );
+}
+
+/** What Unify found. */
+function unifyText(groups: readonly UnifyGroup[]): string {
+    if (groups.length === 0) {
+        return "Every component has the same part numbers in all rows of the BOMs.";
+    }
+    const shared = groups.filter(group => group.shared.length > 0).length;
+    const differ = `${groups.length} ${groups.length === 1 ? "component has" : "components have"} different part numbers or Values in their rows. Stock and prices are for the quantity of all rows.`;
+    return shared === 0
+        ? differ
+        : `${differ} ${shared} ${shared === 1 ? "has" : "have"} a part number that another component has too, which is likely a mistake in one of them: choose the right part number for each, or type it under Other.`;
 }
 
 /** What checking the history (#52) found. */
@@ -710,9 +760,7 @@ export function UnifyDialog({
                         <p>
                             {checking
                                 ? historyText(groups.length, rowIds !== null)
-                                : groups.length === 0
-                                  ? "Every component has the same part numbers in all rows of the BOMs."
-                                  : `${groups.length} ${groups.length === 1 ? "component has" : "components have"} different part numbers or Values in their rows. Stock and prices are for the quantity of all rows.`}
+                                : unifyText(groups)}
                         </p>
                         <label className="checkbox">
                             <input

@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- Unify part numbers offered different components as one, e.g. *100n*, *10n* and *1n* capacitors, when their rows shared a part number of one supplier, and suggested one part number for all of them. Components that share a part number are now one only when no other supplier's part numbers tell them apart. Otherwise the shared number is reported as a likely mistake: each component is listed with the Values and BOMs that have the same number, and you choose the right part number for its rows, from those used before or typed in; nothing is suggested for it (#90).
+
 ## [0.14.0] - 2026-11-11
 
 ### Added

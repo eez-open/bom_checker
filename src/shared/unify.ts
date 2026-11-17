@@ -1,6 +1,7 @@
 // Unifying part numbers across the BOMs of a list (#35). Rows are the same
-// component when Value and Footprint are equal, or when they already share
-// a supplier part number. Where such rows have different part numbers for
+// component when Value and Footprint are equal, or when their components
+// already share a supplier part number and no other supplier's part numbers
+// tell them apart. Where such rows have different part numbers for
 // a supplier (an empty cell counts too), every part number used for the
 // component, in the BOMs and in the history, is offered with stock and
 // prices for the quantity of all rows, to choose one.
@@ -8,6 +9,10 @@
 // Checking the history (#52) offers the same for rows of one BOM: the part
 // numbers the history has for their components, e.g. one that was out of
 // stock when another was chosen, which may be in stock and cheaper now.
+//
+// Components that share a part number but are told apart (#90) are offered
+// too, each with what it shares with which rows, to choose the right part
+// number for its cells.
 
 import { componentKey, definedPartNumbers, type ListMember } from "./bom-list";
 import {
@@ -56,6 +61,22 @@ export interface UnifyGroup {
     /** Suppliers whose cells differ between the rows, with the part numbers
      *  to choose from: the most used first, then the history's. */
     suppliers: Partial<Record<SupplierId, Candidate[]>>;
+    /** Part numbers that rows of other components have too (#90). Their
+     *  suppliers are offered even when the group's cells are the same. */
+    shared: SharedPartNumber[];
+}
+
+/**
+ * A part number that components have which another supplier's part numbers
+ * tell apart, e.g. 100n and 10n capacitors (#90): likely a mistake in one
+ * of them.
+ */
+export interface SharedPartNumber {
+    supplier: SupplierId;
+    /** As in the group's first cell that has it. */
+    partNumber: string;
+    /** The rows of the other components that have it. */
+    rows: Pick<UnifyRow, "bomName" | "reference" | "value">[];
 }
 
 /** What to do with a group: null keeps the cells as they are. */
@@ -98,6 +119,27 @@ function byCount<T>(counts: Map<T, number>): T[] {
     return [...counts].sort((a, b) => b[1] - a[1]).map(([item]) => item);
 }
 
+/** The rows with the same Value and Footprint. */
+interface Component {
+    /** The index of its first row. */
+    first: number;
+    /** The keys of the part numbers its rows have, by supplier. */
+    partNumbers: Map<string, Set<string>>;
+}
+
+/** Whether a supplier has part numbers for both components, but none for
+ *  both: 100n and 10n capacitors, say, that share a part number of another
+ *  supplier by mistake. */
+function differentParts(a: Component, b: Component): boolean {
+    for (const [supplier, used] of a.partNumbers) {
+        const others = b.partNumbers.get(supplier);
+        if (others && ![...used].some(key => others.has(key))) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /** The groups of rows to unify, in the order of their first row. */
 export function findUnifyGroups(
     members: readonly ListMember[],
@@ -106,24 +148,50 @@ export function findUnifyGroups(
 ): UnifyGroup[] {
     const rows: { member: ListMember; row: BomRow }[] = [];
     const sets = new UnionFind();
-    const firstWith = new Map<string, number>();
-    const join = (key: string, index: number) => {
-        const first = firstWith.get(key);
-        if (first === undefined) {
-            firstWith.set(key, index);
-        } else {
-            sets.union(index, first);
-        }
-    };
+    const components = new Map<string, Component>();
+    const sharing = new Map<
+        string,
+        { supplier: SupplierId; components: Set<Component>; rows: number[] }
+    >();
     for (const member of members) {
         for (const row of member.project.rows) {
             const index = sets.add();
             rows.push({ member, row });
-            join(`c:${componentKey(row, matchFootprint)}`, index);
+            const key = componentKey(row, matchFootprint);
+            let component = components.get(key);
+            if (component) {
+                sets.union(index, component.first);
+            } else {
+                component = { first: index, partNumbers: new Map() };
+                components.set(key, component);
+            }
             for (const [supplier, partNumber] of Object.entries(
                 definedPartNumbers(row)
             )) {
-                join(`p:${supplier}:${partNumberKey(partNumber)}`, index);
+                const partKey = partNumberKey(partNumber);
+                const used = component.partNumbers.get(supplier) ?? new Set();
+                component.partNumbers.set(supplier, used.add(partKey));
+                const shared = sharing.get(`${supplier}:${partKey}`) ?? {
+                    supplier: supplier as SupplierId,
+                    components: new Set(),
+                    rows: []
+                };
+                shared.components.add(component);
+                shared.rows.push(index);
+                sharing.set(`${supplier}:${partKey}`, shared);
+            }
+        }
+    }
+    // Components that share a part number are one, e.g. "10k" and
+    // "10k 1%", unless another supplier's part numbers say they are
+    // different parts: then the shared one is likely a mistake.
+    for (const shared of sharing.values()) {
+        const [first, ...others] = [...shared.components];
+        for (const [i, other] of others.entries()) {
+            for (const earlier of [first!, ...others.slice(0, i)]) {
+                if (!differentParts(earlier, other)) {
+                    sets.union(other.first, earlier.first);
+                }
             }
         }
     }
@@ -137,9 +205,37 @@ export function findUnifyGroups(
     const suppliers = SUPPLIER_IDS.filter(supplier =>
         members.some(member => member.project.suppliers.includes(supplier))
     );
+    // The part numbers still shared between groups: those of components
+    // told apart (#90).
+    const sharedBy = new Map<number, SharedPartNumber[]>();
+    for (const { supplier, rows: indexes } of sharing.values()) {
+        const roots = new Set(indexes.map(index => sets.find(index)));
+        if (roots.size < 2) {
+            continue;
+        }
+        for (const root of roots) {
+            const own = indexes.find(index => sets.find(index) === root)!;
+            sharedBy.set(root, [
+                ...(sharedBy.get(root) ?? []),
+                {
+                    supplier,
+                    partNumber: definedPartNumbers(rows[own]!.row)[supplier]!,
+                    rows: indexes
+                        .filter(index => sets.find(index) !== root)
+                        .map(index => ({
+                            bomName: rows[index]!.member.name,
+                            reference: rows[index]!.row.reference.trim(),
+                            value: tidy(rows[index]!.row.value)
+                        }))
+                }
+            ]);
+        }
+    }
+
     const groups: UnifyGroup[] = [];
-    for (const indexes of grouped.values()) {
-        if (indexes.length < 2) {
+    for (const [root, indexes] of grouped) {
+        const shared = sharedBy.get(root) ?? [];
+        if (indexes.length < 2 && shared.length === 0) {
             continue;
         }
         const entries = indexes.map(index => rows[index]!);
@@ -148,7 +244,9 @@ export function findUnifyGroups(
             history,
             suppliers,
             matchFootprint,
-            buildQuantity
+            buildQuantity,
+            false,
+            shared
         );
         if (group) {
             groups.push(group);
@@ -198,7 +296,8 @@ function describeGroup(
     suppliers: readonly SupplierId[],
     matchFootprint: boolean,
     buildQuantity: number,
-    fromHistory = false
+    fromHistory = false,
+    shared: SharedPartNumber[] = []
 ): UnifyGroup | null {
     const rows: UnifyRow[] = entries.map(({ member, row }) => ({
         bom: member.path,
@@ -232,7 +331,11 @@ function describeGroup(
     const choices: Partial<Record<SupplierId, Candidate[]>> = {};
     for (const supplier of suppliers) {
         const cells = rows.map(row => row.cells[supplier] ?? "");
-        if (!fromHistory && new Set(cells.map(cellKey)).size < 2) {
+        if (
+            !fromHistory &&
+            !shared.some(one => one.supplier === supplier) &&
+            new Set(cells.map(cellKey)).size < 2
+        ) {
             continue;
         }
         const candidates = new Map<string, Candidate>();
@@ -292,7 +395,8 @@ function describeGroup(
         totalQty: Number(
             rows.reduce((sum, row) => sum + row.qty, 0).toFixed(9)
         ),
-        suppliers: choices
+        suppliers: choices,
+        shared: shared.filter(one => choices[one.supplier])
     };
 }
 
@@ -319,7 +423,8 @@ export function candidateLine(
  * The suggested choice: per supplier, the part number with the lowest
  * total price among those in stock for the group's quantity, else the most
  * used one the supplier didn't report as not found (none: keep the cells);
- * the most used Value.
+ * the most used Value. A supplier with a part number that another component
+ * has too keeps its cells.
  */
 export function suggestDecision(
     group: UnifyGroup,
@@ -340,6 +445,12 @@ export function suggestDecision(
             ) {
                 best = { partNumber, total: line.total };
             }
+        }
+        // A part number another component has too is likely a mistake,
+        // here or there: the cells are kept until one is chosen (#90).
+        if (group.shared.some(one => one.supplier === supplier)) {
+            suppliers[supplier] = null;
+            continue;
         }
         // Not one the supplier said it doesn't have.
         const usable = candidates.filter(

@@ -1364,6 +1364,23 @@ path.cost-slice {
     font-size: 11px;
 }
 
+/* A part number another component has too (#90). */
+.unify-shared {
+    margin-left: 8px;
+    padding: 1px 6px;
+    border: 1px solid var(--app-warning);
+    border-radius: 8px;
+    color: var(--app-warning);
+    font-size: 11px;
+}
+
+.unify-shared-list {
+    margin: 2px 0 6px;
+    padding-left: 18px;
+    color: var(--app-warning);
+    font-size: 12px;
+}
+
 .unify-other-row td {
     padding-bottom: 8px;
 }

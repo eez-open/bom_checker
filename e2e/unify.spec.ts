@@ -214,6 +214,76 @@ test("unifies part numbers across the BOMs of a list", async () => {
     }
 });
 
+test("reports a part number that another component has too (#90)", async () => {
+    const { psu, list } = await writeList();
+    // 10n has 100n's Mouser part number by mistake.
+    const capacitor = (reference: string, value: string, digikey: string) =>
+        createRow({
+            reference,
+            value,
+            footprint: "C_0603",
+            qty: 1,
+            partNumbers: { digikey, mouser: "M-100N" }
+        });
+    await writeFile(
+        psu,
+        serializeProject(
+            addRow(
+                addRow(
+                    { ...createProject(), suppliers: ["digikey", "mouser"] },
+                    capacitor("C1", "100n", "D-100N")
+                ),
+                capacitor("C2", "10n", "D-10N")
+            )
+        )
+    );
+
+    const { app, page } = await launchApp();
+    try {
+        await setUpCredentials(page);
+        await answerOpenDialog(app, list);
+        await page.getByRole("button", { name: "Open BOM…" }).click();
+        const pane = page.getByRole("navigation", { name: "BOM list" });
+        await pane.getByRole("button", { name: "Unify part numbers…" }).click();
+
+        const unify = page.getByRole("dialog", { name: "Unify part numbers" });
+        await expect(unify).toContainText(
+            "2 have a part number that another component has too"
+        );
+        const c100n = unify.getByRole("region", { name: "100n · C_0603" });
+        await expect(c100n).toContainText(
+            "Mouser M-100N is also the part number of 10n in psu."
+        );
+        const c10n = unify.getByRole("region", { name: "10n · C_0603" });
+        await expect(c10n).toContainText(
+            "Mouser M-100N is also the part number of 100n in psu."
+        );
+        await expect(c10n.getByRole("row", { name: /M-100N/ })).toContainText(
+            "Other component too"
+        );
+        // Nothing is suggested: the cells are kept.
+        await expect(
+            c10n.getByRole("radio", { name: "M-100N" })
+        ).not.toBeChecked();
+        await expect(unify).toContainText("Nothing to change");
+
+        await c10n
+            .getByRole("textbox", { name: "Other Mouser part number" })
+            .fill("M-10N");
+        await expect(unify).toContainText("1 row in 1 BOM will change");
+        await answerMessageBox(app, 0); // "Apply"
+        await unify.getByRole("button", { name: "Apply…" }).click();
+        await expect(unify.getByRole("status")).toHaveText(
+            "Changed 1 row in 1 BOM and saved them."
+        );
+        expect(
+            (await readBom(psu)).rows.map(row => row.partNumbers.mouser)
+        ).toEqual(["M-100N", "M-10N"]);
+    } finally {
+        await closeApp(app);
+    }
+});
+
 test("offers the history's part numbers for selected rows (#52)", async () => {
     const { psu, history, list } = await writeList();
     // The cut tape was used before, e.g. when psu chose another one.

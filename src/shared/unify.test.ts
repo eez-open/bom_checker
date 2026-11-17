@@ -100,6 +100,108 @@ describe("unifying part numbers", () => {
         ]);
     });
 
+    it("joins other Values through a shared part number", () => {
+        const groups = findUnifyGroups(
+            [
+                member("a", [
+                    ["R1", "10k", "R_0603", 1, { digikey: "D-1" }],
+                    ["R2", "10k 1%", "R_0603", 1, { digikey: "D-1" }]
+                ])
+            ],
+            null
+        );
+        expect(groups).toHaveLength(1);
+        expect(groups[0]!.values).toEqual(["10k", "10k 1%"]);
+    });
+
+    it("reports a part number of components told apart (#90)", () => {
+        // 10n has 100n's Mouser part number by mistake.
+        const boms = [
+            member("a", [
+                [
+                    "C1",
+                    "100n",
+                    "C_0603",
+                    1,
+                    { digikey: "D-100", mouser: "M-100" }
+                ],
+                ["C2", "10n", "C_0603", 1, { digikey: "D-10", mouser: "M-100" }]
+            ]),
+            member("b", [
+                [
+                    "C3",
+                    "100n",
+                    "C_0603",
+                    1,
+                    { digikey: "D-100", mouser: "M-100" }
+                ],
+                ["C4", "10n", "C_0603", 1, { digikey: "D-10", mouser: "M-100" }]
+            ])
+        ];
+        const history = member("history", [
+            ["", "10n", "C_0603", 1, { digikey: "D-10", mouser: "M-10" }]
+        ]).project;
+        const groups = findUnifyGroups(boms, history);
+        // Not one component, but each is offered for Mouser.
+        expect(groups.map(group => group.values)).toEqual([["100n"], ["10n"]]);
+        const [c100n, c10n] = groups;
+        expect(c100n!.suppliers).toEqual({
+            mouser: [{ partNumber: "M-100", rows: 2, usedIn: ["a", "b"] }]
+        });
+        expect(c100n!.shared).toEqual([
+            {
+                supplier: "mouser",
+                partNumber: "M-100",
+                rows: [
+                    { bomName: "a", reference: "C2", value: "10n" },
+                    { bomName: "b", reference: "C4", value: "10n" }
+                ]
+            }
+        ]);
+        expect(c10n!.suppliers.mouser).toEqual([
+            { partNumber: "M-100", rows: 2, usedIn: ["a", "b"] },
+            { partNumber: "M-10", rows: 0, usedIn: ["history"] }
+        ]);
+        expect(c10n!.shared[0]!.rows.map(row => row.reference)).toEqual([
+            "C1",
+            "C3"
+        ]);
+
+        // Nothing is suggested: which one is right isn't known.
+        const collected: CollectedData = {
+            results: { mouser: { "M-10": found("M-10", 1000, 0.01) } },
+            runs: {}
+        };
+        expect(suggestDecision(c10n!, collected).suppliers).toEqual({
+            mouser: null
+        });
+        const changes = applyDecisions(
+            boms,
+            groups,
+            new Map([
+                [c10n!.id, { value: null, suppliers: { mouser: "M-10" } }]
+            ])
+        );
+        expect(
+            [...changes.projects.values()].flatMap(project =>
+                project.rows.map(row => row.partNumbers.mouser)
+            )
+        ).toEqual(["M-100", "M-10", "M-100", "M-10"]);
+    });
+
+    it("leaves components with different part numbers alone", () => {
+        const groups = findUnifyGroups(
+            [
+                member("a", [
+                    ["C1", "100n", "C_0603", 1, { digikey: "D-100" }],
+                    ["C2", "10n", "C_0603", 1, { digikey: "D-10" }]
+                ])
+            ],
+            null
+        );
+        expect(groups).toEqual([]);
+    });
+
     it("ignores footprints when asked", () => {
         const groups = findUnifyGroups([psu, mcu], null, {
             matchFootprint: false
