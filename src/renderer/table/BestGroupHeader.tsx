@@ -1,7 +1,7 @@
 import type { CustomHeaderGroupProps } from "ag-grid-react";
-import { stockWarnings } from "../../shared/line-text";
+import { priceBreaksText, stockWarnings } from "../../shared/line-text";
 import type { BomRow } from "../../shared/model";
-import { openCostChart } from "../commands";
+import { openCostChart, openPriceBreaks } from "../commands";
 import { WarningIcon } from "../icons";
 import type { TableContext } from "./PartNumberCell";
 
@@ -9,12 +9,14 @@ import type { TableContext } from "./PartNumberCell";
  *  most expensive parts (#28). The grid keeps its own expand arrow. In
  *  red with a warning sign when the best price leaves out rows that no
  *  supplier can deliver (#49), or covers only part of rows that no
- *  supplier has enough stock for (#74); BomTable redraws it when their
- *  numbers change. */
+ *  supplier has enough stock for (#74). A second button tells how many
+ *  rows cost less when more is ordered, up to a price break (#86).
+ *  BomTable redraws the header when these numbers change. */
 export function BestGroupHeader(
     props: CustomHeaderGroupProps<BomRow, TableContext>
 ) {
-    const warnings = stockWarnings(props.context.getTotals().best);
+    const totals = props.context.getTotals().best;
+    const warnings = stockWarnings(totals);
     const warning = warnings.length > 0 ? warnings.join("\n") : undefined;
     return (
         <span
@@ -41,6 +43,20 @@ export function BestGroupHeader(
             >
                 Top 10
             </button>
+            {totals.cheaper > 0 && (
+                <button
+                    type="button"
+                    className="group-header-button"
+                    title={priceBreaksText(totals, props.context.getNumbers())}
+                    onMouseDown={event => event.stopPropagation()}
+                    onClick={event => {
+                        event.stopPropagation();
+                        openPriceBreaks();
+                    }}
+                >
+                    {totals.cheaper} cheaper
+                </button>
+            )}
         </span>
     );
 }

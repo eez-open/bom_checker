@@ -10,6 +10,7 @@ import {
     availabilityText,
     bestSupplierText,
     OTHER_PACKAGING,
+    priceBreakTooltip,
     statusText
 } from "../../shared/line-text";
 import {
@@ -225,6 +226,22 @@ function availabilityClass(line: SupplierLine | null): string | undefined {
     }
 }
 
+/**
+ * Order Qty cells and price breaks (#86): marked when more would cost less
+ * in total, and when the quantity was raised to a price break.
+ */
+const BREAK_CLASSES = (
+    lineOf: (params: CellClassParams<BomRow>) => {
+        cheaper: unknown;
+        raisedFrom: number | null;
+    } | null
+): ColDef<BomRow>["cellClassRules"] => ({
+    "cell-cheaper": params =>
+        !params.node.rowPinned && Boolean(lineOf(params)?.cheaper),
+    "cell-raised": params =>
+        !params.node.rowPinned && lineOf(params)?.raisedFrom != null
+});
+
 function partNumberColumn(supplier: SupplierId): ColDef<BomRow, string> {
     return {
         colId: `pn:${supplier}`,
@@ -311,7 +328,20 @@ function dataColumns(
         column("orderQty", "Order Qty", line => line?.orderQty, {
             ...numeric,
             columnGroupShow: "open",
+            cellClassRules: BREAK_CLASSES(params => lineOf(params, supplier)),
             tooltipValueGetter: params => {
+                const line = lineOf(params, supplier);
+                const priceBreak =
+                    line?.offer &&
+                    priceBreakTooltip(
+                        line,
+                        line.cheaper,
+                        line.offer.currency,
+                        numbers(params)
+                    );
+                if (priceBreak) {
+                    return priceBreak;
+                }
                 const build = context(params).getBuildQuantity();
                 return build > 1
                     ? `Qty × ${build} (build quantity), raised to the MOQ and rounded up to the order multiple.`
@@ -505,7 +535,34 @@ function bestColumns(project: Project): ColGroupDef<BomRow> {
                 type: "rightAligned",
                 initialWidth: 110,
                 valueGetter: params => best(params)?.line.orderQty ?? null,
-                valueFormatter: formatQuantity
+                valueFormatter: formatQuantity,
+                cellClassRules: BREAK_CLASSES(params => {
+                    const choice = best(params);
+                    return (
+                        choice && {
+                            cheaper: choice.cheaper,
+                            raisedFrom: choice.line.raisedFrom
+                        }
+                    );
+                }),
+                tooltipValueGetter: params => {
+                    const choice = best(params);
+                    return choice
+                        ? priceBreakTooltip(
+                              choice.line,
+                              choice.cheaper,
+                              BASE_CURRENCY,
+                              numbers(params),
+                              choice.cheaper &&
+                                  choice.cheaper.supplier !== choice.supplier
+                                  ? supplierName(
+                                        project,
+                                        choice.cheaper.supplier
+                                    )
+                                  : undefined
+                          )
+                        : undefined;
+                }
             }),
             column("unitPrice", "Unit price", {
                 type: "rightAligned",
@@ -676,11 +733,23 @@ function manualColumns(
                 columnGroupShow: "open",
                 valueGetter: params => lineOfRow(params)?.orderQty ?? null,
                 valueFormatter: formatQuantity,
-                tooltipValueGetter: params =>
-                    params.data?.manual?.[id]?.oneTime &&
-                    context(params).getBuildQuantity() > 1
-                        ? "One-time: Qty isn't multiplied by the build quantity."
-                        : undefined
+                cellClassRules: BREAK_CLASSES(lineOfRow),
+                tooltipValueGetter: params => {
+                    const line = lineOfRow(params);
+                    return (
+                        (line &&
+                            priceBreakTooltip(
+                                line,
+                                line.cheaper,
+                                BASE_CURRENCY,
+                                numbers(params)
+                            )) ??
+                        (params.data?.manual?.[id]?.oneTime &&
+                        context(params).getBuildQuantity() > 1
+                            ? "One-time: Qty isn't multiplied by the build quantity."
+                            : undefined)
+                    );
+                }
             }),
             calculated("totalPrice", "Total price", {
                 type: "rightAligned",

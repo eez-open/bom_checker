@@ -54,7 +54,8 @@ const rowSchema = z.object({
     footprint: z.string(),
     partNumbers: z.partialRecord(supplierId, z.string()),
     custom: z.record(z.string(), z.union([z.string(), z.number()])),
-    manual: z.record(z.string(), manualOfferSchema).optional()
+    manual: z.record(z.string(), manualOfferSchema).optional(),
+    buyToBreak: z.literal(true).optional()
 });
 
 /**
@@ -312,7 +313,9 @@ const MIGRATIONS: Partial<Record<number, Migration>> = {
     // Version 8 leaves out the prices, stock and MOQ typed for suppliers
     // without an API (#68), and adds the BOM's id. An older file's prices
     // are still read, for main to move them out.
-    7: data => data
+    7: data => data,
+    // Version 9 adds rows that are ordered up to a price break (#86).
+    8: data => data
 };
 
 const NO_COLLECTED_DATA = { results: {}, runs: {} };

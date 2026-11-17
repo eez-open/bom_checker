@@ -4,7 +4,13 @@
 import { LIFECYCLE_LABELS } from "./lifecycle";
 import type { SupplierOffer } from "./model";
 import type { Numbers } from "./numbers";
-import type { BestChoice, SupplierLine } from "./pricing";
+import {
+    BASE_CURRENCY,
+    type BestChoice,
+    type BomTotals,
+    type CheaperBreak,
+    type SupplierLine
+} from "./pricing";
 
 /** Notes that start with this tell of other packagings of the same product
  *  with stock, e.g. a box when cut tape is out of stock. */
@@ -37,6 +43,45 @@ export function stockWarnings({
         );
     }
     return warnings;
+}
+
+/** Where rows that cost less at a price break are confirmed (#86). */
+export const PRICE_BREAKS_COMMAND = "Tools → Cheaper Price Breaks…";
+
+/** How many rows cost less when more is ordered (#86), and what that
+ *  saves; for the Best price header and the status bar. */
+export function priceBreaksText(
+    { cheaper, saving }: Pick<BomTotals, "cheaper" | "saving">,
+    numbers: Numbers
+): string {
+    return `${cheaper === 1 ? "1 row costs" : `${cheaper} rows cost`} less when more is ordered, up to a price break: ${numbers.money(saving)} ${BASE_CURRENCY} less in all. Click to choose which to order so.`;
+}
+
+/**
+ * An Order Qty cell's tooltip about price breaks (#86): that more would
+ * cost less, or that the quantity was raised to a price break. Undefined
+ * for neither.
+ *
+ * @param currency of the line's prices; totals are shown in it.
+ * @param supplier the supplier with the cheaper price break, when it isn't
+ *   the line's (Best price).
+ */
+export function priceBreakTooltip(
+    line: Pick<SupplierLine, "orderQty" | "unitPrice" | "raisedFrom">,
+    cheaper: CheaperBreak | null,
+    currency: string,
+    numbers: Numbers,
+    supplier?: string
+): string | undefined {
+    const { quantity, money } = numbers;
+    if (line.raisedFrom !== null && line.orderQty !== null) {
+        return `Raised from ${quantity(line.raisedFrom)} to the price break at ${quantity(line.orderQty)}, which costs less in total. ${PRICE_BREAKS_COMMAND} changes that.`;
+    }
+    if (!cheaper || line.orderQty === null || line.unitPrice === null) {
+        return undefined;
+    }
+    const at = supplier ? ` at ${supplier}` : "";
+    return `${quantity(cheaper.orderQty)} pcs${at} cost less than ${quantity(line.orderQty)}: ${money(cheaper.total)} instead of ${money(line.unitPrice * line.orderQty)} ${currency}, at the price break. ${PRICE_BREAKS_COMMAND} orders that many.`;
 }
 
 /** The Best price supplier: its name, and when it has only part of the

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import type { AppInfo, ColumnGroup } from "../shared/ipc";
 import type { SupplierId } from "../shared/model";
+import { priceBreaksText } from "../shared/line-text";
 import { BASE_CURRENCY, bomTotals, foreignCurrencies } from "../shared/pricing";
 import {
     manualSuppliersWithPrices,
@@ -14,6 +15,7 @@ import {
     closeDialog,
     isTextEditing,
     openCostChart,
+    openPriceBreaks,
     openPath,
     openSettings,
     redo,
@@ -26,6 +28,7 @@ import { ColumnsDialog } from "./dialogs/ColumnsDialog";
 import { CollectDialog } from "./dialogs/CollectDialog";
 import { CsvImportDialog } from "./dialogs/CsvImportDialog";
 import { BomCostChartDialog, CostChartDialog } from "./dialogs/CostChartDialog";
+import { PriceBreaksDialog } from "./dialogs/PriceBreaksDialog";
 import { ExportDialog } from "./dialogs/ExportDialog";
 import { KicadImportDialog } from "./dialogs/KicadImportDialog";
 import { KicadSyncDialog } from "./dialogs/KicadSyncDialog";
@@ -444,6 +447,23 @@ export function App() {
                         >
                             Most expensive parts
                         </button>
+                        {totals.cheaper > 0 && (
+                            <>
+                                {" "}
+                                ·{" "}
+                                <button
+                                    type="button"
+                                    className="link"
+                                    title={priceBreaksText(totals, numbers)}
+                                    onClick={openPriceBreaks}
+                                >
+                                    {count(
+                                        totals.cheaper,
+                                        "cheaper price break"
+                                    )}
+                                </button>
+                            </>
+                        )}
                     </span>
                 )}
                 <span data-testid="app-version">
@@ -470,6 +490,9 @@ export function App() {
             )}
             {dialog?.kind === "bom-costs" && (
                 <BomCostChartDialog onClose={closeDialog} />
+            )}
+            {dialog?.kind === "price-breaks" && (
+                <PriceBreaksDialog onClose={closeDialog} />
             )}
             {dialog?.kind === "unify" && <UnifyDialog onClose={closeDialog} />}
             {dialog?.kind === "check-history" && (

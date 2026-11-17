@@ -5,6 +5,7 @@
 // (#53). Its build quantity is the number of devices (#39); the BOMs' own
 // build quantities don't count.
 // Suppliers without an API come along with what was typed for them (#48).
+// A row is ordered up to price breaks (#86) when one of its rows is.
 
 import {
     componentKey,
@@ -24,8 +25,8 @@ import {
 export const SOURCE_BOM_COLUMN = "Source BOM";
 
 /** Rows with the same part numbers merge; rows without any, by Value and
- *  Footprint. */
-function mergeKey(row: BomRow): string {
+ *  Footprint. A Combined BOM's row has the key of the rows it's made of. */
+export function mergeKey(row: BomRow): string {
     const partNumbers = Object.entries(definedPartNumbers(row));
     return partNumbers.length > 0
         ? partNumbers
@@ -146,6 +147,9 @@ export function combineBomsWithSources(
                 merged.set(key, entry);
             }
             entry.row.qty += qty;
+            if (row.buyToBreak) {
+                entry.row.buyToBreak = true;
+            }
             entry.sources.set(index, (entry.sources.get(index) ?? 0) + qty);
             mergeManual(entry.row, row, combinedIds);
             const references = entry.references.get(name) ?? [];

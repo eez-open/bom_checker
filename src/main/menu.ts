@@ -339,6 +339,9 @@ export function createMenu(): Menu {
                     id: "check-history",
                     enabled: state.listOpen && state.editable && state.hasRows
                 }),
+                rowsCommand("Cheaper Price &Breaks…", "price-breaks", {
+                    id: "price-breaks"
+                }),
                 { type: "separator" },
                 command("&Settings…", "settings", {
                     accelerator: "CmdOrCtrl+,"

@@ -1364,6 +1364,40 @@ path.cost-slice {
     font-size: 11px;
 }
 
+/* Order Qty: more would cost less in total, up to a price break (#86),
+   or was raised to one. */
+.cell-cheaper {
+    background: #ddf4ff;
+}
+
+.cell-raised {
+    background: #dafbe1;
+}
+
+.price-breaks-table {
+    font-variant-numeric: tabular-nums;
+}
+
+.price-breaks-table .number {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.price-breaks-table .group-start {
+    border-left: 1px solid var(--app-border);
+}
+
+.price-breaks-table tr.chosen td {
+    background: #eef4fc;
+}
+
+.price-breaks-table .cost-text {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* A part number another component has too (#90). */
 .unify-shared {
     margin-left: 8px;

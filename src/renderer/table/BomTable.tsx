@@ -219,9 +219,9 @@ export function BomTable({
     }, []);
 
     // The Best price header warns of rows without enough stock (#49,
-    // #74).
+    // #74), and tells of rows that cost less at a price break (#86).
     const stockWarning = useRef(
-        `${totals.best.partial}/${totals.best.uncovered}`
+        `${totals.best.partial}/${totals.best.uncovered}/${totals.best.cheaper}/${totals.best.saving}`
     );
     useEffect(() => {
         totalsRef.current = totals;
@@ -230,7 +230,7 @@ export function BomTable({
         if (api && totalsRow) {
             api.refreshCells({ rowNodes: [totalsRow], force: true });
         }
-        const warning = `${totals.best.partial}/${totals.best.uncovered}`;
+        const warning = `${totals.best.partial}/${totals.best.uncovered}/${totals.best.cheaper}/${totals.best.saving}`;
         if (api && stockWarning.current !== warning) {
             stockWarning.current = warning;
             api.refreshHeader();

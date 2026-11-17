@@ -68,6 +68,7 @@ export type MenuCommand =
     | "add-boms"
     | "unify"
     | "check-history"
+    | "price-breaks"
     | "import-csv"
     | "import-kicad"
     | "export"

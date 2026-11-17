@@ -436,6 +436,14 @@ export function openCostChart(): void {
     useUi.setState({ dialog: { kind: "cost-chart" } });
 }
 
+/** The rows that cost less when more is ordered, up to a price break
+ *  (#86). */
+export function openPriceBreaks(): void {
+    if (hasRows()) {
+        useUi.setState({ dialog: { kind: "price-breaks" } });
+    }
+}
+
 /** The selected rows of the BOM shown, or all, against the list's history
  *  (#52). */
 export function checkHistory(): void {
@@ -552,6 +560,7 @@ const MENU_COMMANDS: Record<MenuCommand, () => unknown> = {
     "add-boms": addBomsToList,
     unify: openUnify,
     "check-history": checkHistory,
+    "price-breaks": openPriceBreaks,
     "import-csv": importCsv,
     "import-kicad": importKicad,
     export: openExport,

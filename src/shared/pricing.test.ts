@@ -10,6 +10,7 @@ import {
     anyInStock,
     bestSupplier,
     bomTotals,
+    cheaperBreak,
     foreignCurrencies,
     matchesRowView,
     orderQuantity,
@@ -320,7 +321,9 @@ describe("best supplier", () => {
             total: 0,
             covered: 0,
             partial: 0,
-            uncovered: 1
+            uncovered: 1,
+            cheaper: 0,
+            saving: 0
         });
         // TME has it in stock, but can't sell it.
         expect(anyInStock(project.rows[0]!, project)).toBe(true);
@@ -334,7 +337,9 @@ describe("best supplier", () => {
             total: 1,
             covered: 1,
             partial: 0,
-            uncovered: 0
+            uncovered: 0,
+            cheaper: 0,
+            saving: 0
         });
     });
 });
@@ -469,6 +474,180 @@ describe("best supplier without enough stock (#74)", () => {
         });
         expect(best(choose)).toBeNull();
         expect(anyInStock(choose.rows[0]!, choose)).toBe(true);
+    });
+});
+
+describe("ordering up to a price break (#86)", () => {
+    // 5 at 0.10 cost 0.50; 10 at 0.02 cost 0.20.
+    const resistor = {
+        priceBreaks: [
+            { qty: 1, unitPrice: 0.1 },
+            { qty: 10, unitPrice: 0.02 },
+            { qty: 1000, unitPrice: 0.01 }
+        ]
+    };
+
+    it("finds the quantity that costs the least in total", () => {
+        expect(cheaperBreak(offer(resistor), 5)).toEqual({
+            orderQty: 10,
+            unitPrice: 0.02,
+            total: 0.2
+        });
+        // 10 cost 0.20 already; 1000 would cost 10.
+        expect(cheaperBreak(offer(resistor), 10)).toBeNull();
+        // Not the next break, but the one after it.
+        expect(
+            cheaperBreak(
+                offer({
+                    priceBreaks: [
+                        { qty: 1, unitPrice: 1 },
+                        { qty: 10, unitPrice: 0.45 },
+                        { qty: 20, unitPrice: 0.2 }
+                    ]
+                }),
+                5
+            )
+        ).toEqual({ orderQty: 20, unitPrice: 0.2, total: 4 });
+        // Savings below a cent aren't worth it.
+        expect(
+            cheaperBreak(
+                offer({
+                    priceBreaks: [
+                        { qty: 1, unitPrice: 0.01 },
+                        { qty: 10, unitPrice: 0.0049 }
+                    ]
+                }),
+                5
+            )
+        ).toBeNull();
+    });
+
+    it("needs the larger quantity in stock, in whole packages", () => {
+        expect(cheaperBreak(offer({ ...resistor, stockQty: 9 }), 5)).toBeNull();
+        // Sold by 5, at least 5: the break at 10 is two packages.
+        expect(
+            cheaperBreak(
+                offer({
+                    ...resistor,
+                    priceBreaks: [
+                        { qty: 5, unitPrice: 0.5 },
+                        { qty: 10, unitPrice: 0.02 }
+                    ],
+                    moq: 5,
+                    orderMultiple: 5
+                }),
+                5
+            )
+        ).toEqual({ orderQty: 10, unitPrice: 0.02, total: 0.2 });
+        expect(
+            cheaperBreak(
+                offer({
+                    priceBreaks: [
+                        { qty: 3, unitPrice: 1 },
+                        { qty: 4, unitPrice: 0.5 }
+                    ],
+                    orderMultiple: 3
+                }),
+                3
+            )
+        ).toBeNull(); // 6 at 0.50 cost as much as 3 at 1.00
+    });
+
+    it("tells of it, and raises the quantity of a confirmed row", () => {
+        const project = setup(5, { mouser: found(resistor) });
+        const row = project.rows[0]!;
+        expect(supplierLine(row, "mouser", project.collected, 1)).toMatchObject(
+            {
+                orderQty: 5,
+                total: 0.5,
+                cheaper: { orderQty: 10, unitPrice: 0.02, total: 0.2 },
+                raisedFrom: null
+            }
+        );
+        expect(bomTotals(project, [])).toEqual({
+            total: 0.5,
+            covered: 1,
+            partial: 0,
+            uncovered: 0,
+            cheaper: 1,
+            saving: 0.3
+        });
+
+        const confirmed = { ...row, buyToBreak: true as const };
+        expect(
+            supplierLine(confirmed, "mouser", project.collected, 1)
+        ).toMatchObject({
+            orderQty: 10,
+            unitPrice: 0.02,
+            total: 0.2,
+            availability: { kind: "in-stock" },
+            cheaper: null,
+            raisedFrom: 5
+        });
+        // Nothing to gain for 4 boards: 20 are at 0.02 already.
+        expect(
+            supplierLine(confirmed, "mouser", project.collected, 4)
+        ).toMatchObject({ orderQty: 20, raisedFrom: null });
+        expect(bomTotals({ ...project, rows: [confirmed] }, [])).toMatchObject({
+            total: 0.2,
+            cheaper: 0,
+            saving: 0
+        });
+    });
+
+    it("leaves rows alone that aren't in stock as needed", () => {
+        const project = setup(5, {
+            mouser: found({ ...resistor, stockQty: 3 })
+        });
+        const row = { ...project.rows[0]!, buyToBreak: true as const };
+        expect(supplierLine(row, "mouser", project.collected, 1)).toMatchObject(
+            {
+                orderQty: 5,
+                availability: { kind: "partial", stock: 3 },
+                cheaper: null,
+                raisedFrom: null
+            }
+        );
+    });
+
+    it("compares the suppliers' price breaks for the best price", () => {
+        // DigiKey is the best for 5 (0.40), Mouser at its break (0.20).
+        const project = setup(5, {
+            digikey: found({ priceBreaks: [{ qty: 1, unitPrice: 0.08 }] }),
+            mouser: found(resistor)
+        });
+        const best = (row = project.rows[0]!) =>
+            bestSupplier(
+                row,
+                project.collected,
+                project.suppliers,
+                ["digikey", "mouser"],
+                1
+            );
+        expect(best()).toMatchObject({
+            supplier: "digikey",
+            line: { orderQty: 5, total: 0.4 },
+            cheaper: {
+                supplier: "mouser",
+                orderQty: 10,
+                unitPrice: 0.02,
+                total: 0.2
+            }
+        });
+        expect(best({ ...project.rows[0]!, buyToBreak: true })).toMatchObject({
+            supplier: "mouser",
+            line: { orderQty: 10, total: 0.2, raisedFrom: 5 },
+            cheaper: null
+        });
+
+        // A break that costs more than the best isn't offered.
+        const dear = setup(5, {
+            digikey: found({ priceBreaks: [{ qty: 1, unitPrice: 0.03 }] }),
+            mouser: found(resistor)
+        });
+        expect(
+            bestSupplier(dear.rows[0]!, dear.collected, dear.suppliers, [], 1)
+        ).toMatchObject({ supplier: "digikey", cheaper: null });
     });
 });
 

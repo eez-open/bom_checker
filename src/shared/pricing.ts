@@ -64,6 +64,55 @@ export function priceAt(
     };
 }
 
+/** More than needed, up to a price break, that costs less in total (#86):
+ *  10 at 0.02 instead of 5 at 0.10. */
+export interface CheaperBreak {
+    orderQty: number;
+    /** In the offer's currency, as `total`. */
+    unitPrice: number;
+    total: number;
+}
+
+/** A saving smaller than this, in the offer's currency, isn't worth
+ *  ordering more for. */
+const MIN_SAVING = 0.01;
+
+/**
+ * The quantity above `orderQty` that costs the least in total, if that's
+ * less than `orderQty` costs (#86): a price break's quantity, rounded up to
+ * the order multiple, that the supplier has in stock. Null when there's
+ * none.
+ */
+export function cheaperBreak(
+    offer: SupplierOffer,
+    orderQty: number
+): CheaperBreak | null {
+    const price = priceAt(offer.priceBreaks, orderQty);
+    if (!price || orderQty <= 0) {
+        return null;
+    }
+    let limit = price.unitPrice * orderQty - MIN_SAVING;
+    let cheaper: CheaperBreak | null = null;
+    for (const priceBreak of offer.priceBreaks) {
+        if (priceBreak.qty <= orderQty) {
+            continue;
+        }
+        const quantity = orderQuantity(
+            priceBreak.qty,
+            offer.moq,
+            offer.orderMultiple
+        );
+        const unitPrice = priceAt(offer.priceBreaks, quantity)!.unitPrice;
+        const total = unitPrice * quantity;
+        if (quantity <= offer.stockQty && total < limit) {
+            cheaper = { orderQty: quantity, unitPrice, total };
+            // A later break must cost less still.
+            limit = total;
+        }
+    }
+    return cheaper;
+}
+
 /** Calculated values for one row and supplier. */
 export interface SupplierLine {
     result: LookupResult;
@@ -78,6 +127,12 @@ export interface SupplierLine {
      *  currency. */
     total: number | null;
     availability: Availability | null;
+    /** A price break above the order quantity that costs less in total
+     *  (#86), in stock; the row isn't ordered up to it. */
+    cheaper: CheaperBreak | null;
+    /** The order quantity before it was raised to a price break that costs
+     *  less, for a row that is ordered up to it (`buyToBreak`, #86). */
+    raisedFrom: number | null;
 }
 
 /** Null when the row has no usable part number or nothing was collected.
@@ -105,16 +160,24 @@ export function supplierLine(
             belowFirstBreak: false,
             inBaseCurrency: true,
             total: null,
-            availability: null
+            availability: null,
+            cheaper: null,
+            raisedFrom: null
         };
     }
-    return lineFor(result, row.qty * buildQuantity);
+    return lineFor(result, row.qty * buildQuantity, row.buyToBreak === true);
 }
 
-/** Order quantity, price, total and availability of a found offer. */
+/**
+ * Order quantity, price, total and availability of a found offer.
+ *
+ * @param buyToBreak order up to a price break that costs less in total
+ *   (#86), where the supplier has one in stock.
+ */
 function lineFor(
     result: Extract<LookupResult, { status: "found" }>,
-    quantity: number
+    quantity: number,
+    buyToBreak: boolean
 ): SupplierLine {
     const { offer } = result;
     const orderQty = orderQuantity(quantity, offer.moq, offer.orderMultiple);
@@ -124,7 +187,8 @@ function lineFor(
     // prices).
     const inBaseCurrency =
         offer.currency === BASE_CURRENCY || offer.priceBreaks.length === 0;
-    return {
+    const availability = availabilityOf(offer, orderQty);
+    const line: SupplierLine = {
         result,
         offer,
         orderQty,
@@ -132,7 +196,25 @@ function lineFor(
         belowFirstBreak: price?.belowFirstBreak ?? false,
         inBaseCurrency,
         total: inBaseCurrency && price ? price.unitPrice * orderQty : null,
-        availability: availabilityOf(offer, orderQty)
+        availability,
+        // Only of what can be ordered as it is.
+        cheaper:
+            availability.kind === "in-stock"
+                ? cheaperBreak(offer, orderQty)
+                : null,
+        raisedFrom: null
+    };
+    if (!buyToBreak || !line.cheaper) {
+        return line;
+    }
+    return {
+        ...line,
+        orderQty: line.cheaper.orderQty,
+        unitPrice: line.cheaper.unitPrice,
+        belowFirstBreak: false,
+        total: inBaseCurrency ? line.cheaper.total : null,
+        cheaper: null,
+        raisedFrom: orderQty
     };
 }
 
@@ -188,7 +270,8 @@ export function manualLine(
             runId: "",
             fetchedAt: ""
         },
-        entry.oneTime ? row.qty : row.qty * buildQuantity
+        entry.oneTime ? row.qty : row.qty * buildQuantity,
+        row.buyToBreak === true
     );
 }
 
@@ -241,6 +324,10 @@ export interface BestChoice {
     /** No supplier has the whole order quantity in stock (#74): this one
      *  has the most, and `line` is for only what it has. */
     partial: boolean;
+    /** Ordering more, up to a price break of this supplier (maybe another
+     *  one), costs less than `line` (#86); the row isn't ordered up to
+     *  price breaks. Totals are in the base currency. */
+    cheaper: (CheaperBreak & { supplier: string }) | null;
 }
 
 /**
@@ -253,6 +340,11 @@ export interface BestChoice {
  * what it has (`partial`, #74); equal quantities go to the lower unit
  * price, then as above. Null when no supplier can sell any of it at a
  * price in the base currency.
+ *
+ * A row that is ordered up to price breaks (`buyToBreak`, #86) has each
+ * supplier's line at the quantity that costs the least there, so the same
+ * comparison finds the cheapest. For other rows, `cheaper` is the least
+ * that any supplier's price break costs, if that's less than the best.
  */
 export function bestSupplier(
     row: BomRow,
@@ -272,13 +364,23 @@ export function bestSupplier(
         }
         if (line.availability?.kind === "in-stock") {
             if (usable(line)) {
-                candidates.push({ supplier, line, partial: false });
+                candidates.push({
+                    supplier,
+                    line,
+                    partial: false,
+                    cheaper: null
+                });
             }
             return;
         }
         const inStock = inStockLine(line);
         if (usable(inStock)) {
-            partial.push({ supplier, line: inStock, partial: true });
+            partial.push({
+                supplier,
+                line: inStock,
+                partial: true,
+                cheaper: null
+            });
         }
     };
     for (const supplier of suppliers) {
@@ -300,8 +402,20 @@ export function bestSupplier(
         (a, b) =>
             a.line.total - b.line.total || rank(a.supplier) - rank(b.supplier)
     );
-    if (candidates.length > 0) {
-        return candidates[0]!;
+    const best = candidates[0];
+    if (best) {
+        // In the order above, so equal totals go to the same supplier.
+        let cheaper: BestChoice["cheaper"] = null;
+        for (const { supplier, line } of candidates) {
+            if (
+                line.cheaper &&
+                line.cheaper.total <
+                    (cheaper?.total ?? best.line.total - MIN_SAVING)
+            ) {
+                cheaper = { ...line.cheaper, supplier };
+            }
+        }
+        return { ...best, cheaper };
     }
     partial.sort(
         (a, b) =>
@@ -347,6 +461,11 @@ export interface BomTotals {
     partial: number;
     /** Rows with supplier data but no supplier that can deliver any. */
     uncovered: number;
+    /** Rows that cost less when more is ordered, up to a price break, and
+     *  aren't ordered so (#86). */
+    cheaper: number;
+    /** What ordering them so would save. */
+    saving: number;
 }
 
 export function bomTotals(
@@ -357,7 +476,9 @@ export function bomTotals(
         total: 0,
         covered: 0,
         partial: 0,
-        uncovered: 0
+        uncovered: 0,
+        cheaper: 0,
+        saving: 0
     };
     for (const row of project.rows) {
         const best = bestSupplier(
@@ -372,6 +493,10 @@ export function bomTotals(
             totals.total += best.line.total;
             totals.covered++;
             totals.partial += best.partial ? 1 : 0;
+            if (best.cheaper) {
+                totals.cheaper++;
+                totals.saving += best.line.total - best.cheaper.total;
+            }
         } else if (hasSupplierData(row, project)) {
             totals.uncovered++;
         }

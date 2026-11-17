@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { combineBoms, SOURCE_BOM_COLUMN } from "./combined-bom";
+import { combineBoms, mergeKey, SOURCE_BOM_COLUMN } from "./combined-bom";
 import type { LookupResult, Project } from "./model";
 import { bestSupplier } from "./pricing";
 import {
@@ -62,6 +62,36 @@ describe("combined BOM", () => {
         ]);
         expect(combined.buildQuantity).toBe(25);
         expect(combined.suppliers).toEqual(["digikey"]);
+    });
+
+    it("orders a row up to price breaks when one of its rows is (#86)", () => {
+        const psu = bom([
+            ["R1", "10k", 1, { digikey: "D-1" }],
+            ["R2", "1k", 1, { digikey: "D-2" }]
+        ]);
+        const mcu = bom([["R7", "10k", 1, { digikey: "D-1" }]]);
+        const confirmed: Project = {
+            ...mcu,
+            rows: mcu.rows.map(row => ({ ...row, buyToBreak: true }))
+        };
+        const combined = combineBoms([
+            { path: "psu.eezbom", name: "psu", project: psu, perDevice: 1 },
+            {
+                path: "mcu.eezbom",
+                name: "mcu",
+                project: confirmed,
+                perDevice: 1
+            }
+        ]);
+        expect(
+            combined.rows.map(row => [row.value, row.buyToBreak ?? false])
+        ).toEqual([
+            ["10k", true],
+            ["1k", false]
+        ]);
+        // The Combined row has the key of the rows it's made of.
+        expect(mergeKey(combined.rows[0]!)).toBe(mergeKey(psu.rows[0]!));
+        expect(mergeKey(combined.rows[0]!)).not.toBe(mergeKey(psu.rows[1]!));
     });
 
     it("has the newest collected data of every BOM", () => {

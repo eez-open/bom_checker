@@ -11,7 +11,7 @@ import {
     type ListMember
 } from "../shared/bom-list";
 import { withoutResults, type ResultKeys } from "../shared/collection";
-import { combineBoms } from "../shared/combined-bom";
+import { combineBoms, mergeKey } from "../shared/combined-bom";
 import type { ListState, OpenedList } from "../shared/ipc";
 import type {
     CollectedData,
@@ -20,6 +20,7 @@ import type {
     SupplierId
 } from "../shared/model";
 import { addToHistory } from "../shared/parts-history";
+import { setBuyToBreak } from "../shared/price-breaks";
 import type { UnifyChanges } from "../shared/unify";
 import { errorMessage } from "./errors";
 import {
@@ -784,6 +785,53 @@ export async function chooseHistory(): Promise<void> {
     editingDescription = false;
     changeList(current => ({ ...current, history: opened.filePath }));
     await updateHistory(useWorkspace.getState().list?.boms ?? []);
+}
+
+/**
+ * Sets which rows of the Combined BOM are ordered up to price breaks
+ * (#86), by row id. Combined can't be edited, so the BOMs' rows that the
+ * rows are made of get it: an undo step of each BOM changed, which then
+ * has unsaved changes.
+ */
+export function setBuyToBreakInList(
+    changes: ReadonlyMap<string, boolean>
+): void {
+    const { list, selected } = useWorkspace.getState();
+    if (!list || selected !== COMBINED) {
+        return;
+    }
+    const byKey = new Map<string, boolean>();
+    for (const row of useDocument.getState().project.rows) {
+        const on = changes.get(row.id);
+        if (on !== undefined) {
+            byKey.set(mergeKey(row), on);
+        }
+    }
+    let changed = false;
+    for (const { path, project } of listMembers()) {
+        const next = setBuyToBreak(
+            project,
+            new Map(
+                project.rows.flatMap(row => {
+                    const on = byKey.get(mergeKey(row));
+                    return on === undefined ? [] : [[row.id, on] as const];
+                })
+            )
+        );
+        const document = documentOf(path);
+        if (next !== project && document) {
+            setDocument(path, {
+                ...document,
+                project: next,
+                past: [...document.past, project],
+                future: []
+            });
+            changed = true;
+        }
+    }
+    if (changed) {
+        showCombined();
+    }
 }
 
 export interface UnifyResult {

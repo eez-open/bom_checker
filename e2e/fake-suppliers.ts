@@ -175,6 +175,26 @@ const RESISTOR = {
 const DIGIKEY_PRODUCTS: Record<string, unknown> = {
     "RMCF0805FT100KCT-ND": RESISTOR,
     RMCF0805FT100K: RESISTOR,
+    // Ordering 10 costs less than 5 (#86).
+    "FAKE-BREAKS-ND": {
+        Manufacturer: { Name: "Yageo" },
+        ManufacturerProductNumber: "RC0603FR-0710KL",
+        Description: { ProductDescription: "RES 10K OHM 1% 1/10W 0603" },
+        ProductStatus: { Status: "Active" },
+        Classifications: { RohsStatus: "ROHS3 Compliant" },
+        ProductVariations: [
+            {
+                DigiKeyProductNumber: "FAKE-BREAKS-ND",
+                PackageType: { Name: "Cut Tape (CT)" },
+                StandardPricing: [
+                    { BreakQuantity: 1, UnitPrice: 0.1 },
+                    { BreakQuantity: 10, UnitPrice: 0.02 }
+                ],
+                MinimumOrderQuantity: 1,
+                QuantityAvailableforPackageType: 1000
+            }
+        ]
+    },
     "FAKE-PLENTY-ND": {
         Manufacturer: { Name: "Yageo" },
         ManufacturerProductNumber: "CC0603KRX7R9BB104",

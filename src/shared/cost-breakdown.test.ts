@@ -96,7 +96,9 @@ describe("cost breakdown", () => {
             total: 10,
             covered: 2,
             partial: 1,
-            uncovered: 1
+            uncovered: 1,
+            cheaper: 0,
+            saving: 0
         });
     });
 });

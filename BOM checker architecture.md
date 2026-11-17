@@ -145,7 +145,7 @@ No file the app writes holds absolute paths (#34). `source.path` is stored relat
 
 ```ts
 interface Project {
-  schemaVersion: 8;                     // 2 added `collected`, 3 `buildQuantity`, 4 `source.kicadValues`, 5 decimal `qty` and `manualSuppliers`, 6 left `collected` out, 7 price breaks and one-time items of suppliers without an API, 8 left their prices out and added `id`
+  schemaVersion: 9;                     // 2 added `collected`, 3 `buildQuantity`, 4 `source.kicadValues`, 5 decimal `qty` and `manualSuppliers`, 6 left `collected` out, 7 price breaks and one-time items of suppliers without an API, 8 left their prices out and added `id`, 9 added `rows[].buyToBreak`
   id?: string;                          // random; finds the data kept on the computer for a moved BOM (#68)
   source: { kind: 'manual' | 'csv' | 'kicad'; path?: string; variant?: string; importedAt?: string };  // path: relative to the file (#34)
   suppliers: SupplierId[];              // suppliers that have a part-number column in this BOM
@@ -241,7 +241,11 @@ The scope's example works out as follows. Mouser is €1 × 20 but has only 10 i
 
 **Suppliers without an API (#20).** A row's `manual[supplierId]` holds a typed part number, unit price (EUR), stock and MOQ. `manualLine` turns it into an offer with order multiple 1 and, without a stock, unlimited stock; the rules above then apply unchanged. Its price breaks are the unit price from 1 and up to three lower ones from larger quantities, `priceBreaks` (#51, `shared/manual-prices.ts`; file format 7), so the price of the largest break the order quantity reaches applies, as for the others. A `oneTime` item (#53), such as a stencil, takes the row's Qty without the build quantity, and in a list's Combined BOM without how many of the BOM a device has. These suppliers are candidates for the best price like the others and rank after those with an API on equal totals. Their names follow the custom-column rules, since they head columns and export headers (`Shop_Unit price`).
 
-**Out of scope for v1:** buying *more* than needed to reach a cheaper price break. DigiKey offers a "better value" quantity endpoint that could support this later.
+**Buying more to reach a cheaper price break (#86, file format 9).** `cheaperBreak(offer, orderQty)` looks at every price break above the order quantity: its quantity raised to the MOQ and rounded up to the order multiple, at the price that quantity gets, if the supplier has it in stock. The one with the lowest total wins if it saves at least 0.01 (`MIN_SAVING`). It's calculated only for lines that are in stock as needed, from the collected price breaks, so no supplier is asked again.
+- **Shown, not applied:** `SupplierLine.cheaper` holds it; the Order Qty cell is blue (`cell-cheaper`) with a tooltip (`priceBreakTooltip`). `BestChoice.cheaper` is the lowest such total of any candidate supplier when that's below the best total, with its supplier; `BomTotals.cheaper` and `saving` count those rows for the Best price header's button and the status bar.
+- **Confirmed per row:** `BomRow.buyToBreak`. `lineFor` then returns the line at the cheaper quantity, with `raisedFrom` the quantity needed (green, `cell-raised`), for every supplier with and without an API, so the best-price comparison, totals, charts and exports need no changes. The flag is a standing choice, not a quantity: it applies again when prices, Qty or the build quantity change, and does nothing while no break costs less.
+- **Dialog** (`dialogs/PriceBreaksDialog.tsx`, `shared/price-breaks.ts`): `breakOffers` lists the rows whose best price without the flag has a `cheaper`, also those already confirmed, so they can be unticked; `setBuyToBreak` is one undo step.
+- **Combined BOM:** a merged row has the flag when one of its rows has it. Combined is read-only, so the dialog there sets the flag on the BOMs' rows with the same merge key (`mergeKey`, `setBuyToBreakInList`), an undo step of each BOM, and shows Combined again.
 
 ### 5.4 Lifecycle status
 
@@ -632,6 +636,10 @@ These points couldn't be settled from documentation and should be the first thin
 ---
 
 ## 15. Status
+
+### Unreleased
+
+Unify reports part numbers that different components share instead of joining them (#90, section 9.5). Rows can be ordered up to a price break that costs less, when confirmed (#86, section 5.3; file format 9).
 
 ### Version 0.14.0
 

@@ -39,6 +39,9 @@ export interface BomRow {
     /** What was typed for suppliers without an API, keyed by
      *  `ManualSupplier.id`. */
     manual?: Record<string, ManualOffer>;
+    /** Confirmed by the user (#86): order more than needed, up to a price
+     *  break, where that costs less in total. */
+    buyToBreak?: true;
 }
 
 /** A supplier without an API (#20), e.g. a local shop or an enclosure
@@ -89,7 +92,7 @@ export interface ProjectSource {
     kicadValues?: Record<string, Record<string, string>>;
 }
 
-export const PROJECT_SCHEMA_VERSION = 8;
+export const PROJECT_SCHEMA_VERSION = 9;
 
 export const MAX_BUILD_QUANTITY = 1_000_000;
 
