@@ -1,8 +1,10 @@
 # EEZ BOM checker
 
- ![example](images/bom_list_example.png)
+ ![list_example](images/bom_list_example.png)
 
- ![example](images/bom_optimization_example.png)
+ ![optimization_example](images/bom_optimization_example.png)
+ 
+ ![price_breaks](images/cheaper_price_breaks.png)
 
 A desktop app for Linux and Windows that checks a Bill of Materials (BOM) against [Arrow](https://arrow.com/), [DigiKey](https://www.digikey.com/), [LCSC](https://www.lcsc.com/), [Mouser](http://mouser.com/), and [TME](https://www.tme.com/), while ensuring that the handling of the collected data complies with the suppliers' Terms of Service (TOS). It reports stock, prices, minimum order quantities (MOQ), lifecycle status and RoHS status, and picks the best-priced supplier for each part. The app was created to help maintain BOMs of multiple modules of a [BB3+](https://github.com/eez-open/eez-bb3plus) project.
 
@@ -11,7 +13,7 @@ A desktop app for Linux and Windows that checks a Bill of Materials (BOM) agains
 * Updating the KiCad, if imported BOM has been modified in the meantime
 * Synchronizing an imported BOM if the KiCad project has been modified in meantime
 * 1-click information collection for all selected suppliers for whom API access has been configured
-* Best price calculation
+* Best price calculation, cheaper price breaks
 * Graphic representation of the 10 most expensive items
 * Adding custom suppliers and custom columns
 * BOM lists for complex projects that have multiple BOMs with optimization by unifying part numbers
@@ -96,3 +98,7 @@ Upgrading Electron and other major dependencies: [docs/upgrade-checklist.md](doc
 ## License
 
 [MIT](LICENSE)
+
+## Disclosure
+
+Parts of this project were written with the assistance of AI tools. All AI-generated code was reviewed, tested, and edited by the maintainers, who are responsible for its behavior and licensing. Warranty and liability terms are defined in the LICENSE file.
